@@ -1,0 +1,23 @@
+{
+  "telegram_channels": [
+    "unusual_whales",
+    "whale_alert",
+    "TheBlock__",
+    "lookonchain",
+    "WuBlockchain"
+  ],
+  "rss_feeds": [
+    "https://feeds.reuters.com/reuters/topNews",
+    "https://feeds.bloomberg.com/markets/news.rss",
+    "https://www.federalreserve.gov/feeds/press_all.xml",
+    "https://www.sec.gov/news/pressreleases.rss",
+    "https://home.treasury.gov/news/press-releases/rss",
+    "https://www.coindesk.com/arc/outboundfeeds/rss/",
+    "https://cryptoslate.com/feed/"
+  ],
+  "twitter_usernames": ["reutersagency", "unusual_whales", "business"],
+  "twitter_list_ids": [],
+  "target_channel": "@my_digest_channel",
+  "hours_back": 6,
+  "max_items_per_run": 60
+}
