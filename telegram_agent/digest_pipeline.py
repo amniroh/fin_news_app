@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from typing import List, Literal, Optional
 
-from telegram_agent.config import SESSION_DIR
+from telegram_agent.config import DEFAULT_LLM_MODEL, SESSION_DIR
 from telegram_agent.store import SeenStore
 from telegram_agent.models import NewsItem
 from telegram_agent.collectors.telegram_collector import collect_telegram
@@ -45,7 +45,7 @@ def _log_costs(
     micro_estimated_only: bool,
 ) -> None:
     out_tokens = int(config.get("digest_assumed_output_tokens", 1800))
-    model = config.get("llm_model", "anthropic/claude-3.5-sonnet")
+    model = config.get("llm_model", DEFAULT_LLM_MODEL)
     sys_p, usr_p = build_digest_prompts(all_items, config)
     digest_estimates = [
         (

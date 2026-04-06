@@ -1,0 +1,4992 @@
+[
+  {
+    "ticker": "AAPL",
+    "type": "stock",
+    "name": "Apple Inc."
+  },
+  {
+    "ticker": "MSFT",
+    "type": "stock",
+    "name": "Microsoft Corp."
+  },
+  {
+    "ticker": "NVDA",
+    "type": "stock",
+    "name": "NVIDIA Corp."
+  },
+  {
+    "ticker": "AMZN",
+    "type": "stock",
+    "name": "Amazon.com Inc."
+  },
+  {
+    "ticker": "GOOGL",
+    "type": "stock",
+    "name": "Alphabet Inc. Class A"
+  },
+  {
+    "ticker": "GOOG",
+    "type": "stock",
+    "name": "Alphabet Inc. Class C"
+  },
+  {
+    "ticker": "META",
+    "type": "stock",
+    "name": "Meta Platforms Inc."
+  },
+  {
+    "ticker": "TSLA",
+    "type": "stock",
+    "name": "Tesla Inc."
+  },
+  {
+    "ticker": "AVGO",
+    "type": "stock",
+    "name": "Broadcom Inc."
+  },
+  {
+    "ticker": "BRK.B",
+    "type": "stock",
+    "name": "Berkshire Hathaway Class B"
+  },
+  {
+    "ticker": "BRK.A",
+    "type": "stock",
+    "name": "Berkshire Hathaway Class A"
+  },
+  {
+    "ticker": "JPM",
+    "type": "stock",
+    "name": "JPMorgan Chase & Co."
+  },
+  {
+    "ticker": "LLY",
+    "type": "stock",
+    "name": "Eli Lilly and Co."
+  },
+  {
+    "ticker": "V",
+    "type": "stock",
+    "name": "Visa Inc."
+  },
+  {
+    "ticker": "UNH",
+    "type": "stock",
+    "name": "UnitedHealth Group Inc."
+  },
+  {
+    "ticker": "XOM",
+    "type": "stock",
+    "name": "Exxon Mobil Corp."
+  },
+  {
+    "ticker": "MA",
+    "type": "stock",
+    "name": "Mastercard Inc."
+  },
+  {
+    "ticker": "JNJ",
+    "type": "stock",
+    "name": "Johnson & Johnson"
+  },
+  {
+    "ticker": "PG",
+    "type": "stock",
+    "name": "Procter & Gamble Co."
+  },
+  {
+    "ticker": "HD",
+    "type": "stock",
+    "name": "Home Depot Inc."
+  },
+  {
+    "ticker": "COST",
+    "type": "stock",
+    "name": "Costco Wholesale Corp."
+  },
+  {
+    "ticker": "ABBV",
+    "type": "stock",
+    "name": "AbbVie Inc."
+  },
+  {
+    "ticker": "MRK",
+    "type": "stock",
+    "name": "Merck & Co."
+  },
+  {
+    "ticker": "BAC",
+    "type": "stock",
+    "name": "Bank of America Corp."
+  },
+  {
+    "ticker": "CVX",
+    "type": "stock",
+    "name": "Chevron Corp."
+  },
+  {
+    "ticker": "KO",
+    "type": "stock",
+    "name": "Coca-Cola Co."
+  },
+  {
+    "ticker": "PEP",
+    "type": "stock",
+    "name": "PepsiCo Inc."
+  },
+  {
+    "ticker": "ORCL",
+    "type": "stock",
+    "name": "Oracle Corp."
+  },
+  {
+    "ticker": "AMD",
+    "type": "stock",
+    "name": "Advanced Micro Devices Inc."
+  },
+  {
+    "ticker": "WMT",
+    "type": "stock",
+    "name": "Walmart Inc."
+  },
+  {
+    "ticker": "ADBE",
+    "type": "stock",
+    "name": "Adobe Inc."
+  },
+  {
+    "ticker": "MCD",
+    "type": "stock",
+    "name": "McDonald's Corp."
+  },
+  {
+    "ticker": "CRM",
+    "type": "stock",
+    "name": "Salesforce Inc."
+  },
+  {
+    "ticker": "ACN",
+    "type": "stock",
+    "name": "Accenture PLC"
+  },
+  {
+    "ticker": "TMO",
+    "type": "stock",
+    "name": "Thermo Fisher Scientific Inc."
+  },
+  {
+    "ticker": "ABT",
+    "type": "stock",
+    "name": "Abbott Laboratories"
+  },
+  {
+    "ticker": "CSCO",
+    "type": "stock",
+    "name": "Cisco Systems Inc."
+  },
+  {
+    "ticker": "LIN",
+    "type": "stock",
+    "name": "Linde PLC"
+  },
+  {
+    "ticker": "IBM",
+    "type": "stock",
+    "name": "International Business Machines"
+  },
+  {
+    "ticker": "QCOM",
+    "type": "stock",
+    "name": "Qualcomm Inc."
+  },
+  {
+    "ticker": "TXN",
+    "type": "stock",
+    "name": "Texas Instruments Inc."
+  },
+  {
+    "ticker": "AMGN",
+    "type": "stock",
+    "name": "Amgen Inc."
+  },
+  {
+    "ticker": "PM",
+    "type": "stock",
+    "name": "Philip Morris International"
+  },
+  {
+    "ticker": "GE",
+    "type": "stock",
+    "name": "GE Aerospace"
+  },
+  {
+    "ticker": "CAT",
+    "type": "stock",
+    "name": "Caterpillar Inc."
+  },
+  {
+    "ticker": "NEE",
+    "type": "stock",
+    "name": "NextEra Energy Inc."
+  },
+  {
+    "ticker": "INTU",
+    "type": "stock",
+    "name": "Intuit Inc."
+  },
+  {
+    "ticker": "RTX",
+    "type": "stock",
+    "name": "RTX Corp."
+  },
+  {
+    "ticker": "SPGI",
+    "type": "stock",
+    "name": "S&P Global Inc."
+  },
+  {
+    "ticker": "ISRG",
+    "type": "stock",
+    "name": "Intuitive Surgical Inc."
+  },
+  {
+    "ticker": "HON",
+    "type": "stock",
+    "name": "Honeywell International Inc."
+  },
+  {
+    "ticker": "VZ",
+    "type": "stock",
+    "name": "Verizon Communications Inc."
+  },
+  {
+    "ticker": "T",
+    "type": "stock",
+    "name": "AT&T Inc."
+  },
+  {
+    "ticker": "NOW",
+    "type": "stock",
+    "name": "ServiceNow Inc."
+  },
+  {
+    "ticker": "BKNG",
+    "type": "stock",
+    "name": "Booking Holdings Inc."
+  },
+  {
+    "ticker": "GS",
+    "type": "stock",
+    "name": "Goldman Sachs Group Inc."
+  },
+  {
+    "ticker": "AXP",
+    "type": "stock",
+    "name": "American Express Co."
+  },
+  {
+    "ticker": "LRCX",
+    "type": "stock",
+    "name": "Lam Research Corp."
+  },
+  {
+    "ticker": "SYK",
+    "type": "stock",
+    "name": "Stryker Corp."
+  },
+  {
+    "ticker": "UNP",
+    "type": "stock",
+    "name": "Union Pacific Corp."
+  },
+  {
+    "ticker": "C",
+    "type": "stock",
+    "name": "Citigroup Inc."
+  },
+  {
+    "ticker": "PLD",
+    "type": "stock",
+    "name": "Prologis Inc."
+  },
+  {
+    "ticker": "MS",
+    "type": "stock",
+    "name": "Morgan Stanley"
+  },
+  {
+    "ticker": "BLK",
+    "type": "stock",
+    "name": "BlackRock Inc."
+  },
+  {
+    "ticker": "DE",
+    "type": "stock",
+    "name": "Deere & Co."
+  },
+  {
+    "ticker": "AMAT",
+    "type": "stock",
+    "name": "Applied Materials Inc."
+  },
+  {
+    "ticker": "ADI",
+    "type": "stock",
+    "name": "Analog Devices Inc."
+  },
+  {
+    "ticker": "PANW",
+    "type": "stock",
+    "name": "Palo Alto Networks Inc."
+  },
+  {
+    "ticker": "MU",
+    "type": "stock",
+    "name": "Micron Technology Inc."
+  },
+  {
+    "ticker": "REGN",
+    "type": "stock",
+    "name": "Regeneron Pharmaceuticals Inc."
+  },
+  {
+    "ticker": "GILD",
+    "type": "stock",
+    "name": "Gilead Sciences Inc."
+  },
+  {
+    "ticker": "MMC",
+    "type": "stock",
+    "name": "Marsh & McLennan Co."
+  },
+  {
+    "ticker": "VRTX",
+    "type": "stock",
+    "name": "Vertex Pharmaceuticals Inc."
+  },
+  {
+    "ticker": "TJX",
+    "type": "stock",
+    "name": "TJX Companies Inc."
+  },
+  {
+    "ticker": "BSX",
+    "type": "stock",
+    "name": "Boston Scientific Corp."
+  },
+  {
+    "ticker": "KLAC",
+    "type": "stock",
+    "name": "KLA Corp."
+  },
+  {
+    "ticker": "CB",
+    "type": "stock",
+    "name": "Chubb Ltd."
+  },
+  {
+    "ticker": "SO",
+    "type": "stock",
+    "name": "Southern Co."
+  },
+  {
+    "ticker": "CI",
+    "type": "stock",
+    "name": "Cigna Group"
+  },
+  {
+    "ticker": "ETN",
+    "type": "stock",
+    "name": "Eaton Corp."
+  },
+  {
+    "ticker": "SCHW",
+    "type": "stock",
+    "name": "Charles Schwab Corp."
+  },
+  {
+    "ticker": "ZTS",
+    "type": "stock",
+    "name": "Zoetis Inc."
+  },
+  {
+    "ticker": "WFC",
+    "type": "stock",
+    "name": "Wells Fargo & Co."
+  },
+  {
+    "ticker": "DUK",
+    "type": "stock",
+    "name": "Duke Energy Corp."
+  },
+  {
+    "ticker": "PH",
+    "type": "stock",
+    "name": "Parker-Hannifin Corp."
+  },
+  {
+    "ticker": "MDLZ",
+    "type": "stock",
+    "name": "Mondelez International Inc."
+  },
+  {
+    "ticker": "AON",
+    "type": "stock",
+    "name": "Aon PLC"
+  },
+  {
+    "ticker": "CME",
+    "type": "stock",
+    "name": "CME Group Inc."
+  },
+  {
+    "ticker": "ICE",
+    "type": "stock",
+    "name": "Intercontinental Exchange Inc."
+  },
+  {
+    "ticker": "MCO",
+    "type": "stock",
+    "name": "Moody's Corp."
+  },
+  {
+    "ticker": "INTC",
+    "type": "stock",
+    "name": "Intel Corp."
+  },
+  {
+    "ticker": "SNPS",
+    "type": "stock",
+    "name": "Synopsys Inc."
+  },
+  {
+    "ticker": "CDNS",
+    "type": "stock",
+    "name": "Cadence Design Systems Inc."
+  },
+  {
+    "ticker": "UBER",
+    "type": "stock",
+    "name": "Uber Technologies Inc."
+  },
+  {
+    "ticker": "ABNB",
+    "type": "stock",
+    "name": "Airbnb Inc."
+  },
+  {
+    "ticker": "PLTR",
+    "type": "stock",
+    "name": "Palantir Technologies Inc."
+  },
+  {
+    "ticker": "CRWD",
+    "type": "stock",
+    "name": "CrowdStrike Holdings Inc."
+  },
+  {
+    "ticker": "FTNT",
+    "type": "stock",
+    "name": "Fortinet Inc."
+  },
+  {
+    "ticker": "SNOW",
+    "type": "stock",
+    "name": "Snowflake Inc."
+  },
+  {
+    "ticker": "NET",
+    "type": "stock",
+    "name": "Cloudflare Inc."
+  },
+  {
+    "ticker": "DDOG",
+    "type": "stock",
+    "name": "Datadog Inc."
+  },
+  {
+    "ticker": "SHOP",
+    "type": "stock",
+    "name": "Shopify Inc."
+  },
+  {
+    "ticker": "SQ",
+    "type": "stock",
+    "name": "Block Inc."
+  },
+  {
+    "ticker": "PYPL",
+    "type": "stock",
+    "name": "PayPal Holdings Inc."
+  },
+  {
+    "ticker": "COIN",
+    "type": "stock",
+    "name": "Coinbase Global Inc."
+  },
+  {
+    "ticker": "RBLX",
+    "type": "stock",
+    "name": "Roblox Corp."
+  },
+  {
+    "ticker": "HOOD",
+    "type": "stock",
+    "name": "Robinhood Markets Inc."
+  },
+  {
+    "ticker": "RIVN",
+    "type": "stock",
+    "name": "Rivian Automotive Inc."
+  },
+  {
+    "ticker": "LCID",
+    "type": "stock",
+    "name": "Lucid Group Inc."
+  },
+  {
+    "ticker": "NIO",
+    "type": "stock",
+    "name": "NIO Inc."
+  },
+  {
+    "ticker": "BIDU",
+    "type": "stock",
+    "name": "Baidu Inc."
+  },
+  {
+    "ticker": "BABA",
+    "type": "stock",
+    "name": "Alibaba Group Holding Ltd."
+  },
+  {
+    "ticker": "JD",
+    "type": "stock",
+    "name": "JD.com Inc."
+  },
+  {
+    "ticker": "PDD",
+    "type": "stock",
+    "name": "PDD Holdings Inc."
+  },
+  {
+    "ticker": "TCEHY",
+    "type": "stock",
+    "name": "Tencent Holdings Ltd."
+  },
+  {
+    "ticker": "TSM",
+    "type": "stock",
+    "name": "Taiwan Semiconductor Mfg. Co."
+  },
+  {
+    "ticker": "ASML",
+    "type": "stock",
+    "name": "ASML Holding NV"
+  },
+  {
+    "ticker": "SAP",
+    "type": "stock",
+    "name": "SAP SE"
+  },
+  {
+    "ticker": "TM",
+    "type": "stock",
+    "name": "Toyota Motor Corp."
+  },
+  {
+    "ticker": "SONY",
+    "type": "stock",
+    "name": "Sony Group Corp."
+  },
+  {
+    "ticker": "NVO",
+    "type": "stock",
+    "name": "Novo Nordisk A/S"
+  },
+  {
+    "ticker": "LVMUY",
+    "type": "stock",
+    "name": "LVMH Moet Hennessy Louis Vuitton"
+  },
+  {
+    "ticker": "NSRGY",
+    "type": "stock",
+    "name": "Nestl\u00e9 SA"
+  },
+  {
+    "ticker": "RHHBY",
+    "type": "stock",
+    "name": "Roche Holding AG"
+  },
+  {
+    "ticker": "AZN",
+    "type": "stock",
+    "name": "AstraZeneca PLC"
+  },
+  {
+    "ticker": "SHEL",
+    "type": "stock",
+    "name": "Shell PLC"
+  },
+  {
+    "ticker": "BP",
+    "type": "stock",
+    "name": "BP PLC"
+  },
+  {
+    "ticker": "RIO",
+    "type": "stock",
+    "name": "Rio Tinto PLC"
+  },
+  {
+    "ticker": "BHP",
+    "type": "stock",
+    "name": "BHP Group Ltd."
+  },
+  {
+    "ticker": "ARM",
+    "type": "stock",
+    "name": "Arm Holdings PLC"
+  },
+  {
+    "ticker": "MSTR",
+    "type": "stock",
+    "name": "MicroStrategy Inc."
+  },
+  {
+    "ticker": "SMCI",
+    "type": "stock",
+    "name": "Super Micro Computer Inc."
+  },
+  {
+    "ticker": "MRVL",
+    "type": "stock",
+    "name": "Marvell Technology Inc."
+  },
+  {
+    "ticker": "FICO",
+    "type": "stock",
+    "name": "Fair Isaac Corp."
+  },
+  {
+    "ticker": "APH",
+    "type": "stock",
+    "name": "Amphenol Corp."
+  },
+  {
+    "ticker": "PWR",
+    "type": "stock",
+    "name": "Quanta Services Inc."
+  },
+  {
+    "ticker": "CEG",
+    "type": "stock",
+    "name": "Constellation Energy Corp."
+  },
+  {
+    "ticker": "VST",
+    "type": "stock",
+    "name": "Vistra Corp."
+  },
+  {
+    "ticker": "NRG",
+    "type": "stock",
+    "name": "NRG Energy Inc."
+  },
+  {
+    "ticker": "ANET",
+    "type": "stock",
+    "name": "Arista Networks Inc."
+  },
+  {
+    "ticker": "F",
+    "type": "stock",
+    "name": "Ford Motor Co."
+  },
+  {
+    "ticker": "GM",
+    "type": "stock",
+    "name": "General Motors Co."
+  },
+  {
+    "ticker": "BA",
+    "type": "stock",
+    "name": "Boeing Co."
+  },
+  {
+    "ticker": "LMT",
+    "type": "stock",
+    "name": "Lockheed Martin Corp."
+  },
+  {
+    "ticker": "NOC",
+    "type": "stock",
+    "name": "Northrop Grumman Corp."
+  },
+  {
+    "ticker": "GD",
+    "type": "stock",
+    "name": "General Dynamics Corp."
+  },
+  {
+    "ticker": "HII",
+    "type": "stock",
+    "name": "Huntington Ingalls Industries"
+  },
+  {
+    "ticker": "LDOS",
+    "type": "stock",
+    "name": "Leidos Holdings Inc."
+  },
+  {
+    "ticker": "DIS",
+    "type": "stock",
+    "name": "Walt Disney Co."
+  },
+  {
+    "ticker": "NFLX",
+    "type": "stock",
+    "name": "Netflix Inc."
+  },
+  {
+    "ticker": "CMCSA",
+    "type": "stock",
+    "name": "Comcast Corp."
+  },
+  {
+    "ticker": "WBD",
+    "type": "stock",
+    "name": "Warner Bros. Discovery Inc."
+  },
+  {
+    "ticker": "PARA",
+    "type": "stock",
+    "name": "Paramount Global"
+  },
+  {
+    "ticker": "SPOT",
+    "type": "stock",
+    "name": "Spotify Technology SA"
+  },
+  {
+    "ticker": "LYFT",
+    "type": "stock",
+    "name": "Lyft Inc."
+  },
+  {
+    "ticker": "DASH",
+    "type": "stock",
+    "name": "DoorDash Inc."
+  },
+  {
+    "ticker": "PINS",
+    "type": "stock",
+    "name": "Pinterest Inc."
+  },
+  {
+    "ticker": "SNAP",
+    "type": "stock",
+    "name": "Snap Inc."
+  },
+  {
+    "ticker": "TWTR",
+    "type": "stock",
+    "name": "X Corp. (formerly Twitter)"
+  },
+  {
+    "ticker": "RDDT",
+    "type": "stock",
+    "name": "Reddit Inc."
+  },
+  {
+    "ticker": "DUOL",
+    "type": "stock",
+    "name": "Duolingo Inc."
+  },
+  {
+    "ticker": "U",
+    "type": "stock",
+    "name": "Unity Software Inc."
+  },
+  {
+    "ticker": "RDFN",
+    "type": "stock",
+    "name": "Redfin Corp."
+  },
+  {
+    "ticker": "Z",
+    "type": "stock",
+    "name": "Zillow Group Inc."
+  },
+  {
+    "ticker": "OPEN",
+    "type": "stock",
+    "name": "Opendoor Technologies Inc."
+  },
+  {
+    "ticker": "UPST",
+    "type": "stock",
+    "name": "Upstart Holdings Inc."
+  },
+  {
+    "ticker": "SOFI",
+    "type": "stock",
+    "name": "SoFi Technologies Inc."
+  },
+  {
+    "ticker": "AFRM",
+    "type": "stock",
+    "name": "Affirm Holdings Inc."
+  },
+  {
+    "ticker": "DKNG",
+    "type": "stock",
+    "name": "DraftKings Inc."
+  },
+  {
+    "ticker": "PENN",
+    "type": "stock",
+    "name": "PENN Entertainment Inc."
+  },
+  {
+    "ticker": "MGM",
+    "type": "stock",
+    "name": "MGM Resorts International"
+  },
+  {
+    "ticker": "LVS",
+    "type": "stock",
+    "name": "Las Vegas Sands Corp."
+  },
+  {
+    "ticker": "WYNN",
+    "type": "stock",
+    "name": "Wynn Resorts Ltd."
+  },
+  {
+    "ticker": "MAR",
+    "type": "stock",
+    "name": "Marriott International Inc."
+  },
+  {
+    "ticker": "HLT",
+    "type": "stock",
+    "name": "Hilton Worldwide Holdings Inc."
+  },
+  {
+    "ticker": "H",
+    "type": "stock",
+    "name": "Hyatt Hotels Corp."
+  },
+  {
+    "ticker": "CCL",
+    "type": "stock",
+    "name": "Carnival Corp."
+  },
+  {
+    "ticker": "RCL",
+    "type": "stock",
+    "name": "Royal Caribbean Cruises Ltd."
+  },
+  {
+    "ticker": "UAL",
+    "type": "stock",
+    "name": "United Airlines Holdings Inc."
+  },
+  {
+    "ticker": "DAL",
+    "type": "stock",
+    "name": "Delta Air Lines Inc."
+  },
+  {
+    "ticker": "AAL",
+    "type": "stock",
+    "name": "American Airlines Group Inc."
+  },
+  {
+    "ticker": "LUV",
+    "type": "stock",
+    "name": "Southwest Airlines Co."
+  },
+  {
+    "ticker": "FDX",
+    "type": "stock",
+    "name": "FedEx Corp."
+  },
+  {
+    "ticker": "UPS",
+    "type": "stock",
+    "name": "United Parcel Service Inc."
+  },
+  {
+    "ticker": "EBAY",
+    "type": "stock",
+    "name": "eBay Inc."
+  },
+  {
+    "ticker": "ETSY",
+    "type": "stock",
+    "name": "Etsy Inc."
+  },
+  {
+    "ticker": "W",
+    "type": "stock",
+    "name": "Wayfair Inc."
+  },
+  {
+    "ticker": "CHWY",
+    "type": "stock",
+    "name": "Chewy Inc."
+  },
+  {
+    "ticker": "CVNA",
+    "type": "stock",
+    "name": "Carvana Co."
+  },
+  {
+    "ticker": "CPNG",
+    "type": "stock",
+    "name": "Coupang Inc."
+  },
+  {
+    "ticker": "SE",
+    "type": "stock",
+    "name": "Sea Ltd."
+  },
+  {
+    "ticker": "GRAB",
+    "type": "stock",
+    "name": "Grab Holdings Ltd."
+  },
+  {
+    "ticker": "GOTO",
+    "type": "stock",
+    "name": "GoTo Group"
+  },
+  {
+    "ticker": "MDB",
+    "type": "stock",
+    "name": "MongoDB Inc."
+  },
+  {
+    "ticker": "ZS",
+    "type": "stock",
+    "name": "Zscaler Inc."
+  },
+  {
+    "ticker": "OKTA",
+    "type": "stock",
+    "name": "Okta Inc."
+  },
+  {
+    "ticker": "HUBS",
+    "type": "stock",
+    "name": "HubSpot Inc."
+  },
+  {
+    "ticker": "VEEV",
+    "type": "stock",
+    "name": "Veeva Systems Inc."
+  },
+  {
+    "ticker": "WDAY",
+    "type": "stock",
+    "name": "Workday Inc."
+  },
+  {
+    "ticker": "TTD",
+    "type": "stock",
+    "name": "Trade Desk Inc."
+  },
+  {
+    "ticker": "ROKU",
+    "type": "stock",
+    "name": "Roku Inc."
+  },
+  {
+    "ticker": "ZM",
+    "type": "stock",
+    "name": "Zoom Video Communications Inc."
+  },
+  {
+    "ticker": "DOCU",
+    "type": "stock",
+    "name": "DocuSign Inc."
+  },
+  {
+    "ticker": "TWLO",
+    "type": "stock",
+    "name": "Twilio Inc."
+  },
+  {
+    "ticker": "CFLT",
+    "type": "stock",
+    "name": "Confluent Inc."
+  },
+  {
+    "ticker": "PATH",
+    "type": "stock",
+    "name": "UiPath Inc."
+  },
+  {
+    "ticker": "AI",
+    "type": "stock",
+    "name": "C3.ai Inc."
+  },
+  {
+    "ticker": "SOUN",
+    "type": "stock",
+    "name": "SoundHound AI Inc."
+  },
+  {
+    "ticker": "BBAI",
+    "type": "stock",
+    "name": "BigBear.ai Holdings Inc."
+  },
+  {
+    "ticker": "IONQ",
+    "type": "stock",
+    "name": "IonQ Inc."
+  },
+  {
+    "ticker": "RGTI",
+    "type": "stock",
+    "name": "Rigetti Computing Inc."
+  },
+  {
+    "ticker": "QBTS",
+    "type": "stock",
+    "name": "D-Wave Quantum Inc."
+  },
+  {
+    "ticker": "ACHR",
+    "type": "stock",
+    "name": "Archer Aviation Inc."
+  },
+  {
+    "ticker": "JOBY",
+    "type": "stock",
+    "name": "Joby Aviation Inc."
+  },
+  {
+    "ticker": "SPCE",
+    "type": "stock",
+    "name": "Virgin Galactic Holdings Inc."
+  },
+  {
+    "ticker": "RKLB",
+    "type": "stock",
+    "name": "Rocket Lab USA Inc."
+  },
+  {
+    "ticker": "ASTR",
+    "type": "stock",
+    "name": "Astra Space Inc."
+  },
+  {
+    "ticker": "PFE",
+    "type": "stock",
+    "name": "Pfizer Inc."
+  },
+  {
+    "ticker": "MRNA",
+    "type": "stock",
+    "name": "Moderna Inc."
+  },
+  {
+    "ticker": "BNTX",
+    "type": "stock",
+    "name": "BioNTech SE"
+  },
+  {
+    "ticker": "BMY",
+    "type": "stock",
+    "name": "Bristol-Myers Squibb Co."
+  },
+  {
+    "ticker": "NVS",
+    "type": "stock",
+    "name": "Novartis AG"
+  },
+  {
+    "ticker": "GSK",
+    "type": "stock",
+    "name": "GSK PLC"
+  },
+  {
+    "ticker": "SNY",
+    "type": "stock",
+    "name": "Sanofi SA"
+  },
+  {
+    "ticker": "CVS",
+    "type": "stock",
+    "name": "CVS Health Corp."
+  },
+  {
+    "ticker": "WBA",
+    "type": "stock",
+    "name": "Walgreens Boots Alliance Inc."
+  },
+  {
+    "ticker": "HUM",
+    "type": "stock",
+    "name": "Humana Inc."
+  },
+  {
+    "ticker": "ELV",
+    "type": "stock",
+    "name": "Elevance Health Inc."
+  },
+  {
+    "ticker": "CNC",
+    "type": "stock",
+    "name": "Centene Corp."
+  },
+  {
+    "ticker": "MCK",
+    "type": "stock",
+    "name": "McKesson Corp."
+  },
+  {
+    "ticker": "CAH",
+    "type": "stock",
+    "name": "Cardinal Health Inc."
+  },
+  {
+    "ticker": "ABC",
+    "type": "stock",
+    "name": "AmerisourceBergen Corp."
+  },
+  {
+    "ticker": "DHR",
+    "type": "stock",
+    "name": "Danaher Corp."
+  },
+  {
+    "ticker": "IQV",
+    "type": "stock",
+    "name": "IQVIA Holdings Inc."
+  },
+  {
+    "ticker": "BDX",
+    "type": "stock",
+    "name": "Becton Dickinson and Co."
+  },
+  {
+    "ticker": "EW",
+    "type": "stock",
+    "name": "Edwards Lifesciences Corp."
+  },
+  {
+    "ticker": "RMD",
+    "type": "stock",
+    "name": "ResMed Inc."
+  },
+  {
+    "ticker": "DXCM",
+    "type": "stock",
+    "name": "Dexcom Inc."
+  },
+  {
+    "ticker": "IDXX",
+    "type": "stock",
+    "name": "IDEXX Laboratories Inc."
+  },
+  {
+    "ticker": "GEHC",
+    "type": "stock",
+    "name": "GE HealthCare Technologies Inc."
+  },
+  {
+    "ticker": "BAX",
+    "type": "stock",
+    "name": "Baxter International Inc."
+  },
+  {
+    "ticker": "ZBH",
+    "type": "stock",
+    "name": "Zimmer Biomet Holdings Inc."
+  },
+  {
+    "ticker": "HOLX",
+    "type": "stock",
+    "name": "Hologic Inc."
+  },
+  {
+    "ticker": "PODD",
+    "type": "stock",
+    "name": "Insulet Corp."
+  },
+  {
+    "ticker": "TER",
+    "type": "stock",
+    "name": "Teradyne Inc."
+  },
+  {
+    "ticker": "ENPH",
+    "type": "stock",
+    "name": "Enphase Energy Inc."
+  },
+  {
+    "ticker": "FSLR",
+    "type": "stock",
+    "name": "First Solar Inc."
+  },
+  {
+    "ticker": "SEDG",
+    "type": "stock",
+    "name": "SolarEdge Technologies Inc."
+  },
+  {
+    "ticker": "RUN",
+    "type": "stock",
+    "name": "Sunrun Inc."
+  },
+  {
+    "ticker": "BE",
+    "type": "stock",
+    "name": "Bloom Energy Corp."
+  },
+  {
+    "ticker": "PLUG",
+    "type": "stock",
+    "name": "Plug Power Inc."
+  },
+  {
+    "ticker": "CHPT",
+    "type": "stock",
+    "name": "ChargePoint Holdings Inc."
+  },
+  {
+    "ticker": "BLNK",
+    "type": "stock",
+    "name": "Blink Charging Co."
+  },
+  {
+    "ticker": "ALB",
+    "type": "stock",
+    "name": "Albemarle Corp."
+  },
+  {
+    "ticker": "MP",
+    "type": "stock",
+    "name": "MP Materials Corp."
+  },
+  {
+    "ticker": "LAC",
+    "type": "stock",
+    "name": "Lithium Americas Corp."
+  },
+  {
+    "ticker": "FCX",
+    "type": "stock",
+    "name": "Freeport-McMoRan Inc."
+  },
+  {
+    "ticker": "NEM",
+    "type": "stock",
+    "name": "Newmont Corp."
+  },
+  {
+    "ticker": "GOLD",
+    "type": "stock",
+    "name": "Barrick Gold Corp."
+  },
+  {
+    "ticker": "KGC",
+    "type": "stock",
+    "name": "Kinross Gold Corp."
+  },
+  {
+    "ticker": "AEM",
+    "type": "stock",
+    "name": "Agnico Eagle Mines Ltd."
+  },
+  {
+    "ticker": "WPM",
+    "type": "stock",
+    "name": "Wheaton Precious Metals Corp."
+  },
+  {
+    "ticker": "COP",
+    "type": "stock",
+    "name": "ConocoPhillips"
+  },
+  {
+    "ticker": "OXY",
+    "type": "stock",
+    "name": "Occidental Petroleum Corp."
+  },
+  {
+    "ticker": "DVN",
+    "type": "stock",
+    "name": "Devon Energy Corp."
+  },
+  {
+    "ticker": "HAL",
+    "type": "stock",
+    "name": "Halliburton Co."
+  },
+  {
+    "ticker": "SLB",
+    "type": "stock",
+    "name": "SLB (Schlumberger)"
+  },
+  {
+    "ticker": "BKR",
+    "type": "stock",
+    "name": "Baker Hughes Co."
+  },
+  {
+    "ticker": "MPC",
+    "type": "stock",
+    "name": "Marathon Petroleum Corp."
+  },
+  {
+    "ticker": "VLO",
+    "type": "stock",
+    "name": "Valero Energy Corp."
+  },
+  {
+    "ticker": "PSX",
+    "type": "stock",
+    "name": "Phillips 66"
+  },
+  {
+    "ticker": "EOG",
+    "type": "stock",
+    "name": "EOG Resources Inc."
+  },
+  {
+    "ticker": "PXD",
+    "type": "stock",
+    "name": "Pioneer Natural Resources Co."
+  },
+  {
+    "ticker": "USB",
+    "type": "stock",
+    "name": "U.S. Bancorp"
+  },
+  {
+    "ticker": "TFC",
+    "type": "stock",
+    "name": "Truist Financial Corp."
+  },
+  {
+    "ticker": "PNC",
+    "type": "stock",
+    "name": "PNC Financial Services Group"
+  },
+  {
+    "ticker": "COF",
+    "type": "stock",
+    "name": "Capital One Financial Corp."
+  },
+  {
+    "ticker": "DFS",
+    "type": "stock",
+    "name": "Discover Financial Services"
+  },
+  {
+    "ticker": "AIG",
+    "type": "stock",
+    "name": "American International Group"
+  },
+  {
+    "ticker": "MET",
+    "type": "stock",
+    "name": "MetLife Inc."
+  },
+  {
+    "ticker": "PRU",
+    "type": "stock",
+    "name": "Prudential Financial Inc."
+  },
+  {
+    "ticker": "AFL",
+    "type": "stock",
+    "name": "Aflac Inc."
+  },
+  {
+    "ticker": "ALL",
+    "type": "stock",
+    "name": "Allstate Corp."
+  },
+  {
+    "ticker": "PGR",
+    "type": "stock",
+    "name": "Progressive Corp."
+  },
+  {
+    "ticker": "TRV",
+    "type": "stock",
+    "name": "Travelers Companies Inc."
+  },
+  {
+    "ticker": "HIG",
+    "type": "stock",
+    "name": "Hartford Financial Services Group"
+  },
+  {
+    "ticker": "WELL",
+    "type": "stock",
+    "name": "Welltower Inc."
+  },
+  {
+    "ticker": "AMT",
+    "type": "stock",
+    "name": "American Tower Corp."
+  },
+  {
+    "ticker": "CCI",
+    "type": "stock",
+    "name": "Crown Castle Inc."
+  },
+  {
+    "ticker": "EQIX",
+    "type": "stock",
+    "name": "Equinix Inc."
+  },
+  {
+    "ticker": "DLR",
+    "type": "stock",
+    "name": "Digital Realty Trust Inc."
+  },
+  {
+    "ticker": "SBAC",
+    "type": "stock",
+    "name": "SBA Communications Corp."
+  },
+  {
+    "ticker": "O",
+    "type": "stock",
+    "name": "Realty Income Corp."
+  },
+  {
+    "ticker": "SPG",
+    "type": "stock",
+    "name": "Simon Property Group Inc."
+  },
+  {
+    "ticker": "AVB",
+    "type": "stock",
+    "name": "AvalonBay Communities Inc."
+  },
+  {
+    "ticker": "EQR",
+    "type": "stock",
+    "name": "Equity Residential"
+  },
+  {
+    "ticker": "PSA",
+    "type": "stock",
+    "name": "Public Storage"
+  },
+  {
+    "ticker": "IRM",
+    "type": "stock",
+    "name": "Iron Mountain Inc."
+  },
+  {
+    "ticker": "WY",
+    "type": "stock",
+    "name": "Weyerhaeuser Co."
+  },
+  {
+    "ticker": "NKE",
+    "type": "stock",
+    "name": "Nike Inc."
+  },
+  {
+    "ticker": "LULU",
+    "type": "stock",
+    "name": "Lululemon Athletica Inc."
+  },
+  {
+    "ticker": "UAA",
+    "type": "stock",
+    "name": "Under Armour Inc."
+  },
+  {
+    "ticker": "RL",
+    "type": "stock",
+    "name": "Ralph Lauren Corp."
+  },
+  {
+    "ticker": "TPR",
+    "type": "stock",
+    "name": "Tapestry Inc."
+  },
+  {
+    "ticker": "CPRI",
+    "type": "stock",
+    "name": "Capri Holdings Ltd."
+  },
+  {
+    "ticker": "VFC",
+    "type": "stock",
+    "name": "VF Corp."
+  },
+  {
+    "ticker": "HAS",
+    "type": "stock",
+    "name": "Hasbro Inc."
+  },
+  {
+    "ticker": "MAT",
+    "type": "stock",
+    "name": "Mattel Inc."
+  },
+  {
+    "ticker": "CLX",
+    "type": "stock",
+    "name": "Clorox Co."
+  },
+  {
+    "ticker": "CL",
+    "type": "stock",
+    "name": "Colgate-Palmolive Co."
+  },
+  {
+    "ticker": "KMB",
+    "type": "stock",
+    "name": "Kimberly-Clark Corp."
+  },
+  {
+    "ticker": "CHD",
+    "type": "stock",
+    "name": "Church & Dwight Co."
+  },
+  {
+    "ticker": "EL",
+    "type": "stock",
+    "name": "Estee Lauder Companies Inc."
+  },
+  {
+    "ticker": "ULTA",
+    "type": "stock",
+    "name": "Ulta Beauty Inc."
+  },
+  {
+    "ticker": "COTY",
+    "type": "stock",
+    "name": "Coty Inc."
+  },
+  {
+    "ticker": "SYY",
+    "type": "stock",
+    "name": "Sysco Corp."
+  },
+  {
+    "ticker": "GIS",
+    "type": "stock",
+    "name": "General Mills Inc."
+  },
+  {
+    "ticker": "K",
+    "type": "stock",
+    "name": "Kellanova"
+  },
+  {
+    "ticker": "HSY",
+    "type": "stock",
+    "name": "Hershey Co."
+  },
+  {
+    "ticker": "MKC",
+    "type": "stock",
+    "name": "McCormick & Co."
+  },
+  {
+    "ticker": "CAG",
+    "type": "stock",
+    "name": "Conagra Brands Inc."
+  },
+  {
+    "ticker": "CPB",
+    "type": "stock",
+    "name": "Campbell Soup Co."
+  },
+  {
+    "ticker": "HRL",
+    "type": "stock",
+    "name": "Hormel Foods Corp."
+  },
+  {
+    "ticker": "TSN",
+    "type": "stock",
+    "name": "Tyson Foods Inc."
+  },
+  {
+    "ticker": "MOS",
+    "type": "stock",
+    "name": "Mosaic Co."
+  },
+  {
+    "ticker": "NTR",
+    "type": "stock",
+    "name": "Nutrien Ltd."
+  },
+  {
+    "ticker": "CF",
+    "type": "stock",
+    "name": "CF Industries Holdings Inc."
+  },
+  {
+    "ticker": "FMC",
+    "type": "stock",
+    "name": "FMC Corp."
+  },
+  {
+    "ticker": "EMN",
+    "type": "stock",
+    "name": "Eastman Chemical Co."
+  },
+  {
+    "ticker": "PPG",
+    "type": "stock",
+    "name": "PPG Industries Inc."
+  },
+  {
+    "ticker": "SHW",
+    "type": "stock",
+    "name": "Sherwin-Williams Co."
+  },
+  {
+    "ticker": "DOW",
+    "type": "stock",
+    "name": "Dow Inc."
+  },
+  {
+    "ticker": "DD",
+    "type": "stock",
+    "name": "DuPont de Nemours Inc."
+  },
+  {
+    "ticker": "LYB",
+    "type": "stock",
+    "name": "LyondellBasell Industries NV"
+  },
+  {
+    "ticker": "CE",
+    "type": "stock",
+    "name": "Celanese Corp."
+  },
+  {
+    "ticker": "IP",
+    "type": "stock",
+    "name": "International Paper Co."
+  },
+  {
+    "ticker": "PKG",
+    "type": "stock",
+    "name": "Packaging Corp. of America"
+  },
+  {
+    "ticker": "SEE",
+    "type": "stock",
+    "name": "Sealed Air Corp."
+  },
+  {
+    "ticker": "BLL",
+    "type": "stock",
+    "name": "Ball Corp."
+  },
+  {
+    "ticker": "CCK",
+    "type": "stock",
+    "name": "Crown Holdings Inc."
+  },
+  {
+    "ticker": "ATI",
+    "type": "stock",
+    "name": "ATI Inc."
+  },
+  {
+    "ticker": "RS",
+    "type": "stock",
+    "name": "Reliance Steel & Aluminum Co."
+  },
+  {
+    "ticker": "NUE",
+    "type": "stock",
+    "name": "Nucor Corp."
+  },
+  {
+    "ticker": "STLD",
+    "type": "stock",
+    "name": "Steel Dynamics Inc."
+  },
+  {
+    "ticker": "X",
+    "type": "stock",
+    "name": "United States Steel Corp."
+  },
+  {
+    "ticker": "CLF",
+    "type": "stock",
+    "name": "Cleveland-Cliffs Inc."
+  },
+  {
+    "ticker": "AA",
+    "type": "stock",
+    "name": "Alcoa Corp."
+  },
+  {
+    "ticker": "AME",
+    "type": "stock",
+    "name": "AMETEK Inc."
+  },
+  {
+    "ticker": "ROK",
+    "type": "stock",
+    "name": "Rockwell Automation Inc."
+  },
+  {
+    "ticker": "EMR",
+    "type": "stock",
+    "name": "Emerson Electric Co."
+  },
+  {
+    "ticker": "XYL",
+    "type": "stock",
+    "name": "Xylem Inc."
+  },
+  {
+    "ticker": "OTIS",
+    "type": "stock",
+    "name": "Otis Worldwide Corp."
+  },
+  {
+    "ticker": "CARR",
+    "type": "stock",
+    "name": "Carrier Global Corp."
+  },
+  {
+    "ticker": "TT",
+    "type": "stock",
+    "name": "Trane Technologies PLC"
+  },
+  {
+    "ticker": "JCI",
+    "type": "stock",
+    "name": "Johnson Controls International"
+  },
+  {
+    "ticker": "ALLE",
+    "type": "stock",
+    "name": "Allegion PLC"
+  },
+  {
+    "ticker": "AOS",
+    "type": "stock",
+    "name": "A.O. Smith Corp."
+  },
+  {
+    "ticker": "MAS",
+    "type": "stock",
+    "name": "Masco Corp."
+  },
+  {
+    "ticker": "LEN",
+    "type": "stock",
+    "name": "Lennar Corp."
+  },
+  {
+    "ticker": "DHI",
+    "type": "stock",
+    "name": "D.R. Horton Inc."
+  },
+  {
+    "ticker": "PHM",
+    "type": "stock",
+    "name": "PulteGroup Inc."
+  },
+  {
+    "ticker": "TOL",
+    "type": "stock",
+    "name": "Toll Brothers Inc."
+  },
+  {
+    "ticker": "BLD",
+    "type": "stock",
+    "name": "TopBuild Corp."
+  },
+  {
+    "ticker": "TREX",
+    "type": "stock",
+    "name": "Trex Co."
+  },
+  {
+    "ticker": "NVR",
+    "type": "stock",
+    "name": "NVR Inc."
+  },
+  {
+    "ticker": "MTH",
+    "type": "stock",
+    "name": "Meritage Homes Corp."
+  },
+  {
+    "ticker": "KBH",
+    "type": "stock",
+    "name": "KB Home"
+  },
+  {
+    "ticker": "LOW",
+    "type": "stock",
+    "name": "Lowe's Companies Inc."
+  },
+  {
+    "ticker": "WSM",
+    "type": "stock",
+    "name": "Williams-Sonoma Inc."
+  },
+  {
+    "ticker": "RH",
+    "type": "stock",
+    "name": "RH (Restoration Hardware)"
+  },
+  {
+    "ticker": "TGT",
+    "type": "stock",
+    "name": "Target Corp."
+  },
+  {
+    "ticker": "DLTR",
+    "type": "stock",
+    "name": "Dollar Tree Inc."
+  },
+  {
+    "ticker": "DG",
+    "type": "stock",
+    "name": "Dollar General Corp."
+  },
+  {
+    "ticker": "FIVE",
+    "type": "stock",
+    "name": "Five Below Inc."
+  },
+  {
+    "ticker": "BBY",
+    "type": "stock",
+    "name": "Best Buy Co."
+  },
+  {
+    "ticker": "KR",
+    "type": "stock",
+    "name": "Kroger Co."
+  },
+  {
+    "ticker": "ACI",
+    "type": "stock",
+    "name": "Albertsons Companies Inc."
+  },
+  {
+    "ticker": "SFM",
+    "type": "stock",
+    "name": "Sprouts Farmers Market Inc."
+  },
+  {
+    "ticker": "SBUX",
+    "type": "stock",
+    "name": "Starbucks Corp."
+  },
+  {
+    "ticker": "CMG",
+    "type": "stock",
+    "name": "Chipotle Mexican Grill Inc."
+  },
+  {
+    "ticker": "YUM",
+    "type": "stock",
+    "name": "Yum! Brands Inc."
+  },
+  {
+    "ticker": "QSR",
+    "type": "stock",
+    "name": "Restaurant Brands International"
+  },
+  {
+    "ticker": "DPZ",
+    "type": "stock",
+    "name": "Domino's Pizza Inc."
+  },
+  {
+    "ticker": "WING",
+    "type": "stock",
+    "name": "Wingstop Inc."
+  },
+  {
+    "ticker": "TXRH",
+    "type": "stock",
+    "name": "Texas Roadhouse Inc."
+  },
+  {
+    "ticker": "DARDEN",
+    "type": "stock",
+    "name": "Darden Restaurants Inc."
+  },
+  {
+    "ticker": "SHAK",
+    "type": "stock",
+    "name": "Shake Shack Inc."
+  },
+  {
+    "ticker": "BROS",
+    "type": "stock",
+    "name": "Dutch Bros Inc."
+  },
+  {
+    "ticker": "CELH",
+    "type": "stock",
+    "name": "Celsius Holdings Inc."
+  },
+  {
+    "ticker": "MNST",
+    "type": "stock",
+    "name": "Monster Beverage Corp."
+  },
+  {
+    "ticker": "STZ",
+    "type": "stock",
+    "name": "Constellation Brands Inc."
+  },
+  {
+    "ticker": "BUD",
+    "type": "stock",
+    "name": "Anheuser-Busch InBev SA"
+  },
+  {
+    "ticker": "TAP",
+    "type": "stock",
+    "name": "Molson Coors Beverage Co."
+  },
+  {
+    "ticker": "SAM",
+    "type": "stock",
+    "name": "Boston Beer Co."
+  },
+  {
+    "ticker": "DNUT",
+    "type": "stock",
+    "name": "Krispy Kreme Inc."
+  },
+  {
+    "ticker": "COKE",
+    "type": "stock",
+    "name": "Coca-Cola Consolidated Inc."
+  },
+  {
+    "ticker": "APP",
+    "type": "stock",
+    "name": "AppLovin Corp."
+  },
+  {
+    "ticker": "APLD",
+    "type": "stock",
+    "name": "Applied Digital Corp."
+  },
+  {
+    "ticker": "CIEN",
+    "type": "stock",
+    "name": "Ciena Corp."
+  },
+  {
+    "ticker": "FLEX",
+    "type": "stock",
+    "name": "Flex Ltd."
+  },
+  {
+    "ticker": "JNPR",
+    "type": "stock",
+    "name": "Juniper Networks Inc."
+  },
+  {
+    "ticker": "GLW",
+    "type": "stock",
+    "name": "Corning Inc."
+  },
+  {
+    "ticker": "STX",
+    "type": "stock",
+    "name": "Seagate Technology Holdings"
+  },
+  {
+    "ticker": "WDC",
+    "type": "stock",
+    "name": "Western Digital Corp."
+  },
+  {
+    "ticker": "NTAP",
+    "type": "stock",
+    "name": "NetApp Inc."
+  },
+  {
+    "ticker": "HPE",
+    "type": "stock",
+    "name": "Hewlett Packard Enterprise Co."
+  },
+  {
+    "ticker": "HPQ",
+    "type": "stock",
+    "name": "HP Inc."
+  },
+  {
+    "ticker": "DELL",
+    "type": "stock",
+    "name": "Dell Technologies Inc."
+  },
+  {
+    "ticker": "NCR",
+    "type": "stock",
+    "name": "NCR Atleos Corp."
+  },
+  {
+    "ticker": "NXPI",
+    "type": "stock",
+    "name": "NXP Semiconductors NV"
+  },
+  {
+    "ticker": "ON",
+    "type": "stock",
+    "name": "ON Semiconductor Corp."
+  },
+  {
+    "ticker": "MPWR",
+    "type": "stock",
+    "name": "Monolithic Power Systems Inc."
+  },
+  {
+    "ticker": "SWKS",
+    "type": "stock",
+    "name": "Skyworks Solutions Inc."
+  },
+  {
+    "ticker": "QRVO",
+    "type": "stock",
+    "name": "Qorvo Inc."
+  },
+  {
+    "ticker": "WOLF",
+    "type": "stock",
+    "name": "Wolfspeed Inc."
+  },
+  {
+    "ticker": "MTSI",
+    "type": "stock",
+    "name": "MACOM Technology Solutions"
+  },
+  {
+    "ticker": "AXON",
+    "type": "stock",
+    "name": "Axon Enterprise Inc."
+  },
+  {
+    "ticker": "TRMB",
+    "type": "stock",
+    "name": "Trimble Inc."
+  },
+  {
+    "ticker": "FTV",
+    "type": "stock",
+    "name": "Fortive Corp."
+  },
+  {
+    "ticker": "VRSK",
+    "type": "stock",
+    "name": "Verisk Analytics Inc."
+  },
+  {
+    "ticker": "MSCI",
+    "type": "stock",
+    "name": "MSCI Inc."
+  },
+  {
+    "ticker": "NDAQ",
+    "type": "stock",
+    "name": "Nasdaq Inc."
+  },
+  {
+    "ticker": "CBOE",
+    "type": "stock",
+    "name": "Cboe Global Markets Inc."
+  },
+  {
+    "ticker": "WEX",
+    "type": "stock",
+    "name": "WEX Inc."
+  },
+  {
+    "ticker": "FIS",
+    "type": "stock",
+    "name": "Fidelity National Information Services"
+  },
+  {
+    "ticker": "FI",
+    "type": "stock",
+    "name": "Fiserv Inc."
+  },
+  {
+    "ticker": "GPN",
+    "type": "stock",
+    "name": "Global Payments Inc."
+  },
+  {
+    "ticker": "WU",
+    "type": "stock",
+    "name": "Western Union Co."
+  },
+  {
+    "ticker": "MONEYLION",
+    "type": "stock",
+    "name": "MoneyLion Inc."
+  },
+  {
+    "ticker": "NU",
+    "type": "stock",
+    "name": "Nu Holdings Ltd."
+  },
+  {
+    "ticker": "STNE",
+    "type": "stock",
+    "name": "StoneCo Ltd."
+  },
+  {
+    "ticker": "PAGS",
+    "type": "stock",
+    "name": "PagSeguro Digital Ltd."
+  },
+  {
+    "ticker": "TOST",
+    "type": "stock",
+    "name": "Toast Inc."
+  },
+  {
+    "ticker": "BILL",
+    "type": "stock",
+    "name": "Bill Holdings Inc."
+  },
+  {
+    "ticker": "ADYEY",
+    "type": "stock",
+    "name": "Adyen NV"
+  },
+  {
+    "ticker": "WISE",
+    "type": "stock",
+    "name": "Wise PLC"
+  },
+  {
+    "ticker": "SPY",
+    "type": "etf",
+    "name": "SPDR S&P 500 ETF Trust"
+  },
+  {
+    "ticker": "QQQ",
+    "type": "etf",
+    "name": "Invesco QQQ Trust (Nasdaq-100)"
+  },
+  {
+    "ticker": "IWM",
+    "type": "etf",
+    "name": "iShares Russell 2000 ETF"
+  },
+  {
+    "ticker": "VOO",
+    "type": "etf",
+    "name": "Vanguard S&P 500 ETF"
+  },
+  {
+    "ticker": "VTI",
+    "type": "etf",
+    "name": "Vanguard Total Stock Market ETF"
+  },
+  {
+    "ticker": "GLD",
+    "type": "etf",
+    "name": "SPDR Gold Shares"
+  },
+  {
+    "ticker": "SLV",
+    "type": "etf",
+    "name": "iShares Silver Trust"
+  },
+  {
+    "ticker": "IAU",
+    "type": "etf",
+    "name": "iShares Gold Trust"
+  },
+  {
+    "ticker": "TLT",
+    "type": "etf",
+    "name": "iShares 20+ Year Treasury Bond ETF"
+  },
+  {
+    "ticker": "HYG",
+    "type": "etf",
+    "name": "iShares iBoxx High Yield Corporate Bond ETF"
+  },
+  {
+    "ticker": "LQD",
+    "type": "etf",
+    "name": "iShares iBoxx Investment Grade Corporate Bond ETF"
+  },
+  {
+    "ticker": "AGG",
+    "type": "etf",
+    "name": "iShares Core US Aggregate Bond ETF"
+  },
+  {
+    "ticker": "BND",
+    "type": "etf",
+    "name": "Vanguard Total Bond Market ETF"
+  },
+  {
+    "ticker": "XLF",
+    "type": "etf",
+    "name": "Financial Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "XLK",
+    "type": "etf",
+    "name": "Technology Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "XLE",
+    "type": "etf",
+    "name": "Energy Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "XLV",
+    "type": "etf",
+    "name": "Health Care Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "XLI",
+    "type": "etf",
+    "name": "Industrial Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "XLY",
+    "type": "etf",
+    "name": "Consumer Discretionary Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "XLP",
+    "type": "etf",
+    "name": "Consumer Staples Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "XLU",
+    "type": "etf",
+    "name": "Utilities Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "XLB",
+    "type": "etf",
+    "name": "Materials Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "XLRE",
+    "type": "etf",
+    "name": "Real Estate Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "XLC",
+    "type": "etf",
+    "name": "Communication Services Select Sector SPDR Fund"
+  },
+  {
+    "ticker": "TQQQ",
+    "type": "etf",
+    "name": "ProShares UltraPro QQQ (3x Nasdaq)"
+  },
+  {
+    "ticker": "SQQQ",
+    "type": "etf",
+    "name": "ProShares UltraPro Short QQQ (-3x Nasdaq)"
+  },
+  {
+    "ticker": "SPXU",
+    "type": "etf",
+    "name": "ProShares UltraPro Short S&P500 (-3x)"
+  },
+  {
+    "ticker": "UPRO",
+    "type": "etf",
+    "name": "ProShares UltraPro S&P500 (3x)"
+  },
+  {
+    "ticker": "SOXL",
+    "type": "etf",
+    "name": "Direxion Daily Semiconductor Bull 3x"
+  },
+  {
+    "ticker": "SOXS",
+    "type": "etf",
+    "name": "Direxion Daily Semiconductor Bear 3x"
+  },
+  {
+    "ticker": "LABU",
+    "type": "etf",
+    "name": "Direxion Daily S&P Biotech Bull 3x"
+  },
+  {
+    "ticker": "LABD",
+    "type": "etf",
+    "name": "Direxion Daily S&P Biotech Bear 3x"
+  },
+  {
+    "ticker": "FAS",
+    "type": "etf",
+    "name": "Direxion Daily Financial Bull 3x"
+  },
+  {
+    "ticker": "FAZ",
+    "type": "etf",
+    "name": "Direxion Daily Financial Bear 3x"
+  },
+  {
+    "ticker": "SPXS",
+    "type": "etf",
+    "name": "Direxion Daily S&P 500 Bear 3x"
+  },
+  {
+    "ticker": "IBIT",
+    "type": "etf",
+    "name": "iShares Bitcoin Trust ETF"
+  },
+  {
+    "ticker": "FBTC",
+    "type": "etf",
+    "name": "Fidelity Wise Origin Bitcoin Fund"
+  },
+  {
+    "ticker": "GBTC",
+    "type": "etf",
+    "name": "Grayscale Bitcoin Trust"
+  },
+  {
+    "ticker": "BITB",
+    "type": "etf",
+    "name": "Bitwise Bitcoin ETF"
+  },
+  {
+    "ticker": "ARKB",
+    "type": "etf",
+    "name": "ARK 21Shares Bitcoin ETF"
+  },
+  {
+    "ticker": "ETHA",
+    "type": "etf",
+    "name": "iShares Ethereum Trust ETF"
+  },
+  {
+    "ticker": "ETHW",
+    "type": "etf",
+    "name": "Bitwise Ethereum ETF"
+  },
+  {
+    "ticker": "ARKK",
+    "type": "etf",
+    "name": "ARK Innovation ETF"
+  },
+  {
+    "ticker": "ARKG",
+    "type": "etf",
+    "name": "ARK Genomic Revolution ETF"
+  },
+  {
+    "ticker": "ARKW",
+    "type": "etf",
+    "name": "ARK Next Generation Internet ETF"
+  },
+  {
+    "ticker": "ARKF",
+    "type": "etf",
+    "name": "ARK Fintech Innovation ETF"
+  },
+  {
+    "ticker": "ARKQ",
+    "type": "etf",
+    "name": "ARK Autonomous Technology & Robotics ETF"
+  },
+  {
+    "ticker": "BOTZ",
+    "type": "etf",
+    "name": "Global X Robotics & AI ETF"
+  },
+  {
+    "ticker": "ROBO",
+    "type": "etf",
+    "name": "ROBO Global Robotics & Automation ETF"
+  },
+  {
+    "ticker": "AIQ",
+    "type": "etf",
+    "name": "Global X Artificial Intelligence & Technology ETF"
+  },
+  {
+    "ticker": "SOXX",
+    "type": "etf",
+    "name": "iShares Semiconductor ETF"
+  },
+  {
+    "ticker": "SMH",
+    "type": "etf",
+    "name": "VanEck Semiconductor ETF"
+  },
+  {
+    "ticker": "IBB",
+    "type": "etf",
+    "name": "iShares Biotechnology ETF"
+  },
+  {
+    "ticker": "XBI",
+    "type": "etf",
+    "name": "SPDR S&P Biotech ETF"
+  },
+  {
+    "ticker": "ICLN",
+    "type": "etf",
+    "name": "iShares Global Clean Energy ETF"
+  },
+  {
+    "ticker": "QCLN",
+    "type": "etf",
+    "name": "First Trust NASDAQ Clean Edge Green Energy ETF"
+  },
+  {
+    "ticker": "TAN",
+    "type": "etf",
+    "name": "Invesco Solar ETF"
+  },
+  {
+    "ticker": "FAN",
+    "type": "etf",
+    "name": "First Trust Global Wind Energy ETF"
+  },
+  {
+    "ticker": "JETS",
+    "type": "etf",
+    "name": "US Global Jets ETF"
+  },
+  {
+    "ticker": "MOO",
+    "type": "etf",
+    "name": "VanEck Agribusiness ETF"
+  },
+  {
+    "ticker": "DBA",
+    "type": "etf",
+    "name": "Invesco DB Agriculture Fund"
+  },
+  {
+    "ticker": "USO",
+    "type": "etf",
+    "name": "United States Oil Fund"
+  },
+  {
+    "ticker": "UNG",
+    "type": "etf",
+    "name": "United States Natural Gas Fund"
+  },
+  {
+    "ticker": "PDBC",
+    "type": "etf",
+    "name": "Invesco Optimum Yield Diversified Commodity"
+  },
+  {
+    "ticker": "DJP",
+    "type": "etf",
+    "name": "iPath Bloomberg Commodity Index ETN"
+  },
+  {
+    "ticker": "GSG",
+    "type": "etf",
+    "name": "iShares S&P GSCI Commodity ETF"
+  },
+  {
+    "ticker": "EEM",
+    "type": "etf",
+    "name": "iShares MSCI Emerging Markets ETF"
+  },
+  {
+    "ticker": "VWO",
+    "type": "etf",
+    "name": "Vanguard FTSE Emerging Markets ETF"
+  },
+  {
+    "ticker": "EFA",
+    "type": "etf",
+    "name": "iShares MSCI EAFE ETF"
+  },
+  {
+    "ticker": "VEA",
+    "type": "etf",
+    "name": "Vanguard FTSE Developed Markets ETF"
+  },
+  {
+    "ticker": "FXI",
+    "type": "etf",
+    "name": "iShares China Large-Cap ETF"
+  },
+  {
+    "ticker": "MCHI",
+    "type": "etf",
+    "name": "iShares MSCI China ETF"
+  },
+  {
+    "ticker": "KWEB",
+    "type": "etf",
+    "name": "KraneShares CSI China Internet ETF"
+  },
+  {
+    "ticker": "EWJ",
+    "type": "etf",
+    "name": "iShares MSCI Japan ETF"
+  },
+  {
+    "ticker": "EWZ",
+    "type": "etf",
+    "name": "iShares MSCI Brazil ETF"
+  },
+  {
+    "ticker": "EWY",
+    "type": "etf",
+    "name": "iShares MSCI South Korea ETF"
+  },
+  {
+    "ticker": "EWG",
+    "type": "etf",
+    "name": "iShares MSCI Germany ETF"
+  },
+  {
+    "ticker": "EWU",
+    "type": "etf",
+    "name": "iShares MSCI United Kingdom ETF"
+  },
+  {
+    "ticker": "EWA",
+    "type": "etf",
+    "name": "iShares MSCI Australia ETF"
+  },
+  {
+    "ticker": "EWC",
+    "type": "etf",
+    "name": "iShares MSCI Canada ETF"
+  },
+  {
+    "ticker": "INDA",
+    "type": "etf",
+    "name": "iShares MSCI India ETF"
+  },
+  {
+    "ticker": "VNQ",
+    "type": "etf",
+    "name": "Vanguard Real Estate ETF"
+  },
+  {
+    "ticker": "IYR",
+    "type": "etf",
+    "name": "iShares US Real Estate ETF"
+  },
+  {
+    "ticker": "REM",
+    "type": "etf",
+    "name": "iShares Mortgage Real Estate ETF"
+  },
+  {
+    "ticker": "KBE",
+    "type": "etf",
+    "name": "SPDR S&P Bank ETF"
+  },
+  {
+    "ticker": "KRE",
+    "type": "etf",
+    "name": "SPDR S&P Regional Banking ETF"
+  },
+  {
+    "ticker": "GDX",
+    "type": "etf",
+    "name": "VanEck Gold Miners ETF"
+  },
+  {
+    "ticker": "GDXJ",
+    "type": "etf",
+    "name": "VanEck Junior Gold Miners ETF"
+  },
+  {
+    "ticker": "COPX",
+    "type": "etf",
+    "name": "Global X Copper Miners ETF"
+  },
+  {
+    "ticker": "LIT",
+    "type": "etf",
+    "name": "Global X Lithium & Battery Tech ETF"
+  },
+  {
+    "ticker": "URA",
+    "type": "etf",
+    "name": "Global X Uranium ETF"
+  },
+  {
+    "ticker": "REMX",
+    "type": "etf",
+    "name": "VanEck Rare Earth/Strategic Metals ETF"
+  },
+  {
+    "ticker": "ITA",
+    "type": "etf",
+    "name": "iShares US Aerospace & Defense ETF"
+  },
+  {
+    "ticker": "PPA",
+    "type": "etf",
+    "name": "Invesco Aerospace & Defense ETF"
+  },
+  {
+    "ticker": "HACK",
+    "type": "etf",
+    "name": "ETFMG Prime Cyber Security ETF"
+  },
+  {
+    "ticker": "CIBR",
+    "type": "etf",
+    "name": "First Trust NASDAQ Cybersecurity ETF"
+  },
+  {
+    "ticker": "FINX",
+    "type": "etf",
+    "name": "Global X FinTech ETF"
+  },
+  {
+    "ticker": "IPAY",
+    "type": "etf",
+    "name": "ETFMG Prime Mobile Payments ETF"
+  },
+  {
+    "ticker": "SKYY",
+    "type": "etf",
+    "name": "First Trust Cloud Computing ETF"
+  },
+  {
+    "ticker": "CLOU",
+    "type": "etf",
+    "name": "Global X Cloud Computing ETF"
+  },
+  {
+    "ticker": "WCLD",
+    "type": "etf",
+    "name": "WisdomTree Cloud Computing ETF"
+  },
+  {
+    "ticker": "BLOK",
+    "type": "etf",
+    "name": "Amplify Transformational Data Sharing ETF"
+  },
+  {
+    "ticker": "BITO",
+    "type": "etf",
+    "name": "ProShares Bitcoin Strategy ETF"
+  },
+  {
+    "ticker": "BTF",
+    "type": "etf",
+    "name": "Valkyrie Bitcoin Strategy ETF"
+  },
+  {
+    "ticker": "BITX",
+    "type": "etf",
+    "name": "2x Bitcoin Strategy ETF"
+  },
+  {
+    "ticker": "MSOS",
+    "type": "etf",
+    "name": "AdvisorShares Pure US Cannabis ETF"
+  },
+  {
+    "ticker": "MJ",
+    "type": "etf",
+    "name": "ETFMG Alternative Harvest ETF"
+  },
+  {
+    "ticker": "VICE",
+    "type": "etf",
+    "name": "AdvisorShares Vice ETF"
+  },
+  {
+    "ticker": "HERO",
+    "type": "etf",
+    "name": "Global X Video Games & Esports ETF"
+  },
+  {
+    "ticker": "ESPO",
+    "type": "etf",
+    "name": "VanEck Video Gaming & eSports ETF"
+  },
+  {
+    "ticker": "METV",
+    "type": "etf",
+    "name": "Roundhill Ball Metaverse ETF"
+  },
+  {
+    "ticker": "UFO",
+    "type": "etf",
+    "name": "Procure Space ETF"
+  },
+  {
+    "ticker": "GNOM",
+    "type": "etf",
+    "name": "Global X Genomics & Biotechnology ETF"
+  },
+  {
+    "ticker": "EDUT",
+    "type": "etf",
+    "name": "Global X Education ETF"
+  },
+  {
+    "ticker": "DRIV",
+    "type": "etf",
+    "name": "Global X Autonomous & Electric Vehicles ETF"
+  },
+  {
+    "ticker": "KARS",
+    "type": "etf",
+    "name": "KraneShares Electric Vehicles ETF"
+  },
+  {
+    "ticker": "BATT",
+    "type": "etf",
+    "name": "Amplify Lithium & Battery Technology ETF"
+  },
+  {
+    "ticker": "HYDR",
+    "type": "etf",
+    "name": "Global X Hydrogen ETF"
+  },
+  {
+    "ticker": "GRID",
+    "type": "etf",
+    "name": "First Trust NASDAQ Clean Edge Smart Grid ETF"
+  },
+  {
+    "ticker": "DTCR",
+    "type": "etf",
+    "name": "Global X Data Center & Digital Infrastructure ETF"
+  },
+  {
+    "ticker": "DIA",
+    "type": "etf",
+    "name": "SPDR Dow Jones Industrial Average ETF"
+  },
+  {
+    "ticker": "MDY",
+    "type": "etf",
+    "name": "SPDR S&P MidCap 400 ETF"
+  },
+  {
+    "ticker": "IJH",
+    "type": "etf",
+    "name": "iShares Core S&P Mid-Cap ETF"
+  },
+  {
+    "ticker": "IJR",
+    "type": "etf",
+    "name": "iShares Core S&P Small-Cap ETF"
+  },
+  {
+    "ticker": "VB",
+    "type": "etf",
+    "name": "Vanguard Small-Cap ETF"
+  },
+  {
+    "ticker": "VUG",
+    "type": "etf",
+    "name": "Vanguard Growth ETF"
+  },
+  {
+    "ticker": "VTV",
+    "type": "etf",
+    "name": "Vanguard Value ETF"
+  },
+  {
+    "ticker": "MTUM",
+    "type": "etf",
+    "name": "iShares MSCI USA Momentum Factor ETF"
+  },
+  {
+    "ticker": "QUAL",
+    "type": "etf",
+    "name": "iShares MSCI USA Quality Factor ETF"
+  },
+  {
+    "ticker": "VLUE",
+    "type": "etf",
+    "name": "iShares MSCI USA Value Factor ETF"
+  },
+  {
+    "ticker": "USMV",
+    "type": "etf",
+    "name": "iShares MSCI USA Min Vol Factor ETF"
+  },
+  {
+    "ticker": "IEF",
+    "type": "etf",
+    "name": "iShares 7-10 Year Treasury Bond ETF"
+  },
+  {
+    "ticker": "SHY",
+    "type": "etf",
+    "name": "iShares 1-3 Year Treasury Bond ETF"
+  },
+  {
+    "ticker": "TIPS",
+    "type": "etf",
+    "name": "iShares TIPS Bond ETF"
+  },
+  {
+    "ticker": "EMB",
+    "type": "etf",
+    "name": "iShares JP Morgan USD Emerging Markets Bond ETF"
+  },
+  {
+    "ticker": "JNK",
+    "type": "etf",
+    "name": "SPDR Bloomberg High Yield Bond ETF"
+  },
+  {
+    "ticker": "BNDX",
+    "type": "etf",
+    "name": "Vanguard Total International Bond ETF"
+  },
+  {
+    "ticker": "IGSB",
+    "type": "etf",
+    "name": "iShares Short-Term Corporate Bond ETF"
+  },
+  {
+    "ticker": "VCIT",
+    "type": "etf",
+    "name": "Vanguard Intermediate-Term Corporate Bond ETF"
+  },
+  {
+    "ticker": "VCSH",
+    "type": "etf",
+    "name": "Vanguard Short-Term Corporate Bond ETF"
+  },
+  {
+    "ticker": "SCHD",
+    "type": "etf",
+    "name": "Schwab US Dividend Equity ETF"
+  },
+  {
+    "ticker": "DVY",
+    "type": "etf",
+    "name": "iShares Select Dividend ETF"
+  },
+  {
+    "ticker": "VYM",
+    "type": "etf",
+    "name": "Vanguard High Dividend Yield ETF"
+  },
+  {
+    "ticker": "SDY",
+    "type": "etf",
+    "name": "SPDR S&P Dividend ETF"
+  },
+  {
+    "ticker": "DGRO",
+    "type": "etf",
+    "name": "iShares Core Dividend Growth ETF"
+  },
+  {
+    "ticker": "NOBL",
+    "type": "etf",
+    "name": "ProShares S&P 500 Dividend Aristocrats ETF"
+  },
+  {
+    "ticker": "BTC",
+    "type": "crypto",
+    "name": "Bitcoin"
+  },
+  {
+    "ticker": "ETH",
+    "type": "crypto",
+    "name": "Ethereum"
+  },
+  {
+    "ticker": "USDT",
+    "type": "crypto",
+    "name": "Tether"
+  },
+  {
+    "ticker": "BNB",
+    "type": "crypto",
+    "name": "BNB"
+  },
+  {
+    "ticker": "SOL",
+    "type": "crypto",
+    "name": "Solana"
+  },
+  {
+    "ticker": "XRP",
+    "type": "crypto",
+    "name": "XRP"
+  },
+  {
+    "ticker": "USDC",
+    "type": "crypto",
+    "name": "USD Coin"
+  },
+  {
+    "ticker": "ADA",
+    "type": "crypto",
+    "name": "Cardano"
+  },
+  {
+    "ticker": "AVAX",
+    "type": "crypto",
+    "name": "Avalanche"
+  },
+  {
+    "ticker": "DOGE",
+    "type": "crypto",
+    "name": "Dogecoin"
+  },
+  {
+    "ticker": "TRX",
+    "type": "crypto",
+    "name": "TRON"
+  },
+  {
+    "ticker": "DOT",
+    "type": "crypto",
+    "name": "Polkadot"
+  },
+  {
+    "ticker": "MATIC",
+    "type": "crypto",
+    "name": "Polygon"
+  },
+  {
+    "ticker": "LINK",
+    "type": "crypto",
+    "name": "Chainlink"
+  },
+  {
+    "ticker": "SHIB",
+    "type": "crypto",
+    "name": "Shiba Inu"
+  },
+  {
+    "ticker": "LTC",
+    "type": "crypto",
+    "name": "Litecoin"
+  },
+  {
+    "ticker": "BCH",
+    "type": "crypto",
+    "name": "Bitcoin Cash"
+  },
+  {
+    "ticker": "UNI",
+    "type": "crypto",
+    "name": "Uniswap"
+  },
+  {
+    "ticker": "ATOM",
+    "type": "crypto",
+    "name": "Cosmos"
+  },
+  {
+    "ticker": "XLM",
+    "type": "crypto",
+    "name": "Stellar"
+  },
+  {
+    "ticker": "ETC",
+    "type": "crypto",
+    "name": "Ethereum Classic"
+  },
+  {
+    "ticker": "ALGO",
+    "type": "crypto",
+    "name": "Algorand"
+  },
+  {
+    "ticker": "VET",
+    "type": "crypto",
+    "name": "VeChain"
+  },
+  {
+    "ticker": "FIL",
+    "type": "crypto",
+    "name": "Filecoin"
+  },
+  {
+    "ticker": "ICP",
+    "type": "crypto",
+    "name": "Internet Computer"
+  },
+  {
+    "ticker": "APT",
+    "type": "crypto",
+    "name": "Aptos"
+  },
+  {
+    "ticker": "ARB",
+    "type": "crypto",
+    "name": "Arbitrum"
+  },
+  {
+    "ticker": "OP",
+    "type": "crypto",
+    "name": "Optimism"
+  },
+  {
+    "ticker": "SUI",
+    "type": "crypto",
+    "name": "Sui"
+  },
+  {
+    "ticker": "SEI",
+    "type": "crypto",
+    "name": "Sei"
+  },
+  {
+    "ticker": "INJ",
+    "type": "crypto",
+    "name": "Injective"
+  },
+  {
+    "ticker": "TIA",
+    "type": "crypto",
+    "name": "Celestia"
+  },
+  {
+    "ticker": "JTO",
+    "type": "crypto",
+    "name": "Jito"
+  },
+  {
+    "ticker": "PYTH",
+    "type": "crypto",
+    "name": "Pyth Network"
+  },
+  {
+    "ticker": "JUP",
+    "type": "crypto",
+    "name": "Jupiter"
+  },
+  {
+    "ticker": "BONK",
+    "type": "crypto",
+    "name": "Bonk"
+  },
+  {
+    "ticker": "WIF",
+    "type": "crypto",
+    "name": "Dogwifhat"
+  },
+  {
+    "ticker": "PEPE",
+    "type": "crypto",
+    "name": "Pepe"
+  },
+  {
+    "ticker": "FLOKI",
+    "type": "crypto",
+    "name": "Floki"
+  },
+  {
+    "ticker": "NEAR",
+    "type": "crypto",
+    "name": "NEAR Protocol"
+  },
+  {
+    "ticker": "FTM",
+    "type": "crypto",
+    "name": "Fantom"
+  },
+  {
+    "ticker": "S",
+    "type": "crypto",
+    "name": "Sonic (prev. Fantom)"
+  },
+  {
+    "ticker": "GRT",
+    "type": "crypto",
+    "name": "The Graph"
+  },
+  {
+    "ticker": "SAND",
+    "type": "crypto",
+    "name": "The Sandbox"
+  },
+  {
+    "ticker": "MANA",
+    "type": "crypto",
+    "name": "Decentraland"
+  },
+  {
+    "ticker": "AXS",
+    "type": "crypto",
+    "name": "Axie Infinity"
+  },
+  {
+    "ticker": "THETA",
+    "type": "crypto",
+    "name": "Theta Network"
+  },
+  {
+    "ticker": "AAVE",
+    "type": "crypto",
+    "name": "Aave"
+  },
+  {
+    "ticker": "MKR",
+    "type": "crypto",
+    "name": "Maker"
+  },
+  {
+    "ticker": "SNX",
+    "type": "crypto",
+    "name": "Synthetix"
+  },
+  {
+    "ticker": "CRV",
+    "type": "crypto",
+    "name": "Curve DAO Token"
+  },
+  {
+    "ticker": "LDO",
+    "type": "crypto",
+    "name": "Lido DAO"
+  },
+  {
+    "ticker": "RPL",
+    "type": "crypto",
+    "name": "Rocket Pool"
+  },
+  {
+    "ticker": "RUNE",
+    "type": "crypto",
+    "name": "THORChain"
+  },
+  {
+    "ticker": "DYDX",
+    "type": "crypto",
+    "name": "dYdX"
+  },
+  {
+    "ticker": "GMX",
+    "type": "crypto",
+    "name": "GMX"
+  },
+  {
+    "ticker": "PENDLE",
+    "type": "crypto",
+    "name": "Pendle"
+  },
+  {
+    "ticker": "ENA",
+    "type": "crypto",
+    "name": "Ethena"
+  },
+  {
+    "ticker": "EIGEN",
+    "type": "crypto",
+    "name": "EigenLayer"
+  },
+  {
+    "ticker": "STRK",
+    "type": "crypto",
+    "name": "Starknet"
+  },
+  {
+    "ticker": "ZK",
+    "type": "crypto",
+    "name": "ZKsync"
+  },
+  {
+    "ticker": "BLAST",
+    "type": "crypto",
+    "name": "Blast"
+  },
+  {
+    "ticker": "ZETA",
+    "type": "crypto",
+    "name": "ZetaChain"
+  },
+  {
+    "ticker": "TAO",
+    "type": "crypto",
+    "name": "Bittensor"
+  },
+  {
+    "ticker": "FET",
+    "type": "crypto",
+    "name": "Fetch.ai"
+  },
+  {
+    "ticker": "AGIX",
+    "type": "crypto",
+    "name": "SingularityNET"
+  },
+  {
+    "ticker": "OCEAN",
+    "type": "crypto",
+    "name": "Ocean Protocol"
+  },
+  {
+    "ticker": "RNDR",
+    "type": "crypto",
+    "name": "Render"
+  },
+  {
+    "ticker": "AKT",
+    "type": "crypto",
+    "name": "Akash Network"
+  },
+  {
+    "ticker": "KAS",
+    "type": "crypto",
+    "name": "Kaspa"
+  },
+  {
+    "ticker": "TON",
+    "type": "crypto",
+    "name": "Toncoin"
+  },
+  {
+    "ticker": "NOT",
+    "type": "crypto",
+    "name": "Notcoin"
+  },
+  {
+    "ticker": "HMSTR",
+    "type": "crypto",
+    "name": "Hamster Kombat"
+  },
+  {
+    "ticker": "DOGS",
+    "type": "crypto",
+    "name": "Dogs"
+  },
+  {
+    "ticker": "CATI",
+    "type": "crypto",
+    "name": "Catizen"
+  },
+  {
+    "ticker": "XMR",
+    "type": "crypto",
+    "name": "Monero"
+  },
+  {
+    "ticker": "ZEC",
+    "type": "crypto",
+    "name": "Zcash"
+  },
+  {
+    "ticker": "BTT",
+    "type": "crypto",
+    "name": "BitTorrent"
+  },
+  {
+    "ticker": "HOT",
+    "type": "crypto",
+    "name": "Holo"
+  },
+  {
+    "ticker": "ONE",
+    "type": "crypto",
+    "name": "Harmony"
+  },
+  {
+    "ticker": "IOTA",
+    "type": "crypto",
+    "name": "IOTA"
+  },
+  {
+    "ticker": "ZIL",
+    "type": "crypto",
+    "name": "Zilliqa"
+  },
+  {
+    "ticker": "QTUM",
+    "type": "crypto",
+    "name": "Qtum"
+  },
+  {
+    "ticker": "ICX",
+    "type": "crypto",
+    "name": "ICON"
+  },
+  {
+    "ticker": "ONT",
+    "type": "crypto",
+    "name": "Ontology"
+  },
+  {
+    "ticker": "NEO",
+    "type": "crypto",
+    "name": "NEO"
+  },
+  {
+    "ticker": "EOS",
+    "type": "crypto",
+    "name": "EOS"
+  },
+  {
+    "ticker": "WAVES",
+    "type": "crypto",
+    "name": "Waves"
+  },
+  {
+    "ticker": "KSM",
+    "type": "crypto",
+    "name": "Kusama"
+  },
+  {
+    "ticker": "CFX",
+    "type": "crypto",
+    "name": "Conflux"
+  },
+  {
+    "ticker": "CORE",
+    "type": "crypto",
+    "name": "Core"
+  },
+  {
+    "ticker": "MINA",
+    "type": "crypto",
+    "name": "Mina Protocol"
+  },
+  {
+    "ticker": "FLOW",
+    "type": "crypto",
+    "name": "Flow"
+  },
+  {
+    "ticker": "IMX",
+    "type": "crypto",
+    "name": "Immutable"
+  },
+  {
+    "ticker": "GODS",
+    "type": "crypto",
+    "name": "Gods Unchained"
+  },
+  {
+    "ticker": "MAGIC",
+    "type": "crypto",
+    "name": "Magic (Treasure)"
+  },
+  {
+    "ticker": "GALA",
+    "type": "crypto",
+    "name": "Gala"
+  },
+  {
+    "ticker": "ENJ",
+    "type": "crypto",
+    "name": "Enjin Coin"
+  },
+  {
+    "ticker": "CHZ",
+    "type": "crypto",
+    "name": "Chiliz"
+  },
+  {
+    "ticker": "DENT",
+    "type": "crypto",
+    "name": "Dent"
+  },
+  {
+    "ticker": "BAT",
+    "type": "crypto",
+    "name": "Basic Attention Token"
+  },
+  {
+    "ticker": "1INCH",
+    "type": "crypto",
+    "name": "1inch Network"
+  },
+  {
+    "ticker": "SUSHI",
+    "type": "crypto",
+    "name": "SushiSwap"
+  },
+  {
+    "ticker": "CAKE",
+    "type": "crypto",
+    "name": "PancakeSwap"
+  },
+  {
+    "ticker": "COMP",
+    "type": "crypto",
+    "name": "Compound"
+  },
+  {
+    "ticker": "YFI",
+    "type": "crypto",
+    "name": "Yearn Finance"
+  },
+  {
+    "ticker": "BAL",
+    "type": "crypto",
+    "name": "Balancer"
+  },
+  {
+    "ticker": "ZRX",
+    "type": "crypto",
+    "name": "0x Protocol"
+  },
+  {
+    "ticker": "BLUR",
+    "type": "crypto",
+    "name": "Blur"
+  },
+  {
+    "ticker": "LooksRARE",
+    "type": "crypto",
+    "name": "LooksRare"
+  },
+  {
+    "ticker": "RARI",
+    "type": "crypto",
+    "name": "Rarible"
+  },
+  {
+    "ticker": "RVN",
+    "type": "crypto",
+    "name": "Ravencoin"
+  },
+  {
+    "ticker": "HNT",
+    "type": "crypto",
+    "name": "Helium"
+  },
+  {
+    "ticker": "MOBILE",
+    "type": "crypto",
+    "name": "Helium Mobile"
+  },
+  {
+    "ticker": "JASMY",
+    "type": "crypto",
+    "name": "JasmyCoin"
+  },
+  {
+    "ticker": "ANKR",
+    "type": "crypto",
+    "name": "Ankr"
+  },
+  {
+    "ticker": "NMR",
+    "type": "crypto",
+    "name": "Numeraire"
+  },
+  {
+    "ticker": "API3",
+    "type": "crypto",
+    "name": "API3"
+  },
+  {
+    "ticker": "BAND",
+    "type": "crypto",
+    "name": "Band Protocol"
+  },
+  {
+    "ticker": "TRB",
+    "type": "crypto",
+    "name": "Tellor"
+  },
+  {
+    "ticker": "UMA",
+    "type": "crypto",
+    "name": "UMA"
+  },
+  {
+    "ticker": "RSS3",
+    "type": "crypto",
+    "name": "RSS3"
+  },
+  {
+    "ticker": "DAI",
+    "type": "crypto",
+    "name": "Dai"
+  },
+  {
+    "ticker": "FRAX",
+    "type": "crypto",
+    "name": "Frax"
+  },
+  {
+    "ticker": "TUSD",
+    "type": "crypto",
+    "name": "TrueUSD"
+  },
+  {
+    "ticker": "BUSD",
+    "type": "crypto",
+    "name": "Binance USD"
+  },
+  {
+    "ticker": "PYUSD",
+    "type": "crypto",
+    "name": "PayPal USD"
+  },
+  {
+    "ticker": "USDE",
+    "type": "crypto",
+    "name": "Ethena USDe"
+  },
+  {
+    "ticker": "GC=F",
+    "type": "commodity",
+    "name": "Gold Futures"
+  },
+  {
+    "ticker": "SI=F",
+    "type": "commodity",
+    "name": "Silver Futures"
+  },
+  {
+    "ticker": "CL=F",
+    "type": "commodity",
+    "name": "Crude Oil (WTI) Futures"
+  },
+  {
+    "ticker": "BZ=F",
+    "type": "commodity",
+    "name": "Brent Crude Oil Futures"
+  },
+  {
+    "ticker": "NG=F",
+    "type": "commodity",
+    "name": "Natural Gas Futures"
+  },
+  {
+    "ticker": "HG=F",
+    "type": "commodity",
+    "name": "Copper Futures"
+  },
+  {
+    "ticker": "PL=F",
+    "type": "commodity",
+    "name": "Platinum Futures"
+  },
+  {
+    "ticker": "PA=F",
+    "type": "commodity",
+    "name": "Palladium Futures"
+  },
+  {
+    "ticker": "ZC=F",
+    "type": "commodity",
+    "name": "Corn Futures"
+  },
+  {
+    "ticker": "ZW=F",
+    "type": "commodity",
+    "name": "Wheat Futures"
+  },
+  {
+    "ticker": "ZS=F",
+    "type": "commodity",
+    "name": "Soybean Futures"
+  },
+  {
+    "ticker": "CT=F",
+    "type": "commodity",
+    "name": "Cotton Futures"
+  },
+  {
+    "ticker": "KC=F",
+    "type": "commodity",
+    "name": "Coffee Futures"
+  },
+  {
+    "ticker": "SB=F",
+    "type": "commodity",
+    "name": "Sugar Futures"
+  },
+  {
+    "ticker": "CC=F",
+    "type": "commodity",
+    "name": "Cocoa Futures"
+  },
+  {
+    "ticker": "LB=F",
+    "type": "commodity",
+    "name": "Lumber Futures"
+  },
+  {
+    "ticker": "LE=F",
+    "type": "commodity",
+    "name": "Live Cattle Futures"
+  },
+  {
+    "ticker": "HE=F",
+    "type": "commodity",
+    "name": "Lean Hogs Futures"
+  },
+  {
+    "ticker": "ALI=F",
+    "type": "commodity",
+    "name": "Aluminum Futures"
+  },
+  {
+    "ticker": "UX=F",
+    "type": "commodity",
+    "name": "Uranium Futures"
+  },
+  {
+    "ticker": "^GSPC",
+    "type": "index",
+    "name": "S&P 500 Index"
+  },
+  {
+    "ticker": "^IXIC",
+    "type": "index",
+    "name": "Nasdaq Composite Index"
+  },
+  {
+    "ticker": "^DJI",
+    "type": "index",
+    "name": "Dow Jones Industrial Average"
+  },
+  {
+    "ticker": "^RUT",
+    "type": "index",
+    "name": "Russell 2000 Index"
+  },
+  {
+    "ticker": "^VIX",
+    "type": "index",
+    "name": "CBOE Volatility Index (VIX)"
+  },
+  {
+    "ticker": "^FTSE",
+    "type": "index",
+    "name": "FTSE 100 Index"
+  },
+  {
+    "ticker": "^GDAXI",
+    "type": "index",
+    "name": "DAX Index (Germany)"
+  },
+  {
+    "ticker": "^FCHI",
+    "type": "index",
+    "name": "CAC 40 Index (France)"
+  },
+  {
+    "ticker": "^N225",
+    "type": "index",
+    "name": "Nikkei 225 Index (Japan)"
+  },
+  {
+    "ticker": "^HSI",
+    "type": "index",
+    "name": "Hang Seng Index (Hong Kong)"
+  },
+  {
+    "ticker": "000001.SS",
+    "type": "index",
+    "name": "SSE Composite Index (China)"
+  },
+  {
+    "ticker": "^AXJO",
+    "type": "index",
+    "name": "ASX 200 Index (Australia)"
+  },
+  {
+    "ticker": "^BSESN",
+    "type": "index",
+    "name": "BSE Sensex Index (India)"
+  },
+  {
+    "ticker": "^NSEI",
+    "type": "index",
+    "name": "Nifty 50 Index (India)"
+  },
+  {
+    "ticker": "^KS11",
+    "type": "index",
+    "name": "KOSPI Index (South Korea)"
+  },
+  {
+    "ticker": "EURUSD=X",
+    "type": "forex",
+    "name": "Euro / US Dollar"
+  },
+  {
+    "ticker": "GBPUSD=X",
+    "type": "forex",
+    "name": "British Pound / US Dollar"
+  },
+  {
+    "ticker": "JPY=X",
+    "type": "forex",
+    "name": "US Dollar / Japanese Yen"
+  },
+  {
+    "ticker": "AUDUSD=X",
+    "type": "forex",
+    "name": "Australian Dollar / US Dollar"
+  },
+  {
+    "ticker": "CADUSD=X",
+    "type": "forex",
+    "name": "Canadian Dollar / US Dollar"
+  },
+  {
+    "ticker": "CHFUSD=X",
+    "type": "forex",
+    "name": "Swiss Franc / US Dollar"
+  },
+  {
+    "ticker": "CNYUSD=X",
+    "type": "forex",
+    "name": "Chinese Yuan / US Dollar"
+  },
+  {
+    "ticker": "INRUSD=X",
+    "type": "forex",
+    "name": "Indian Rupee / US Dollar"
+  },
+  {
+    "ticker": "BRLUSD=X",
+    "type": "forex",
+    "name": "Brazilian Real / US Dollar"
+  },
+  {
+    "ticker": "MXNUSD=X",
+    "type": "forex",
+    "name": "Mexican Peso / US Dollar"
+  },
+  {
+    "ticker": "KRWUSD=X",
+    "type": "forex",
+    "name": "South Korean Won / US Dollar"
+  },
+  {
+    "ticker": "SGDUSD=X",
+    "type": "forex",
+    "name": "Singapore Dollar / US Dollar"
+  },
+  {
+    "ticker": "HKDUSD=X",
+    "type": "forex",
+    "name": "Hong Kong Dollar / US Dollar"
+  },
+  {
+    "ticker": "NOKUSD=X",
+    "type": "forex",
+    "name": "Norwegian Krone / US Dollar"
+  },
+  {
+    "ticker": "SEKUSD=X",
+    "type": "forex",
+    "name": "Swedish Krona / US Dollar"
+  },
+  {
+    "ticker": "TRYUSD=X",
+    "type": "forex",
+    "name": "Turkish Lira / US Dollar"
+  },
+  {
+    "ticker": "ZARUSD=X",
+    "type": "forex",
+    "name": "South African Rand / US Dollar"
+  },
+  {
+    "ticker": "RUBUSD=X",
+    "type": "forex",
+    "name": "Russian Ruble / US Dollar"
+  },
+  {
+    "ticker": "ARUSD=X",
+    "type": "forex",
+    "name": "Argentine Peso / US Dollar"
+  },
+  {
+    "ticker": "NZDUSD=X",
+    "type": "forex",
+    "name": "New Zealand Dollar / US Dollar"
+  },
+  {
+    "ticker": "ZT=F",
+    "type": "bond",
+    "name": "2-Year US Treasury Futures"
+  },
+  {
+    "ticker": "ZF=F",
+    "type": "bond",
+    "name": "5-Year US Treasury Futures"
+  },
+  {
+    "ticker": "ZN=F",
+    "type": "bond",
+    "name": "10-Year US Treasury Futures"
+  },
+  {
+    "ticker": "ZB=F",
+    "type": "bond",
+    "name": "30-Year US Treasury Futures"
+  },
+  {
+    "ticker": "^TNX",
+    "type": "bond",
+    "name": "10-Year US Treasury Yield"
+  },
+  {
+    "ticker": "^TYX",
+    "type": "bond",
+    "name": "30-Year US Treasury Yield"
+  },
+  {
+    "ticker": "^FVX",
+    "type": "bond",
+    "name": "5-Year US Treasury Yield"
+  },
+  {
+    "ticker": "^IRX",
+    "type": "bond",
+    "name": "13-Week Treasury Bill Yield"
+  },
+  {
+    "ticker": "TME",
+    "type": "stock",
+    "name": "Tencent Music Entertainment"
+  },
+  {
+    "ticker": "BILI",
+    "type": "stock",
+    "name": "Bilibili Inc."
+  },
+  {
+    "ticker": "IQ",
+    "type": "stock",
+    "name": "iQIYI Inc."
+  },
+  {
+    "ticker": "XPEV",
+    "type": "stock",
+    "name": "XPeng Inc."
+  },
+  {
+    "ticker": "LI",
+    "type": "stock",
+    "name": "Li Auto Inc."
+  },
+  {
+    "ticker": "WB",
+    "type": "stock",
+    "name": "Weibo Corp."
+  },
+  {
+    "ticker": "VNET",
+    "type": "stock",
+    "name": "VNET Group Inc."
+  },
+  {
+    "ticker": "HTHT",
+    "type": "stock",
+    "name": "H World Group Ltd."
+  },
+  {
+    "ticker": "YUMC",
+    "type": "stock",
+    "name": "Yum China Holdings Inc."
+  },
+  {
+    "ticker": "ZTO",
+    "type": "stock",
+    "name": "ZTO Express Inc."
+  },
+  {
+    "ticker": "NTES",
+    "type": "stock",
+    "name": "NetEase Inc."
+  },
+  {
+    "ticker": "DIDI",
+    "type": "stock",
+    "name": "DiDi Global Inc."
+  },
+  {
+    "ticker": "FUTU",
+    "type": "stock",
+    "name": "Futu Holdings Ltd."
+  },
+  {
+    "ticker": "TIGR",
+    "type": "stock",
+    "name": "UP Fintech Holding Ltd."
+  },
+  {
+    "ticker": "MELI",
+    "type": "stock",
+    "name": "MercadoLibre Inc."
+  },
+  {
+    "ticker": "INFY",
+    "type": "stock",
+    "name": "Infosys Ltd."
+  },
+  {
+    "ticker": "WIT",
+    "type": "stock",
+    "name": "Wipro Ltd."
+  },
+  {
+    "ticker": "HDB",
+    "type": "stock",
+    "name": "HDFC Bank Ltd."
+  },
+  {
+    "ticker": "IBN",
+    "type": "stock",
+    "name": "ICICI Bank Ltd."
+  },
+  {
+    "ticker": "ITUB",
+    "type": "stock",
+    "name": "Ita\u00fa Unibanco Holding SA"
+  },
+  {
+    "ticker": "BBD",
+    "type": "stock",
+    "name": "Banco Bradesco SA"
+  },
+  {
+    "ticker": "VALE",
+    "type": "stock",
+    "name": "Vale SA"
+  },
+  {
+    "ticker": "PBR",
+    "type": "stock",
+    "name": "Petr\u00f3leo Brasileiro SA"
+  },
+  {
+    "ticker": "SID",
+    "type": "stock",
+    "name": "Companhia Sider\u00fargica Nacional"
+  },
+  {
+    "ticker": "ERJ",
+    "type": "stock",
+    "name": "Embraer SA"
+  },
+  {
+    "ticker": "ABEV",
+    "type": "stock",
+    "name": "Ambev SA"
+  },
+  {
+    "ticker": "BAK",
+    "type": "stock",
+    "name": "Braskem SA"
+  },
+  {
+    "ticker": "LREN3.SA",
+    "type": "stock",
+    "name": "Lojas Renner SA"
+  },
+  {
+    "ticker": "KB",
+    "type": "stock",
+    "name": "KB Financial Group Inc."
+  },
+  {
+    "ticker": "SHG",
+    "type": "stock",
+    "name": "Shinhan Financial Group Co."
+  },
+  {
+    "ticker": "HMC",
+    "type": "stock",
+    "name": "Honda Motor Co. Ltd."
+  },
+  {
+    "ticker": "NSANY",
+    "type": "stock",
+    "name": "Nissan Motor Co. Ltd."
+  },
+  {
+    "ticker": "MZDAY",
+    "type": "stock",
+    "name": "Mazda Motor Corp."
+  },
+  {
+    "ticker": "7267.T",
+    "type": "stock",
+    "name": "Honda Motor Co. (Tokyo)"
+  },
+  {
+    "ticker": "9984.T",
+    "type": "stock",
+    "name": "SoftBank Group Corp."
+  },
+  {
+    "ticker": "6758.T",
+    "type": "stock",
+    "name": "Sony Group Corp. (Tokyo)"
+  },
+  {
+    "ticker": "7203.T",
+    "type": "stock",
+    "name": "Toyota Motor Corp. (Tokyo)"
+  },
+  {
+    "ticker": "6861.T",
+    "type": "stock",
+    "name": "Keyence Corp."
+  },
+  {
+    "ticker": "SIEGY",
+    "type": "stock",
+    "name": "Siemens AG"
+  },
+  {
+    "ticker": "ADDYY",
+    "type": "stock",
+    "name": "adidas AG"
+  },
+  {
+    "ticker": "BAYRY",
+    "type": "stock",
+    "name": "Bayer AG"
+  },
+  {
+    "ticker": "BASFY",
+    "type": "stock",
+    "name": "BASF SE"
+  },
+  {
+    "ticker": "DPSGY",
+    "type": "stock",
+    "name": "Deutsche Post AG"
+  },
+  {
+    "ticker": "VWAGY",
+    "type": "stock",
+    "name": "Volkswagen AG"
+  },
+  {
+    "ticker": "BMWYY",
+    "type": "stock",
+    "name": "BMW AG"
+  },
+  {
+    "ticker": "MBGYY",
+    "type": "stock",
+    "name": "Mercedes-Benz Group AG"
+  },
+  {
+    "ticker": "DB",
+    "type": "stock",
+    "name": "Deutsche Bank AG"
+  },
+  {
+    "ticker": "AIQUY",
+    "type": "stock",
+    "name": "Air Liquide SA"
+  },
+  {
+    "ticker": "STMEF",
+    "type": "stock",
+    "name": "STMicroelectronics NV"
+  },
+  {
+    "ticker": "ERICB",
+    "type": "stock",
+    "name": "Ericsson"
+  },
+  {
+    "ticker": "NOK",
+    "type": "stock",
+    "name": "Nokia Corp."
+  },
+  {
+    "ticker": "RACE",
+    "type": "stock",
+    "name": "Ferrari NV"
+  },
+  {
+    "ticker": "STLA",
+    "type": "stock",
+    "name": "Stellantis NV"
+  },
+  {
+    "ticker": "RNO",
+    "type": "stock",
+    "name": "Renault SA"
+  },
+  {
+    "ticker": "NCLH",
+    "type": "stock",
+    "name": "Norwegian Cruise Line Holdings"
+  },
+  {
+    "ticker": "HA",
+    "type": "stock",
+    "name": "Hawaiian Holdings Inc."
+  },
+  {
+    "ticker": "SAVE",
+    "type": "stock",
+    "name": "Spirit Airlines Inc."
+  },
+  {
+    "ticker": "ALGT",
+    "type": "stock",
+    "name": "Allegiant Travel Co."
+  },
+  {
+    "ticker": "SKYW",
+    "type": "stock",
+    "name": "SkyWest Inc."
+  },
+  {
+    "ticker": "JBLU",
+    "type": "stock",
+    "name": "JetBlue Airways Corp."
+  },
+  {
+    "ticker": "XPO",
+    "type": "stock",
+    "name": "XPO Inc."
+  },
+  {
+    "ticker": "SAIA",
+    "type": "stock",
+    "name": "Saia Inc."
+  },
+  {
+    "ticker": "ODFL",
+    "type": "stock",
+    "name": "Old Dominion Freight Line Inc."
+  },
+  {
+    "ticker": "JBHT",
+    "type": "stock",
+    "name": "J.B. Hunt Transport Services"
+  },
+  {
+    "ticker": "KNX",
+    "type": "stock",
+    "name": "Knight-Swift Transportation"
+  },
+  {
+    "ticker": "CHRW",
+    "type": "stock",
+    "name": "C.H. Robinson Worldwide Inc."
+  },
+  {
+    "ticker": "EXP",
+    "type": "stock",
+    "name": "Eagle Materials Inc."
+  },
+  {
+    "ticker": "MLM",
+    "type": "stock",
+    "name": "Martin Marietta Materials Inc."
+  },
+  {
+    "ticker": "VMC",
+    "type": "stock",
+    "name": "Vulcan Materials Co."
+  },
+  {
+    "ticker": "SUM",
+    "type": "stock",
+    "name": "Summit Materials Inc."
+  },
+  {
+    "ticker": "CRH",
+    "type": "stock",
+    "name": "CRH PLC"
+  },
+  {
+    "ticker": "HZNP",
+    "type": "stock",
+    "name": "Horizon Therapeutics PLC"
+  },
+  {
+    "ticker": "BIIB",
+    "type": "stock",
+    "name": "Biogen Inc."
+  },
+  {
+    "ticker": "ILMN",
+    "type": "stock",
+    "name": "Illumina Inc."
+  },
+  {
+    "ticker": "IONS",
+    "type": "stock",
+    "name": "Ionis Pharmaceuticals Inc."
+  },
+  {
+    "ticker": "ALNY",
+    "type": "stock",
+    "name": "Alnylam Pharmaceuticals Inc."
+  },
+  {
+    "ticker": "SRPT",
+    "type": "stock",
+    "name": "Sarepta Therapeutics Inc."
+  },
+  {
+    "ticker": "FOLD",
+    "type": "stock",
+    "name": "Amicus Therapeutics Inc."
+  },
+  {
+    "ticker": "RARE",
+    "type": "stock",
+    "name": "Ultragenyx Pharmaceutical Inc."
+  },
+  {
+    "ticker": "ARGX",
+    "type": "stock",
+    "name": "argenx SE"
+  },
+  {
+    "ticker": "GMAB",
+    "type": "stock",
+    "name": "Genmab A/S"
+  },
+  {
+    "ticker": "TAK",
+    "type": "stock",
+    "name": "Takeda Pharmaceutical Co."
+  },
+  {
+    "ticker": "JAZZ",
+    "type": "stock",
+    "name": "Jazz Pharmaceuticals PLC"
+  },
+  {
+    "ticker": "PRGO",
+    "type": "stock",
+    "name": "Perrigo Co. PLC"
+  },
+  {
+    "ticker": "AGN",
+    "type": "stock",
+    "name": "Allergan PLC"
+  },
+  {
+    "ticker": "ENDP",
+    "type": "stock",
+    "name": "Endo International PLC"
+  },
+  {
+    "ticker": "TEVA",
+    "type": "stock",
+    "name": "Teva Pharmaceutical Industries"
+  },
+  {
+    "ticker": "MYL",
+    "type": "stock",
+    "name": "Viatris Inc."
+  },
+  {
+    "ticker": "VTRS",
+    "type": "stock",
+    "name": "Viatris Inc."
+  },
+  {
+    "ticker": "MNKD",
+    "type": "stock",
+    "name": "MannKind Corp."
+  },
+  {
+    "ticker": "CLOV",
+    "type": "stock",
+    "name": "Clover Health Investments Corp."
+  },
+  {
+    "ticker": "ONEM",
+    "type": "stock",
+    "name": "1Life Healthcare Inc."
+  },
+  {
+    "ticker": "ACAD",
+    "type": "stock",
+    "name": "ACADIA Pharmaceuticals Inc."
+  },
+  {
+    "ticker": "EXEL",
+    "type": "stock",
+    "name": "Exelixis Inc."
+  },
+  {
+    "ticker": "NKTR",
+    "type": "stock",
+    "name": "Nektar Therapeutics"
+  },
+  {
+    "ticker": "PTCT",
+    "type": "stock",
+    "name": "PTC Therapeutics Inc."
+  },
+  {
+    "ticker": "FATE",
+    "type": "stock",
+    "name": "Fate Therapeutics Inc."
+  },
+  {
+    "ticker": "BEAM",
+    "type": "stock",
+    "name": "Beam Therapeutics Inc."
+  },
+  {
+    "ticker": "CRSP",
+    "type": "stock",
+    "name": "CRISPR Therapeutics AG"
+  },
+  {
+    "ticker": "EDIT",
+    "type": "stock",
+    "name": "Editas Medicine Inc."
+  },
+  {
+    "ticker": "NTLA",
+    "type": "stock",
+    "name": "Intellia Therapeutics Inc."
+  },
+  {
+    "ticker": "VERV",
+    "type": "stock",
+    "name": "Verve Therapeutics Inc."
+  },
+  {
+    "ticker": "PMVP",
+    "type": "stock",
+    "name": "PMV Pharmaceuticals Inc."
+  },
+  {
+    "ticker": "SGEN",
+    "type": "stock",
+    "name": "Seagen Inc."
+  },
+  {
+    "ticker": "RCUS",
+    "type": "stock",
+    "name": "Arcus Biosciences Inc."
+  },
+  {
+    "ticker": "TVTX",
+    "type": "stock",
+    "name": "Travere Therapeutics Inc."
+  },
+  {
+    "ticker": "IMVT",
+    "type": "stock",
+    "name": "Immunovant Inc."
+  },
+  {
+    "ticker": "APLS",
+    "type": "stock",
+    "name": "Apellis Pharmaceuticals Inc."
+  },
+  {
+    "ticker": "PRAX",
+    "type": "stock",
+    "name": "Praxis Precision Medicine Inc."
+  },
+  {
+    "ticker": "KYMR",
+    "type": "stock",
+    "name": "Kymera Therapeutics Inc."
+  },
+  {
+    "ticker": "RXRX",
+    "type": "stock",
+    "name": "Recursion Pharmaceuticals Inc."
+  },
+  {
+    "ticker": "SDGR",
+    "type": "stock",
+    "name": "Schr\u00f6dinger Inc."
+  },
+  {
+    "ticker": "EXAI",
+    "type": "stock",
+    "name": "Exscientia PLC"
+  },
+  {
+    "ticker": "ABCL",
+    "type": "stock",
+    "name": "AbCellera Biologics Inc."
+  },
+  {
+    "ticker": "TWST",
+    "type": "stock",
+    "name": "Twist Bioscience Corp."
+  },
+  {
+    "ticker": "PACB",
+    "type": "stock",
+    "name": "Pacific Biosciences of California"
+  },
+  {
+    "ticker": "OLINK",
+    "type": "stock",
+    "name": "Olink Proteomics AB"
+  },
+  {
+    "ticker": "AVITA",
+    "type": "stock",
+    "name": "AVITA Medical Inc."
+  },
+  {
+    "ticker": "INSP",
+    "type": "stock",
+    "name": "Inspire Medical Systems Inc."
+  },
+  {
+    "ticker": "NVCR",
+    "type": "stock",
+    "name": "NovoCure Ltd."
+  },
+  {
+    "ticker": "GKOS",
+    "type": "stock",
+    "name": "Glaukos Corp."
+  },
+  {
+    "ticker": "SILK",
+    "type": "stock",
+    "name": "Silk Road Medical Inc."
+  },
+  {
+    "ticker": "IRTC",
+    "type": "stock",
+    "name": "iRhythm Technologies Inc."
+  },
+  {
+    "ticker": "SWAV",
+    "type": "stock",
+    "name": "ShockWave Medical Inc."
+  },
+  {
+    "ticker": "APEN",
+    "type": "stock",
+    "name": "Apollo Endosurgery Inc."
+  },
+  {
+    "ticker": "STE",
+    "type": "stock",
+    "name": "STERIS PLC"
+  },
+  {
+    "ticker": "MMSI",
+    "type": "stock",
+    "name": "Merit Medical Systems Inc."
+  },
+  {
+    "ticker": "LMAT",
+    "type": "stock",
+    "name": "LeMaitre Vascular Inc."
+  },
+  {
+    "ticker": "ICUI",
+    "type": "stock",
+    "name": "ICU Medical Inc."
+  },
+  {
+    "ticker": "NARI",
+    "type": "stock",
+    "name": "Inari Medical Inc."
+  },
+  {
+    "ticker": "SPT",
+    "type": "stock",
+    "name": "Sprinklr Inc."
+  },
+  {
+    "ticker": "GTLB",
+    "type": "stock",
+    "name": "GitLab Inc."
+  },
+  {
+    "ticker": "ASAN",
+    "type": "stock",
+    "name": "Asana Inc."
+  },
+  {
+    "ticker": "BASE",
+    "type": "stock",
+    "name": "Couchbase Inc."
+  },
+  {
+    "ticker": "BRZE",
+    "type": "stock",
+    "name": "Braze Inc."
+  },
+  {
+    "ticker": "PCVX",
+    "type": "stock",
+    "name": "Vaxcyte Inc."
+  },
+  {
+    "ticker": "GENI",
+    "type": "stock",
+    "name": "Genius Sports Ltd."
+  },
+  {
+    "ticker": "GAMB",
+    "type": "stock",
+    "name": "Gambling.com Group Ltd."
+  },
+  {
+    "ticker": "ACMR",
+    "type": "stock",
+    "name": "ACM Research Inc."
+  },
+  {
+    "ticker": "CAMT",
+    "type": "stock",
+    "name": "Camtek Ltd."
+  },
+  {
+    "ticker": "ONTO",
+    "type": "stock",
+    "name": "Onto Innovation Inc."
+  },
+  {
+    "ticker": "FORM",
+    "type": "stock",
+    "name": "FormFactor Inc."
+  },
+  {
+    "ticker": "ICHR",
+    "type": "stock",
+    "name": "Ichor Holdings Ltd."
+  },
+  {
+    "ticker": "UCTT",
+    "type": "stock",
+    "name": "Ultra Clean Holdings Inc."
+  },
+  {
+    "ticker": "MKSI",
+    "type": "stock",
+    "name": "MKS Instruments Inc."
+  },
+  {
+    "ticker": "COHU",
+    "type": "stock",
+    "name": "Cohu Inc."
+  },
+  {
+    "ticker": "ENTG",
+    "type": "stock",
+    "name": "Entegris Inc."
+  },
+  {
+    "ticker": "AZTA",
+    "type": "stock",
+    "name": "Azenta Inc."
+  },
+  {
+    "ticker": "PDFS",
+    "type": "stock",
+    "name": "PDF Solutions Inc."
+  },
+  {
+    "ticker": "ACLS",
+    "type": "stock",
+    "name": "Axcelis Technologies Inc."
+  },
+  {
+    "ticker": "NVMI",
+    "type": "stock",
+    "name": "Nova Ltd."
+  },
+  {
+    "ticker": "AEHR",
+    "type": "stock",
+    "name": "Aehr Test Systems"
+  },
+  {
+    "ticker": "SWK",
+    "type": "stock",
+    "name": "Stanley Black & Decker Inc."
+  },
+  {
+    "ticker": "ITW",
+    "type": "stock",
+    "name": "Illinois Tool Works Inc."
+  },
+  {
+    "ticker": "DOV",
+    "type": "stock",
+    "name": "Dover Corp."
+  },
+  {
+    "ticker": "GWW",
+    "type": "stock",
+    "name": "W.W. Grainger Inc."
+  },
+  {
+    "ticker": "MSM",
+    "type": "stock",
+    "name": "MSC Industrial Direct Co."
+  },
+  {
+    "ticker": "FAST",
+    "type": "stock",
+    "name": "Fastenal Co."
+  },
+  {
+    "ticker": "WSO",
+    "type": "stock",
+    "name": "Watsco Inc."
+  },
+  {
+    "ticker": "AGCO",
+    "type": "stock",
+    "name": "AGCO Corp."
+  },
+  {
+    "ticker": "CNH",
+    "type": "stock",
+    "name": "CNH Industrial NV"
+  },
+  {
+    "ticker": "PCAR",
+    "type": "stock",
+    "name": "PACCAR Inc."
+  },
+  {
+    "ticker": "CMI",
+    "type": "stock",
+    "name": "Cummins Inc."
+  },
+  {
+    "ticker": "TRN",
+    "type": "stock",
+    "name": "Trinity Industries Inc."
+  },
+  {
+    "ticker": "GNRC",
+    "type": "stock",
+    "name": "Generac Holdings Inc."
+  },
+  {
+    "ticker": "GTLS",
+    "type": "stock",
+    "name": "Chart Industries Inc."
+  },
+  {
+    "ticker": "FELE",
+    "type": "stock",
+    "name": "Franklin Electric Co."
+  },
+  {
+    "ticker": "REXR",
+    "type": "stock",
+    "name": "Rexford Industrial Realty Inc."
+  },
+  {
+    "ticker": "EXR",
+    "type": "stock",
+    "name": "Extra Space Storage Inc."
+  },
+  {
+    "ticker": "CUBE",
+    "type": "stock",
+    "name": "CubeSmart"
+  },
+  {
+    "ticker": "LSI",
+    "type": "stock",
+    "name": "Life Storage Inc."
+  },
+  {
+    "ticker": "NSA",
+    "type": "stock",
+    "name": "National Storage Affiliates Trust"
+  },
+  {
+    "ticker": "STAG",
+    "type": "stock",
+    "name": "STAG Industrial Inc."
+  },
+  {
+    "ticker": "EGP",
+    "type": "stock",
+    "name": "EastGroup Properties Inc."
+  },
+  {
+    "ticker": "FR",
+    "type": "stock",
+    "name": "First Industrial Realty Trust"
+  },
+  {
+    "ticker": "TRNO",
+    "type": "stock",
+    "name": "Terreno Realty Corp."
+  },
+  {
+    "ticker": "IIPR",
+    "type": "stock",
+    "name": "Innovative Industrial Properties"
+  },
+  {
+    "ticker": "WPC",
+    "type": "stock",
+    "name": "W. P. Carey Inc."
+  },
+  {
+    "ticker": "NNN",
+    "type": "stock",
+    "name": "NNN REIT Inc."
+  },
+  {
+    "ticker": "ADC",
+    "type": "stock",
+    "name": "Agree Realty Corp."
+  },
+  {
+    "ticker": "EPRT",
+    "type": "stock",
+    "name": "Essential Properties Realty Trust"
+  },
+  {
+    "ticker": "FCPT",
+    "type": "stock",
+    "name": "Four Corners Property Trust"
+  },
+  {
+    "ticker": "GTY",
+    "type": "stock",
+    "name": "Getty Realty Corp."
+  },
+  {
+    "ticker": "SRC",
+    "type": "stock",
+    "name": "Spirit Realty Capital Inc."
+  },
+  {
+    "ticker": "PINE",
+    "type": "stock",
+    "name": "Alpine Income Property Trust"
+  },
+  {
+    "ticker": "BXP",
+    "type": "stock",
+    "name": "Boston Properties Inc."
+  },
+  {
+    "ticker": "SLG",
+    "type": "stock",
+    "name": "SL Green Realty Corp."
+  },
+  {
+    "ticker": "VNO",
+    "type": "stock",
+    "name": "Vornado Realty Trust"
+  },
+  {
+    "ticker": "HIW",
+    "type": "stock",
+    "name": "Highwoods Properties Inc."
+  },
+  {
+    "ticker": "CXW",
+    "type": "stock",
+    "name": "CoreCivic Inc."
+  },
+  {
+    "ticker": "GEO",
+    "type": "stock",
+    "name": "GEO Group Inc."
+  },
+  {
+    "ticker": "AMH",
+    "type": "stock",
+    "name": "American Homes 4 Rent"
+  },
+  {
+    "ticker": "INVH",
+    "type": "stock",
+    "name": "Invitation Homes Inc."
+  },
+  {
+    "ticker": "UDR",
+    "type": "stock",
+    "name": "UDR Inc."
+  },
+  {
+    "ticker": "CPT",
+    "type": "stock",
+    "name": "Camden Property Trust"
+  },
+  {
+    "ticker": "MAA",
+    "type": "stock",
+    "name": "Mid-America Apartment Communities"
+  },
+  {
+    "ticker": "ESS",
+    "type": "stock",
+    "name": "Essex Property Trust Inc."
+  },
+  {
+    "ticker": "NLY",
+    "type": "stock",
+    "name": "Annaly Capital Management Inc."
+  },
+  {
+    "ticker": "AGNC",
+    "type": "stock",
+    "name": "AGNC Investment Corp."
+  },
+  {
+    "ticker": "ARR",
+    "type": "stock",
+    "name": "ARMOUR Residential REIT Inc."
+  },
+  {
+    "ticker": "DX",
+    "type": "stock",
+    "name": "Dynex Capital Inc."
+  },
+  {
+    "ticker": "TWO",
+    "type": "stock",
+    "name": "Two Harbors Investment Corp."
+  },
+  {
+    "ticker": "PMT",
+    "type": "stock",
+    "name": "PennyMac Mortgage Investment Trust"
+  },
+  {
+    "ticker": "IVR",
+    "type": "stock",
+    "name": "Invesco Mortgage Capital Inc."
+  },
+  {
+    "ticker": "RITM",
+    "type": "stock",
+    "name": "Rithm Capital Corp."
+  },
+  {
+    "ticker": "NYCB",
+    "type": "stock",
+    "name": "New York Community Bancorp"
+  },
+  {
+    "ticker": "PACW",
+    "type": "stock",
+    "name": "PacWest Bancorp"
+  },
+  {
+    "ticker": "WAL",
+    "type": "stock",
+    "name": "Western Alliance Bancorporation"
+  },
+  {
+    "ticker": "ZION",
+    "type": "stock",
+    "name": "Zions Bancorporation"
+  },
+  {
+    "ticker": "KEY",
+    "type": "stock",
+    "name": "KeyCorp"
+  },
+  {
+    "ticker": "RF",
+    "type": "stock",
+    "name": "Regions Financial Corp."
+  },
+  {
+    "ticker": "CFG",
+    "type": "stock",
+    "name": "Citizens Financial Group Inc."
+  },
+  {
+    "ticker": "HBAN",
+    "type": "stock",
+    "name": "Huntington Bancshares Inc."
+  },
+  {
+    "ticker": "MTB",
+    "type": "stock",
+    "name": "M&T Bank Corp."
+  },
+  {
+    "ticker": "FHN",
+    "type": "stock",
+    "name": "First Horizon Corp."
+  },
+  {
+    "ticker": "BOH",
+    "type": "stock",
+    "name": "Bank of Hawaii Corp."
+  },
+  {
+    "ticker": "UMPQ",
+    "type": "stock",
+    "name": "Umpqua Holdings Corp."
+  },
+  {
+    "ticker": "WTFC",
+    "type": "stock",
+    "name": "Wintrust Financial Corp."
+  },
+  {
+    "ticker": "SNV",
+    "type": "stock",
+    "name": "Synovus Financial Corp."
+  },
+  {
+    "ticker": "CBSH",
+    "type": "stock",
+    "name": "Commerce Bancshares Inc."
+  },
+  {
+    "ticker": "UBSI",
+    "type": "stock",
+    "name": "United Bankshares Inc."
+  },
+  {
+    "ticker": "FFIN",
+    "type": "stock",
+    "name": "Cullen/Frost Bankers Inc."
+  },
+  {
+    "ticker": "BOKF",
+    "type": "stock",
+    "name": "BOK Financial Corp."
+  },
+  {
+    "ticker": "IBCP",
+    "type": "stock",
+    "name": "Independent Bank Corp."
+  },
+  {
+    "ticker": "FULT",
+    "type": "stock",
+    "name": "Fulton Financial Corp."
+  }
+]

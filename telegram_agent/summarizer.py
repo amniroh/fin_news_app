@@ -4,6 +4,7 @@ import os
 import re
 from typing import List, Optional, Tuple
 
+from .config import DEFAULT_LLM_MODEL
 from .models import NewsItem
 from .prompt_compact import item_to_prompt_snippet
 
@@ -214,7 +215,7 @@ async def summarize_digest(
         return block, ""
 
     use_gemini = config.get("use_gemini", False) or bool(os.getenv("USE_GEMINI", "").lower() == "true")
-    model = config.get("llm_model", "anthropic/claude-3.5-sonnet")
+    model = config.get("llm_model", DEFAULT_LLM_MODEL)
     style = (config.get("prompt_style") or "balanced").strip().lower()
     logger.info(
         "[%s] single call; prompt ~%d chars user + %d system (style=%s, max_out_tokens=%s)",

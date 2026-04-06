@@ -22,6 +22,10 @@ CONFIG_JSON = ROOT / "config.json"
 DATA_DIR.mkdir(exist_ok=True)
 SESSION_DIR.mkdir(exist_ok=True)
 
+# Default OpenRouter model id when LLM_MODEL is unset. Use a broadly routed slug (some
+# anthropic/* defaults fail on certain OpenRouter provider routes with "invalid model").
+DEFAULT_LLM_MODEL = "openai/gpt-4o-mini"
+
 
 def _load_list_from_env(key: str, default: List[str]) -> List[str]:
     raw = os.getenv(key, "").strip()
@@ -30,8 +34,24 @@ def _load_list_from_env(key: str, default: List[str]) -> List[str]:
     return [x.strip() for x in raw.split(",") if x.strip()]
 
 
+def _symbol_universe_enabled_from_env() -> bool:
+    """
+    Use fixed symbol universe when explicitly true, or when PATH / ENV list is set (implicit).
+    SYMBOL_UNIVERSE_ENABLED=false disables even if PATH is set.
+    """
+    flag = os.getenv("SYMBOL_UNIVERSE_ENABLED", "").strip().lower()
+    if flag == "false":
+        return False
+    if flag == "true":
+        return True
+    return bool(os.getenv("SYMBOL_UNIVERSE_PATH", "").strip()) or bool(
+        os.getenv("SYMBOL_UNIVERSE_ENV", "").strip()
+    )
+
+
 def load_config() -> dict:
     """Load config: env vars override config.json."""
+    _symbol_path_env = os.getenv("SYMBOL_UNIVERSE_PATH", "").strip()
     config = {
         "telegram_api_id": os.getenv("TELEGRAM_API_ID", "").strip(),
         "telegram_api_hash": os.getenv("TELEGRAM_API_HASH", "").strip(),
@@ -46,7 +66,7 @@ def load_config() -> dict:
         "openrouter_api_key": os.getenv("OPENROUTER_API_KEY", "").strip(),
         "gemini_api_key": os.getenv("GEMINI_API_KEY", "").strip(),
         "use_gemini": os.getenv("USE_GEMINI", "false").lower() == "true",
-        "llm_model": os.getenv("LLM_MODEL", "anthropic/claude-3.5-sonnet"),
+        "llm_model": os.getenv("LLM_MODEL", DEFAULT_LLM_MODEL),
         "hours_back": float(os.getenv("HOURS_BACK", "6")),
         "max_items_per_run": int(os.getenv("MAX_ITEMS_PER_RUN", "50")),
         "seen_ids_file": str(DATA_DIR / "seen_ids.json"),
@@ -83,9 +103,43 @@ def load_config() -> dict:
         "agent_db_path": str(DATA_DIR / "agent.sqlite"),
         "agent_backfill_days": int(os.getenv("AGENT_BACKFILL_DAYS", "365")),
         "agent_memory_months": int(os.getenv("AGENT_MEMORY_MONTHS", "6")),
+        "agent_memory_prompt_chars": int(os.getenv("AGENT_MEMORY_PROMPT_CHARS", "8000")),
         "agent_max_telegram_backfill": int(os.getenv("AGENT_MAX_TELEGRAM_BACKFILL", "3000")),
         "agent_research_model": os.getenv("AGENT_RESEARCH_MODEL", "").strip()
-        or os.getenv("LLM_MODEL", "anthropic/claude-3.5-sonnet"),
+        or os.getenv("LLM_MODEL", DEFAULT_LLM_MODEL),
+        # Only persist opportunities with confidence >= this (0..1). Tightens "high confidence" bar.
+        "agent_research_min_confidence": float(os.getenv("AGENT_RESEARCH_MIN_CONFIDENCE", "0.75")),
+        "agent_research_max_output_tokens": int(os.getenv("AGENT_RESEARCH_MAX_OUTPUT_TOKENS", "12000")),
+        "agent_research_publish": os.getenv("AGENT_RESEARCH_PUBLISH", "true").lower() == "true",
+        "agent_research_backfill_publish": os.getenv("AGENT_RESEARCH_BACKFILL_PUBLISH", "true").lower()
+        == "true",
+        "agent_research_backfill_sleep_seconds": float(
+            os.getenv("AGENT_RESEARCH_BACKFILL_SLEEP_SECONDS", "1")
+        ),
+        # Structured memory caps (merge in memory_structured.merge_memory_state)
+        "agent_memory_cap_strongest": int(os.getenv("AGENT_MEMORY_CAP_STRONGEST", "20")),
+        "agent_memory_cap_recent": int(os.getenv("AGENT_MEMORY_CAP_RECENT", "20")),
+        "agent_memory_suggestion_days": int(os.getenv("AGENT_MEMORY_SUGGESTION_DAYS", "30")),
+        # Dry-run cost estimate only (typical completion size; actual may be lower).
+        "agent_research_assumed_output_tokens": int(
+            os.getenv("AGENT_RESEARCH_ASSUMED_OUTPUT_TOKENS", "4000")
+        ),
+        "agent_research_tester_prompt_limit": int(os.getenv("AGENT_RESEARCH_TESTER_PROMPT_LIMIT", "50")),
+        # Extract: LLM ticker/symbol extraction (cheap model; batched)
+        "extract_use_llm": os.getenv("EXTRACT_USE_LLM", "true").lower() == "true",
+        "extract_llm_model": os.getenv("EXTRACT_LLM_MODEL", "").strip()
+        or os.getenv("MICRO_MODEL_OPENROUTER", "anthropic/claude-3-haiku"),
+        "extract_llm_batch_size": int(os.getenv("EXTRACT_LLM_BATCH_SIZE", "12")),
+        "extract_max_chars_per_item": int(os.getenv("EXTRACT_MAX_CHARS_PER_ITEM", "2200")),
+        "extract_regex_fallback": os.getenv("EXTRACT_REGEX_FALLBACK", "true").lower() == "true",
+        # Fixed symbol universe mode (avoid broad extraction; constrain pipeline)
+        # Provide either SYMBOL_UNIVERSE_ENV (comma-separated) or SYMBOL_UNIVERSE_PATH (JSON file).
+        # If PATH or ENV list is set, universe is on unless SYMBOL_UNIVERSE_ENABLED=false.
+        "symbol_universe_enabled": _symbol_universe_enabled_from_env(),
+        "symbol_universe_env": os.getenv("SYMBOL_UNIVERSE_ENV", "").strip(),
+        "symbol_universe_path": _symbol_path_env or str(DATA_DIR / "symbol_universe_top1000.json"),
+        "memory_use_universe_news_only": os.getenv("MEMORY_USE_UNIVERSE_NEWS_ONLY", "true").lower()
+        == "true",
     }
 
     if CONFIG_JSON.exists():

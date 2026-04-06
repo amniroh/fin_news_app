@@ -13,6 +13,7 @@ from telegram_agent.agent_db import (
     upsert_price_rows,
     list_mentioned_symbols,
 )
+from telegram_agent.symbol_universe import symbol_universe_set
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,9 @@ def _yf_symbol(symbol: str) -> str:
     if s.endswith("-USD") and not s.startswith("^"):
         # yfinance crypto: BTC-USD
         return s
+    # yfinance uses dashes for share-class tickers (e.g. BRK.B -> BRK-B)
+    if "." in s and len(s) <= 8:
+        s = s.replace(".", "-")
     return s
 
 
@@ -74,13 +78,28 @@ def fetch_and_store_history(
 
 
 def backfill_all_mentioned(cfg: dict, *, days: int = 400) -> None:
-    """Fetch daily history for all symbols seen in news_mentions."""
+    """Fetch daily history for symbols.
+
+    In fixed-universe mode, this fetches for the configured universe (top-1000).
+    Otherwise it fetches for all symbols seen in `news_mentions`.
+    """
     db = Path(cfg.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
     con = connect(db)
     init_db(con)
-    syms = list_mentioned_symbols(con)
+    uni = symbol_universe_set(cfg)
+    use_universe = uni is not None
+    syms = sorted(uni) if use_universe else list_mentioned_symbols(con)
     if not syms:
-        logger.info("No symbols in news_mentions; run extract after ingest.")
+        if use_universe:
+            logger.info(
+                "No symbols to price (universe empty or failed to load). Check SYMBOL_UNIVERSE_PATH / JSON."
+            )
+        else:
+            logger.info("No symbols in news_mentions; set SYMBOL_UNIVERSE_PATH or run extract after ingest.")
+        con.close()
+        return
+    if use_universe:
+        logger.info("Backfilling prices for %s universe symbols (%s days)", len(syms), days)
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days)
     for sym in syms:
@@ -95,12 +114,30 @@ def backfill_all_mentioned(cfg: dict, *, days: int = 400) -> None:
 
 
 def incremental_prices(cfg: dict) -> None:
-    """Update price history for mentioned symbols from last bar to now."""
+    """Update price history.
+
+    In fixed-universe mode, it updates prices for the configured universe.
+    Otherwise it updates for all symbols seen in `news_mentions`.
+    """
     db = Path(cfg.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
     con = connect(db)
     init_db(con)
     end = datetime.now(timezone.utc)
-    for sym in list_mentioned_symbols(con):
+    uni = symbol_universe_set(cfg)
+    use_universe = uni is not None
+    syms = sorted(uni) if use_universe else list_mentioned_symbols(con)
+    if not syms:
+        if use_universe:
+            logger.info(
+                "No symbols to price (universe empty or failed to load). Check SYMBOL_UNIVERSE_PATH / JSON."
+            )
+        else:
+            logger.info("No symbols in news_mentions; set SYMBOL_UNIVERSE_PATH or run extract after ingest.")
+        con.close()
+        return
+    if use_universe:
+        logger.info("Incremental prices for %s universe symbols", len(syms))
+    for sym in syms:
         latest = get_latest_price_ts(con, sym)
         start = (latest - timedelta(days=2)) if latest else end - timedelta(days=400)
         n = fetch_and_store_history(con, sym, start=start, end=end)

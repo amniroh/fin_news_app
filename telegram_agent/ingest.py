@@ -118,8 +118,25 @@ async def run_ingest(
         else:
             logger.info("Twitter skipped: no TWITTER_BEARER_TOKEN")
 
-    n = upsert_news_items(con, all_items)
+    stats = upsert_news_items(con, all_items)
     kv_set(con, "ingest:last_run_ts", now.isoformat())
-    logger.info("Ingest upserted %s news rows (mode=%s, since=%s)", n, mode, since.isoformat())
+    logger.info(
+        "Ingest upserted %s news rows (%s new ids, %s ids already in DB / updated); mode=%s, since=%s",
+        stats.total,
+        stats.new_count,
+        stats.duplicate_count,
+        mode,
+        since.isoformat(),
+    )
+    for src, dup_n in sorted(
+        stats.duplicates_by_source.items(),
+        key=lambda x: (-x[1], x[0]),
+    ):
+        if dup_n > 0:
+            logger.info(
+                "Already ingested before (same id): %s rows from source %r",
+                dup_n,
+                src,
+            )
     con.close()
-    return n
+    return stats.total

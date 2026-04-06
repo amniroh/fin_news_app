@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL_PRICING = {
     "gemini-1.5-flash": (0.075, 0.30),
     "gemini-2.0-flash": (0.10, 0.40),
+    "openai/gpt-4o-mini": (0.15, 0.60),
     "anthropic/claude-3-haiku": (0.25, 1.25),
     "anthropic/claude-3.5-sonnet": (3.0, 15.0),
     "anthropic/claude-3.5-haiku": (1.0, 5.0),
@@ -69,6 +70,17 @@ def estimate_digest_cost(
         "output_usd": usd_for_tokens(out_tok, out_p),
         "total_usd": usd_for_tokens(in_tok, inp_p) + usd_for_tokens(out_tok, out_p),
     }
+
+
+def estimate_research_cost(
+    system_prompt: str,
+    user_prompt: str,
+    model: str,
+    *,
+    assumed_output_tokens: int,
+) -> Dict[str, Any]:
+    """Token/USD estimate for a single chat completion (research agent dry-run)."""
+    return estimate_digest_cost(system_prompt, user_prompt, model, assumed_output_tokens)
 
 
 def estimate_micro_batch_cost(
