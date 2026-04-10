@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 # Paths
 ROOT = Path(__file__).resolve().parent
+# Git repo root (parent of `telegram_agent/`). Env paths like SYMBOL_UNIVERSE_PATH=telegram_agent/foo.json
+# resolve against this when relative, so the same .env works on EC2 and laptops.
+REPO_ROOT = ROOT.parent
 DATA_DIR = ROOT / "data"
 SESSION_DIR = ROOT / "sessions"
 CONFIG_JSON = ROOT / "config.json"
@@ -47,6 +50,14 @@ def _symbol_universe_enabled_from_env() -> bool:
     return bool(os.getenv("SYMBOL_UNIVERSE_PATH", "").strip()) or bool(
         os.getenv("SYMBOL_UNIVERSE_ENV", "").strip()
     )
+
+
+def _resolve_repo_relative(path_str: str) -> str:
+    """If path is relative, treat it as relative to REPO_ROOT (market_analysis/)."""
+    p = Path(path_str).expanduser()
+    if p.is_absolute():
+        return str(p.resolve())
+    return str((REPO_ROOT / p).resolve())
 
 
 def load_config() -> dict:
@@ -128,8 +139,9 @@ def load_config() -> dict:
             if x.strip()
         ],
         "bot_min_schedule_hours": float(os.getenv("BOT_MIN_SCHEDULE_HOURS", "0.25")),
-        # Agent (ingest / research / backtest)
-        "agent_db_path": str(DATA_DIR / "agent.sqlite"),
+        # Agent (ingest / research / backtest). Relative AGENT_DB_PATH is from repo root.
+        "agent_db_path": os.getenv("AGENT_DB_PATH", "").strip()
+        or str(DATA_DIR / "agent.sqlite"),
         "agent_backfill_days": int(os.getenv("AGENT_BACKFILL_DAYS", "365")),
         "agent_memory_months": int(os.getenv("AGENT_MEMORY_MONTHS", "6")),
         "agent_memory_prompt_chars": int(os.getenv("AGENT_MEMORY_PROMPT_CHARS", "8000")),
@@ -249,6 +261,14 @@ def load_config() -> dict:
         config["rss_feeds"] = list(DEFAULT_RSS_FEEDS)
     if not config["twitter_usernames"]:
         config["twitter_usernames"] = list(DEFAULT_TWITTER_USERNAMES)
+
+    for _path_key in ("symbol_universe_path", "agent_db_path"):
+        raw = config.get(_path_key)
+        if raw:
+            try:
+                config[_path_key] = _resolve_repo_relative(str(raw))
+            except OSError as e:
+                logger.warning("Could not resolve %s=%r: %s", _path_key, raw, e)
 
     # If API_USE_SYMBOL_UNIVERSE=true and provider-specific tickers are unset, default them to the universe.
     # This allows running API-only ingest/backfills over the full universe without duplicating config.

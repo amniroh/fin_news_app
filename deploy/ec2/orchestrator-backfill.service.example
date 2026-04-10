@@ -1,0 +1,23 @@
+# Example systemd unit: install as /etc/systemd/system/orchestrator-backfill.service
+# Adjust User=, WorkingDirectory=, and ExecStart= dates.
+#
+# sudo cp deploy/ec2/orchestrator-backfill.service.example /etc/systemd/system/orchestrator-backfill.service
+# sudo systemctl daemon-reload
+# sudo systemctl start orchestrator-backfill
+# journalctl -u orchestrator-backfill -f
+
+[Unit]
+Description=Market analysis orchestrator (backfill slice)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/home/ec2-user/market_analysis
+Environment=MPLBACKEND=Agg
+# Secrets: use repo-root .env (loaded by python-dotenv in agent.py), not systemd EnvironmentFile.
+ExecStart=/home/ec2-user/market_analysis/.venv/bin/python -m telegram_agent.agent orchestrate --backfill-from 2026-01-01 --backfill-to 2026-01-31
+
+[Install]
+WantedBy=multi-user.target
