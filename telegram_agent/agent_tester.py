@@ -1,11 +1,18 @@
-"""Evaluate stored recommendations (backtest from plan dates); write results into meta_json."""
+"""
+Evaluate stored strategy legs (`recommendations` rows) vs prices; write per-row `meta_json.tester`
+and aggregate metrics to `kv_state` for research feedback.
+
+Generic use: any strategy with the same schema (symbol, entry/suggestion timestamps,
+execute_review, optional meta.source) can be inserted into `recommendations` — e.g.
+`meta_json={"source": "manual"}` or `{"source": "external_api"}` — and tested the same way.
+"""
 from __future__ import annotations
 
 import json
 import logging
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from telegram_agent.agent_db import (
     connect,
@@ -13,10 +20,19 @@ from telegram_agent.agent_db import (
     list_recommendations,
     get_close_at_or_before,
     update_recommendation_meta,
+    kv_get,
+    kv_set,
     _parse_dt,
+)
+from telegram_agent.strategy_metrics import (
+    TradeLeg,
+    compute_aggregate_metrics,
+    pick_optimization_value,
 )
 
 logger = logging.getLogger(__name__)
+
+STRATEGY_TEST_KV_KEY = "strategy_test:aggregate_v1"
 
 
 def _parse_iso_loose(s: Optional[str]) -> Optional[datetime]:
@@ -84,16 +100,47 @@ def _realized_from_plan(
     }
 
 
+def _metrics_enabled_set(cfg: dict) -> Set[str]:
+    raw = cfg.get("test_metrics_enabled")
+    if isinstance(raw, list) and raw:
+        return {str(x).strip().lower() for x in raw if str(x).strip()}
+    if isinstance(raw, str) and raw.strip():
+        return {x.strip().lower() for x in raw.split(",") if x.strip()}
+    return {
+        "sharpe",
+        "alpha",
+        "max_drawdown",
+        "oos_sharpe",
+        "calmar",
+        "significance",
+    }
+
+
+def load_strategy_test_aggregate(con) -> Optional[Dict[str, Any]]:
+    """Latest aggregate metrics from the last `test-suggestions` run (JSON)."""
+    raw = kv_get(con, STRATEGY_TEST_KV_KEY)
+    if not raw:
+        return None
+    try:
+        d = json.loads(raw)
+        return d if isinstance(d, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
 def run_suggestion_tests(cfg: dict) -> int:
     """
-    For each recommendation, backtest from entry (plan) to min(now, execute_review).
-    Updates meta_json.tester in place.
+    For each recommendation (strategy leg), backtest from entry to min(now, execute_review).
+    Updates meta_json.tester per row and stores aggregate metrics + optimization scalar in kv_state.
     """
+    cfg = {**cfg}
     db = Path(cfg.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
     con = connect(db)
     init_db(con)
     recs = list_recommendations(con)
     n = 0
+    legs: List[TradeLeg] = []
+
     for r in recs:
         rid = int(r["id"])
         sym = r["symbol"]
@@ -124,8 +171,47 @@ def run_suggestion_tests(cfg: dict) -> int:
         update_recommendation_meta(con, rid, meta)
         n += 1
 
+        if realized and realized.get("realized_pct") is not None:
+            ex_ts = _parse_iso_loose(str(realized.get("exit_ts") or ""))
+            if ex_ts and ex_ts > entry:
+                legs.append(
+                    TradeLeg(
+                        entry=entry,
+                        exit=ex_ts,
+                        symbol=sym,
+                        realized_pct=float(realized["realized_pct"]),
+                        leg_id=rid,
+                    )
+                )
+
+    enabled = _metrics_enabled_set(cfg)
+    bench = str(cfg.get("test_benchmark_symbol") or "SPY").strip().upper()
+    rf = float(cfg.get("test_risk_free_annual", 0.04))
+    oos = float(cfg.get("test_oos_split", 0.5))
+
+    agg = compute_aggregate_metrics(
+        con,
+        legs,
+        benchmark_symbol=bench,
+        risk_free_annual=rf,
+        oos_split=oos,
+        enabled=enabled,
+    )
+    opt_key = str(cfg.get("test_optimization_metric") or "sharpe").strip().lower()
+    opt_val = pick_optimization_value(agg, opt_key)
+    agg["optimization_metric"] = opt_key
+    agg["optimization_value"] = opt_val
+    agg["evaluated_at"] = datetime.now(timezone.utc).isoformat()
+    kv_set(con, STRATEGY_TEST_KV_KEY, json.dumps(agg, default=str))
+
     con.close()
-    logger.info("Tester evaluated %s recommendation(s)", n)
+    logger.info(
+        "Tester evaluated %s leg(s); aggregate n_legs=%s optimization=%s=%s",
+        n,
+        agg.get("n_legs"),
+        opt_key,
+        opt_val,
+    )
     return n
 
 
@@ -152,3 +238,16 @@ def print_tester_summary(cfg: dict) -> None:
             )
         )
     con.close()
+
+
+def print_strategy_aggregate(cfg: dict) -> None:
+    """Print latest aggregate JSON from kv_state (same as used for research feedback)."""
+    db = Path(cfg.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
+    con = connect(db)
+    init_db(con)
+    agg = load_strategy_test_aggregate(con)
+    con.close()
+    if not agg:
+        print("(no aggregate strategy metrics — run test-suggestions first)")
+        return
+    print(json.dumps(agg, indent=2, default=str))

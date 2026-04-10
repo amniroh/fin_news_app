@@ -363,6 +363,150 @@ def get_latest_news_ts(con: sqlite3.Connection) -> Optional[datetime]:
     return _parse_dt(row["ts_utc"])
 
 
+def get_latest_news_ts_for_source_type(con: sqlite3.Connection, source_type: str) -> Optional[datetime]:
+    cur = con.execute(
+        "SELECT ts_utc FROM news_items WHERE source_type = ? ORDER BY ts_utc DESC LIMIT 1",
+        (str(source_type),),
+    )
+    row = cur.fetchone()
+    return _parse_dt(row["ts_utc"]) if row else None
+
+
+def count_news_days_in_window(
+    con: sqlite3.Connection,
+    *,
+    source_type: str,
+    start_utc: datetime,
+    end_utc: datetime,
+) -> int:
+    """
+    Number of distinct UTC calendar days with >=1 news_items row for a source_type in [start, end].
+    """
+    cur = con.execute(
+        """
+        SELECT COUNT(DISTINCT SUBSTR(ts_utc, 1, 10)) AS c
+        FROM news_items
+        WHERE source_type = ?
+          AND ts_utc >= ? AND ts_utc <= ?
+        """,
+        (str(source_type), _utc_iso(start_utc), _utc_iso(end_utc)),
+    )
+    row = cur.fetchone()
+    return int(row["c"]) if row else 0
+
+
+def has_news_for_source_day_utc(con: sqlite3.Connection, *, source_type: str, day_utc: datetime) -> bool:
+    """
+    True if there is >=1 news_items row for `source_type` on the given UTC calendar day.
+    `day_utc` will be normalized to 00:00 UTC.
+    """
+    if day_utc.tzinfo is None:
+        day_utc = day_utc.replace(tzinfo=timezone.utc)
+    day_utc = day_utc.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    end_excl = day_utc + timedelta(days=1)
+    cur = con.execute(
+        """
+        SELECT 1
+        FROM news_items
+        WHERE source_type = ?
+          AND ts_utc >= ? AND ts_utc < ?
+        LIMIT 1
+        """,
+        (str(source_type), _utc_iso(day_utc), _utc_iso(end_excl)),
+    )
+    return cur.fetchone() is not None
+
+
+def has_price_bar_for_day_utc(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    day_utc: datetime,
+    interval: str = "1d",
+) -> bool:
+    """
+    True if there is >=1 price bar for `symbol` on the given UTC calendar day (by ts_utc string prefix).
+    """
+    if day_utc.tzinfo is None:
+        day_utc = day_utc.replace(tzinfo=timezone.utc)
+    day_utc = day_utc.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    day_s = day_utc.date().isoformat()
+    cur = con.execute(
+        """
+        SELECT 1 FROM prices
+        WHERE symbol = ? AND interval = ?
+          AND SUBSTR(ts_utc, 1, 10) = ?
+        LIMIT 1
+        """,
+        (symbol.upper(), interval, day_s),
+    )
+    return cur.fetchone() is not None
+
+
+def list_price_symbols_for_day_utc(
+    con: sqlite3.Connection,
+    *,
+    day_utc: datetime,
+    interval: str = "1d",
+) -> List[str]:
+    """Distinct symbols that have at least one bar on a UTC calendar day."""
+    if day_utc.tzinfo is None:
+        day_utc = day_utc.replace(tzinfo=timezone.utc)
+    day_s = day_utc.astimezone(timezone.utc).date().isoformat()
+    cur = con.execute(
+        """
+        SELECT DISTINCT symbol FROM prices
+        WHERE interval = ? AND SUBSTR(ts_utc, 1, 10) = ?
+        """,
+        (interval, day_s),
+    )
+    return [str(r["symbol"]) for r in cur.fetchall()]
+
+
+def has_prices_covering_window(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    start_utc: datetime,
+    end_utc: datetime,
+    interval: str = "1d",
+) -> bool:
+    """
+    True if we have at least one bar at/before start_utc and at/after end_utc for (symbol, interval).
+    Used to skip re-fetching history when a requested backfill window is already populated.
+    """
+    cur = con.execute(
+        """
+        SELECT MIN(ts_utc) AS min_ts, MAX(ts_utc) AS max_ts, COUNT(*) AS n
+        FROM prices
+        WHERE symbol = ? AND interval = ?
+        """,
+        (symbol.upper(), interval),
+    )
+    row = cur.fetchone()
+    if not row:
+        return False
+    n = int(row["n"] or 0)
+    if n < 2:
+        return False
+    min_ts = row["min_ts"]
+    max_ts = row["max_ts"]
+    if not min_ts or not max_ts:
+        return False
+    try:
+        mn = _parse_dt(str(min_ts))
+        mx = _parse_dt(str(max_ts))
+    except Exception:
+        return False
+    if mn.tzinfo is None:
+        mn = mn.replace(tzinfo=timezone.utc)
+    if mx.tzinfo is None:
+        mx = mx.replace(tzinfo=timezone.utc)
+    mn = mn.astimezone(timezone.utc)
+    mx = mx.astimezone(timezone.utc)
+    return mn <= start_utc.astimezone(timezone.utc) and mx >= end_utc.astimezone(timezone.utc)
+
+
 def clear_news_items(con: sqlite3.Connection) -> int:
     """Delete all ingested news rows. Cascades to news_mentions (FK ON DELETE CASCADE)."""
     cur = con.execute("DELETE FROM news_items")

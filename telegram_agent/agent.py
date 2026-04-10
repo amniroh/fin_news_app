@@ -72,7 +72,11 @@ def main() -> None:
         write_research_dry_run_prompt_file,
     )
     from telegram_agent.backtest import print_backtest_report
-    from telegram_agent.agent_tester import run_suggestion_tests, print_tester_summary
+    from telegram_agent.agent_tester import (
+        run_suggestion_tests,
+        print_tester_summary,
+        print_strategy_aggregate,
+    )
     from telegram_agent.narrative_tracker import generate_horizon_report, generate_all_horizons
 
     p = argparse.ArgumentParser(description="Market analysis agent")
@@ -81,7 +85,23 @@ def main() -> None:
     pi = sub.add_parser("ingest", help="Fetch news into agent DB")
     pi.add_argument("--mode", choices=["incremental", "backfill"], default="incremental")
     pi.add_argument("--days", type=int, default=None, help="Backfill window in days (default from config)")
-    pi.add_argument("--sources", choices=["all", "rss", "telegram"], default=None)
+    pi.add_argument("--sources", choices=["all", "rss", "telegram", "api"], default=None)
+    pi.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="No network calls: print which sources/date-ranges/tickers would be fetched (based on DB coverage + config)",
+    )
+    pi.add_argument(
+        "--max-priority",
+        type=int,
+        default=None,
+        help="Only use universe investments with priority <= this value (0..3). Default from env MAX_PRIORITY (3 = no filtering).",
+    )
+    pi.add_argument(
+        "--force",
+        action="store_true",
+        help="Override duplication check and fetch even if DB already has coverage for the window",
+    )
 
     pe = sub.add_parser("extract", help="Extract tickers from news into news_mentions")
     pe.add_argument(
@@ -94,6 +114,12 @@ def main() -> None:
         type=int,
         default=2000,
         help="Max news rows without mentions to process (default 2000)",
+    )
+    pe.add_argument(
+        "--max-priority",
+        type=int,
+        default=None,
+        help="Only allow extracted symbols that are in the universe with priority <= this value (0..3). Default from env MAX_PRIORITY.",
     )
 
     pc = sub.add_parser(
@@ -134,6 +160,22 @@ def main() -> None:
     pp = sub.add_parser("prices", help="Fetch yfinance prices for mentioned symbols")
     pp.add_argument("--mode", choices=["incremental", "backfill"], default="incremental")
     pp.add_argument("--days", type=int, default=400, help="History days for backfill")
+    pp.add_argument(
+        "--force",
+        action="store_true",
+        help="Override duplication check and refetch even if price window looks populated",
+    )
+    pp.add_argument(
+        "--reverse",
+        action="store_true",
+        help="Backfill in reverse chronological order (newest day to oldest day)",
+    )
+    pp.add_argument(
+        "--max-priority",
+        type=int,
+        default=None,
+        help="Only fetch prices for universe investments with priority <= this value (0..3). Default from env MAX_PRIORITY.",
+    )
 
     sub.add_parser("memory", help="Update rolling macro/micro memory (LLM)")
 
@@ -145,11 +187,46 @@ def main() -> None:
         "without backfill, 1x cost/stats and full prompts to a file",
     )
     prs.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        choices=[
+            # Long-context / strongest reasoning
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-sonnet-4.5",
+            # Popular / strong general reasoning
+            "anthropic/claude-3.5-sonnet",
+            # Fast/cheap baseline
+            "anthropic/claude-3-haiku",
+            # Legacy 200k context
+            "anthropic/claude-2.1",
+        ],
+        help="Override the research LLM model for this run (OpenRouter model id).",
+    )
+    prs.add_argument(
+        "--min-confidence",
+        type=float,
+        default=None,
+        help="Minimum suggestion confidence (0..1) required to persist/return suggestions. Default from env AGENT_RESEARCH_MIN_CONFIDENCE (currently 0.75).",
+    )
+    prs.add_argument(
         "--dry-run-out",
         type=str,
         default=None,
         metavar="PATH",
         help="Path for full system+user prompts (default: telegram_agent/data/research_dry_run_prompt.txt)",
+    )
+    prs.add_argument(
+        "--max-num-ofnews",
+        type=int,
+        default=None,
+        help="Max number of news rows fetched and included in the research prompt (applies to live + backfill + dry-run). Overrides env MAX_NUM_OFNEWS.",
+    )
+    prs.add_argument(
+        "--max-priority",
+        type=int,
+        default=None,
+        help="Only use universe investments with priority <= this value (0..3) for research context/symbol lists. Default from env MAX_PRIORITY.",
     )
     prs.add_argument(
         "--backfill-from",
@@ -180,12 +257,22 @@ def main() -> None:
 
     pts = sub.add_parser(
         "test-suggestions",
-        help="Evaluate stored recommendations vs prices (plan dates); writes meta_json.tester",
+        help="Strategy test agent: evaluate stored legs in recommendations vs prices; per-row tester + aggregate metrics",
     )
     pts.add_argument(
         "--summary",
         action="store_true",
         help="Print id/symbol/tester JSON only (no DB update)",
+    )
+    pts.add_argument(
+        "--show-aggregate",
+        action="store_true",
+        help="After a normal run, print full aggregate metrics JSON from kv_state",
+    )
+    pts.add_argument(
+        "--print-aggregate-only",
+        action="store_true",
+        help="Skip per-leg updates; only print aggregate metrics JSON from the last test run",
     )
 
     pn = sub.add_parser("narrative", help="Generate narrative tracker report(s)")
@@ -195,11 +282,19 @@ def main() -> None:
     pa.add_argument("--mode", choices=["incremental", "backfill"], default="incremental")
     pa.add_argument("--days", type=int, default=None)
     pa.add_argument("--sources", choices=["all", "rss", "telegram"], default=None)
+    pa.add_argument(
+        "--max-priority",
+        type=int,
+        default=None,
+        help="Only use universe investments with priority <= this value (0..3) across ingest/extract/prices/memory/research. Default from env MAX_PRIORITY.",
+    )
     pa.add_argument("--skip-memory", action="store_true")
     pa.add_argument("--skip-research", action="store_true")
 
     args = p.parse_args()
     cfg = load_config()
+    if getattr(args, "max_priority", None) is not None:
+        cfg["max_priority"] = int(args.max_priority)
 
     if args.cmd == "ingest":
         n = asyncio.run(
@@ -208,6 +303,8 @@ def main() -> None:
                 mode=args.mode,
                 source_mode=args.sources,
                 backfill_days=args.days,
+                force=args.force,
+                dry_run=bool(args.dry_run),
             )
         )
         logger.info("Ingest done: %s rows", n)
@@ -297,10 +394,13 @@ def main() -> None:
         return
 
     if args.cmd == "prices":
+        cfg2 = dict(cfg)
+        cfg2["prices_force"] = bool(args.force)
+        cfg2["prices_backfill_reverse"] = bool(getattr(args, "reverse", False))
         if args.mode == "backfill":
-            backfill_all_mentioned(cfg, days=args.days)
+            backfill_all_mentioned(cfg2, days=args.days)
         else:
-            incremental_prices(cfg)
+            incremental_prices(cfg2)
         return
 
     if args.cmd == "memory":
@@ -308,6 +408,12 @@ def main() -> None:
         return
 
     if args.cmd == "research":
+        if args.model:
+            cfg = dict(cfg)
+            cfg["agent_research_model"] = str(args.model).strip()
+        if getattr(args, "min_confidence", None) is not None:
+            cfg = dict(cfg)
+            cfg["agent_research_min_confidence"] = float(args.min_confidence)
         if args.backfill_from:
             start_d = date.fromisoformat(args.backfill_from)
             end_d = date.fromisoformat(args.backfill_to) if args.backfill_to else start_d
@@ -315,7 +421,10 @@ def main() -> None:
                 logger.error("--backfill-to must be >= --backfill-from")
                 sys.exit(1)
             if args.backfill_dry_run or args.dry_run:
-                est = estimate_research_backfill_dry_run(cfg, start=start_d, end=end_d)
+                cfg_eff = dict(cfg)
+                if args.max_num_ofnews is not None:
+                    cfg_eff["agent_research_max_num_ofnews"] = int(args.max_num_ofnews)
+                est = estimate_research_backfill_dry_run(cfg_eff, start=start_d, end=end_d)
                 print("Research backfill cost estimate (no API calls)")
                 print(f"  Range: {est['sample_day']} sample day; {est['days_in_range']} day(s) [{start_d} .. {end_d}]")
                 print(f"  LLM calls (est): {est['llm_calls_total_est']}  model={est['model']}")
@@ -329,7 +438,7 @@ def main() -> None:
                 )
                 print(f"  Sample day news rows: {est['news_rows_sample_day']}")
                 if args.dry_run:
-                    rep = estimate_research_dry_run_for_calendar_day(cfg, start_d)
+                    rep = estimate_research_dry_run_for_calendar_day(cfg_eff, start_d)
                     out_path = (
                         Path(args.dry_run_out).expanduser()
                         if args.dry_run_out
@@ -351,7 +460,10 @@ def main() -> None:
             )
             return
         if args.dry_run:
-            rep = estimate_research_dry_run(cfg)
+            cfg_eff = dict(cfg)
+            if args.max_num_ofnews is not None:
+                cfg_eff["agent_research_max_num_ofnews"] = int(args.max_num_ofnews)
+            rep = estimate_research_dry_run(cfg_eff)
             out_path = (
                 Path(args.dry_run_out).expanduser()
                 if args.dry_run_out
@@ -402,11 +514,16 @@ def main() -> None:
         return
 
     if args.cmd == "test-suggestions":
+        if args.print_aggregate_only:
+            print_strategy_aggregate(cfg)
+            return
         if args.summary:
             print_tester_summary(cfg)
         else:
             n = run_suggestion_tests(cfg)
             logger.info("test-suggestions done: %s row(s) updated", n)
+            if args.show_aggregate:
+                print_strategy_aggregate(cfg)
         return
 
     if args.cmd == "narrative":

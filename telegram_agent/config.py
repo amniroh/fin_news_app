@@ -90,6 +90,35 @@ def load_config() -> dict:
         "digest_max_output_tokens": int(os.getenv("DIGEST_MAX_OUTPUT_TOKENS", "3500")),
         # all | rss | telegram — which inbound sources to collect (X/Twitter only when mode=all)
         "source_mode": os.getenv("SOURCE_MODE", "all").strip().lower(),
+        # Optional API news providers (ingest.py supports SOURCE_MODE=api or all)
+        "api_use_symbol_universe": os.getenv("API_USE_SYMBOL_UNIVERSE", "true").strip().lower() == "true",
+        "finnhub_api_key": os.getenv("FINNHUB_API_KEY", "").strip(),
+        "finnhub_symbols": _load_list_from_env("FINNHUB_SYMBOLS", []),
+        "finnhub_max_symbols_per_run": int(os.getenv("FINNHUB_MAX_SYMBOLS_PER_RUN", "0")),  # 0 = all
+        "finnhub_sleep_seconds": float(os.getenv("FINNHUB_SLEEP_SECONDS", "0.2")),
+        "finnhub_jitter_seconds": float(os.getenv("FINNHUB_JITTER_SECONDS", "0.1")),
+        "finnhub_max_retries": int(os.getenv("FINNHUB_MAX_RETRIES", "4")),
+        "finnhub_backoff_seconds": float(os.getenv("FINNHUB_BACKOFF_SECONDS", "1.2")),
+        "alphavantage_api_key": os.getenv("ALPHAVANTAGE_API_KEY", "").strip(),
+        "alphavantage_tickers": _load_list_from_env("ALPHAVANTAGE_TICKERS", []),
+        "alphavantage_topics": _load_list_from_env("ALPHAVANTAGE_TOPICS", []),
+        "alphavantage_max_tickers_per_request": int(os.getenv("ALPHAVANTAGE_MAX_TICKERS_PER_REQUEST", "50")),
+        "alphavantage_max_requests_per_run": int(os.getenv("ALPHAVANTAGE_MAX_REQUESTS_PER_RUN", "5")),
+        "alphavantage_sleep_seconds": float(os.getenv("ALPHAVANTAGE_SLEEP_SECONDS", "12.5")),
+        "alphavantage_jitter_seconds": float(os.getenv("ALPHAVANTAGE_JITTER_SECONDS", "1.5")),
+        "alphavantage_max_retries": int(os.getenv("ALPHAVANTAGE_MAX_RETRIES", "4")),
+        "alphavantage_backoff_seconds": float(os.getenv("ALPHAVANTAGE_BACKOFF_SECONDS", "2.0")),
+        "stocknewsapi_items": int(os.getenv("STOCKNEWSAPI_ITEMS", "50")),
+        "stocknewsapi_pages": int(os.getenv("STOCKNEWSAPI_PAGES", "1")),
+        "stocknewsapi_max_tickers_per_request": int(os.getenv("STOCKNEWSAPI_MAX_TICKERS_PER_REQUEST", "50")),
+        "stocknewsapi_max_requests_per_run": int(os.getenv("STOCKNEWSAPI_MAX_REQUESTS_PER_RUN", "10")),
+        "stocknewsapi_sleep_seconds": float(os.getenv("STOCKNEWSAPI_SLEEP_SECONDS", "0.8")),
+        "stocknewsapi_jitter_seconds": float(os.getenv("STOCKNEWSAPI_JITTER_SECONDS", "0.25")),
+        "stocknewsapi_max_retries": int(os.getenv("STOCKNEWSAPI_MAX_RETRIES", "4")),
+        "stocknewsapi_backoff_seconds": float(os.getenv("STOCKNEWSAPI_BACKOFF_SECONDS", "1.0")),
+        "stocknewsapi_token": os.getenv("STOCKNEWSAPI_TOKEN", "").strip()
+        or os.getenv("STOCKNEWS_API_KEY", "").strip(),
+        "stocknewsapi_tickers": _load_list_from_env("STOCKNEWSAPI_TICKERS", []),
         # Bot mode (python -m telegram_agent.bot_app) — optional allowlist; empty = any chat
         "telegram_bot_token": os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
         "bot_schedule_file": str(DATA_DIR / "bot_schedules.json"),
@@ -110,12 +139,21 @@ def load_config() -> dict:
         # Only persist opportunities with confidence >= this (0..1). Tightens "high confidence" bar.
         "agent_research_min_confidence": float(os.getenv("AGENT_RESEARCH_MIN_CONFIDENCE", "0.75")),
         "agent_research_max_output_tokens": int(os.getenv("AGENT_RESEARCH_MAX_OUTPUT_TOKENS", "12000")),
+        # Single knob: max number of news rows fetched AND included in the research prompt.
+        # CLI flag `research --max-num-ofnews` overrides this value at runtime.
+        "agent_research_max_num_ofnews": int(os.getenv("MAX_NUM_OFNEWS", "200")),
+        # Universe priority filter: only use investments with priority <= this value (0..3).
+        # CLI flags across commands may override this at runtime.
+        "max_priority": int(os.getenv("MAX_PRIORITY", "3")),
         "agent_research_publish": os.getenv("AGENT_RESEARCH_PUBLISH", "true").lower() == "true",
         "agent_research_backfill_publish": os.getenv("AGENT_RESEARCH_BACKFILL_PUBLISH", "true").lower()
         == "true",
         "agent_research_backfill_sleep_seconds": float(
             os.getenv("AGENT_RESEARCH_BACKFILL_SLEEP_SECONDS", "1")
         ),
+        # Prices (yfinance) batching knobs
+        "prices_yf_batch_size": int(os.getenv("PRICES_YF_BATCH_SIZE", "80")),
+        "prices_yf_sleep_seconds": float(os.getenv("PRICES_YF_SLEEP_SECONDS", "0.5")),
         # Structured memory caps (merge in memory_structured.merge_memory_state)
         "agent_memory_cap_strongest": int(os.getenv("AGENT_MEMORY_CAP_STRONGEST", "20")),
         "agent_memory_cap_recent": int(os.getenv("AGENT_MEMORY_CAP_RECENT", "20")),
@@ -125,6 +163,19 @@ def load_config() -> dict:
             os.getenv("AGENT_RESEARCH_ASSUMED_OUTPUT_TOKENS", "4000")
         ),
         "agent_research_tester_prompt_limit": int(os.getenv("AGENT_RESEARCH_TESTER_PROMPT_LIMIT", "50")),
+        # Strategy test agent: per-leg backtests + aggregate metrics (see strategy_metrics.py, agent_tester.py)
+        "test_metrics_enabled": [
+            x.strip().lower()
+            for x in os.getenv(
+                "TEST_METRICS_ENABLED",
+                "sharpe,alpha,max_drawdown,oos_sharpe,calmar,significance",
+            ).split(",")
+            if x.strip()
+        ],
+        "test_optimization_metric": os.getenv("TEST_OPTIMIZATION_METRIC", "sharpe").strip().lower(),
+        "test_benchmark_symbol": os.getenv("TEST_BENCHMARK_SYMBOL", "SPY").strip().upper(),
+        "test_risk_free_annual": float(os.getenv("TEST_RISK_FREE_ANNUAL", "0.04")),
+        "test_oos_split": float(os.getenv("TEST_OOS_SPLIT", "0.5")),
         # Extract: LLM ticker/symbol extraction (cheap model; batched)
         "extract_use_llm": os.getenv("EXTRACT_USE_LLM", "true").lower() == "true",
         "extract_llm_model": os.getenv("EXTRACT_LLM_MODEL", "").strip()
@@ -178,5 +229,22 @@ def load_config() -> dict:
         config["rss_feeds"] = list(DEFAULT_RSS_FEEDS)
     if not config["twitter_usernames"]:
         config["twitter_usernames"] = list(DEFAULT_TWITTER_USERNAMES)
+
+    # If API_USE_SYMBOL_UNIVERSE=true and provider-specific tickers are unset, default them to the universe.
+    # This allows running API-only ingest/backfills over the full universe without duplicating config.
+    if config.get("api_use_symbol_universe", True):
+        try:
+            from telegram_agent.symbol_universe import load_symbol_universe
+
+            uni = load_symbol_universe(config) or []
+        except Exception:
+            uni = []
+        if uni:
+            if not config.get("finnhub_symbols"):
+                config["finnhub_symbols"] = list(uni)
+            if not config.get("alphavantage_tickers"):
+                config["alphavantage_tickers"] = list(uni)
+            if not config.get("stocknewsapi_tickers"):
+                config["stocknewsapi_tickers"] = list(uni)
 
     return config

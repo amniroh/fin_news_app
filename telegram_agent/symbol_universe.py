@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Set
+from typing import Any, List, Optional, Sequence, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -30,25 +30,64 @@ def _symbols_from_mixed_list(items: Sequence[Any]) -> List[str]:
     return out
 
 
-def _load_json_symbols(path: Path) -> List[str]:
+def _load_json_symbols_with_priority(path: Path) -> List[Tuple[str, Optional[int]]]:
     raw = path.read_text(encoding="utf-8")
     data = json.loads(raw)
     if isinstance(data, list):
-        syms = _symbols_from_mixed_list(data)
-        if syms:
-            return syms
-        return [normalize_symbol(x) for x in data if isinstance(x, str) and str(x).strip()]
+        out: List[Tuple[str, Optional[int]]] = []
+        for x in data:
+            if isinstance(x, str) and x.strip():
+                out.append((normalize_symbol(x), None))
+            elif isinstance(x, dict):
+                t = x.get("ticker") or x.get("symbol") or x.get("Ticker")
+                if t is None or not str(t).strip():
+                    continue
+                pr = x.get("priority")
+                try:
+                    pri = int(pr) if pr is not None else None
+                except Exception:
+                    pri = None
+                out.append((normalize_symbol(str(t)), pri))
+        if out:
+            return out
+        return []
     if isinstance(data, dict):
         if "symbols" in data and isinstance(data["symbols"], list):
-            syms = _symbols_from_mixed_list(data["symbols"])
-            if syms:
-                return syms
-            return [normalize_symbol(x) for x in data["symbols"] if isinstance(x, str) and str(x).strip()]
+            out: List[Tuple[str, Optional[int]]] = []
+            for x in data["symbols"]:
+                if isinstance(x, str) and x.strip():
+                    out.append((normalize_symbol(x), None))
+                elif isinstance(x, dict):
+                    t = x.get("ticker") or x.get("symbol") or x.get("Ticker")
+                    if t is None or not str(t).strip():
+                        continue
+                    pr = x.get("priority")
+                    try:
+                        pri = int(pr) if pr is not None else None
+                    except Exception:
+                        pri = None
+                    out.append((normalize_symbol(str(t)), pri))
+            if out:
+                return out
+            return []
         for key in ("tickers", "investments", "items"):
             if key in data and isinstance(data[key], list):
-                syms = _symbols_from_mixed_list(data[key])
-                if syms:
-                    return syms
+                out: List[Tuple[str, Optional[int]]] = []
+                for x in data[key]:
+                    if isinstance(x, str) and x.strip():
+                        out.append((normalize_symbol(x), None))
+                    elif isinstance(x, dict):
+                        t = x.get("ticker") or x.get("symbol") or x.get("Ticker")
+                        if t is None or not str(t).strip():
+                            continue
+                        pr = x.get("priority")
+                        try:
+                            pri = int(pr) if pr is not None else None
+                        except Exception:
+                            pri = None
+                        out.append((normalize_symbol(str(t)), pri))
+                if out:
+                    return out
     raise ValueError(f"Unsupported universe JSON format in {path}")
 
 
@@ -64,10 +103,18 @@ def load_symbol_universe(cfg: dict) -> Optional[List[str]]:
     if not enabled:
         return None
 
+    max_pr = cfg.get("max_priority")
+    try:
+        max_pr_i = int(max_pr) if max_pr is not None else None
+    except Exception:
+        max_pr_i = None
+
     env_list = (cfg.get("symbol_universe_env") or "").strip()
     if env_list:
         syms = [normalize_symbol(x) for x in env_list.split(",") if x.strip()]
         syms = [s for s in syms if s]
+        # env list doesn't have priority metadata; if max_priority is set,
+        # we can't filter reliably, so we keep it as-is.
         return sorted(set(syms))
 
     path_raw = cfg.get("symbol_universe_path")
@@ -78,7 +125,16 @@ def load_symbol_universe(cfg: dict) -> Optional[List[str]]:
         raise FileNotFoundError(
             f"symbol_universe_enabled=true but universe file not found: {path}"
         )
-    return sorted(set(_load_json_symbols(path)))
+    syms_with_pr = _load_json_symbols_with_priority(path)
+    if max_pr_i is not None:
+        syms = [
+            s
+            for s, pr in syms_with_pr
+            if (pr is None) or (int(pr) <= max_pr_i)
+        ]
+    else:
+        syms = [s for s, _pr in syms_with_pr]
+    return sorted(set([s for s in syms if s]))
 
 
 def symbol_universe_set(cfg: dict) -> Optional[Set[str]]:

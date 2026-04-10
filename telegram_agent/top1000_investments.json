@@ -2,4991 +2,5989 @@
   {
     "ticker": "AAPL",
     "type": "stock",
-    "name": "Apple Inc."
+    "name": "Apple Inc.",
+    "priority": 0
   },
   {
     "ticker": "MSFT",
     "type": "stock",
-    "name": "Microsoft Corp."
+    "name": "Microsoft Corp.",
+    "priority": 0
   },
   {
     "ticker": "NVDA",
     "type": "stock",
-    "name": "NVIDIA Corp."
+    "name": "NVIDIA Corp.",
+    "priority": 0
   },
   {
     "ticker": "AMZN",
     "type": "stock",
-    "name": "Amazon.com Inc."
+    "name": "Amazon.com Inc.",
+    "priority": 0
   },
   {
     "ticker": "GOOGL",
     "type": "stock",
-    "name": "Alphabet Inc. Class A"
+    "name": "Alphabet Inc. Class A",
+    "priority": 0
   },
   {
     "ticker": "GOOG",
     "type": "stock",
-    "name": "Alphabet Inc. Class C"
+    "name": "Alphabet Inc. Class C",
+    "priority": 0
   },
   {
     "ticker": "META",
     "type": "stock",
-    "name": "Meta Platforms Inc."
+    "name": "Meta Platforms Inc.",
+    "priority": 0
   },
   {
     "ticker": "TSLA",
     "type": "stock",
-    "name": "Tesla Inc."
+    "name": "Tesla Inc.",
+    "priority": 1
   },
   {
     "ticker": "AVGO",
     "type": "stock",
-    "name": "Broadcom Inc."
+    "name": "Broadcom Inc.",
+    "priority": 1
   },
   {
     "ticker": "BRK.B",
     "type": "stock",
-    "name": "Berkshire Hathaway Class B"
+    "name": "Berkshire Hathaway Class B",
+    "priority": 0
   },
   {
     "ticker": "BRK.A",
     "type": "stock",
-    "name": "Berkshire Hathaway Class A"
+    "name": "Berkshire Hathaway Class A",
+    "priority": 0
   },
   {
     "ticker": "JPM",
     "type": "stock",
-    "name": "JPMorgan Chase & Co."
+    "name": "JPMorgan Chase & Co.",
+    "priority": 1
   },
   {
     "ticker": "LLY",
     "type": "stock",
-    "name": "Eli Lilly and Co."
+    "name": "Eli Lilly and Co.",
+    "priority": 0
   },
   {
     "ticker": "V",
     "type": "stock",
-    "name": "Visa Inc."
+    "name": "Visa Inc.",
+    "priority": 1
   },
   {
     "ticker": "UNH",
     "type": "stock",
-    "name": "UnitedHealth Group Inc."
+    "name": "UnitedHealth Group Inc.",
+    "priority": 1
   },
   {
     "ticker": "XOM",
     "type": "stock",
-    "name": "Exxon Mobil Corp."
+    "name": "Exxon Mobil Corp.",
+    "priority": 0
   },
   {
     "ticker": "MA",
     "type": "stock",
-    "name": "Mastercard Inc."
+    "name": "Mastercard Inc.",
+    "priority": 1
   },
   {
     "ticker": "JNJ",
     "type": "stock",
-    "name": "Johnson & Johnson"
+    "name": "Johnson & Johnson",
+    "priority": 1
   },
   {
     "ticker": "PG",
     "type": "stock",
-    "name": "Procter & Gamble Co."
+    "name": "Procter & Gamble Co.",
+    "priority": 1
   },
   {
     "ticker": "HD",
     "type": "stock",
-    "name": "Home Depot Inc."
+    "name": "Home Depot Inc.",
+    "priority": 1
   },
   {
     "ticker": "COST",
     "type": "stock",
-    "name": "Costco Wholesale Corp."
+    "name": "Costco Wholesale Corp.",
+    "priority": 1
   },
   {
     "ticker": "ABBV",
     "type": "stock",
-    "name": "AbbVie Inc."
+    "name": "AbbVie Inc.",
+    "priority": 1
   },
   {
     "ticker": "MRK",
     "type": "stock",
-    "name": "Merck & Co."
+    "name": "Merck & Co.",
+    "priority": 1
   },
   {
     "ticker": "BAC",
     "type": "stock",
-    "name": "Bank of America Corp."
+    "name": "Bank of America Corp.",
+    "priority": 1
   },
   {
     "ticker": "CVX",
     "type": "stock",
-    "name": "Chevron Corp."
+    "name": "Chevron Corp.",
+    "priority": 0
   },
   {
     "ticker": "KO",
     "type": "stock",
-    "name": "Coca-Cola Co."
+    "name": "Coca-Cola Co.",
+    "priority": 1
   },
   {
     "ticker": "PEP",
     "type": "stock",
-    "name": "PepsiCo Inc."
+    "name": "PepsiCo Inc.",
+    "priority": 1
   },
   {
     "ticker": "ORCL",
     "type": "stock",
-    "name": "Oracle Corp."
+    "name": "Oracle Corp.",
+    "priority": 1
   },
   {
     "ticker": "AMD",
     "type": "stock",
-    "name": "Advanced Micro Devices Inc."
+    "name": "Advanced Micro Devices Inc.",
+    "priority": 1
   },
   {
     "ticker": "WMT",
     "type": "stock",
-    "name": "Walmart Inc."
+    "name": "Walmart Inc.",
+    "priority": 1
   },
   {
     "ticker": "ADBE",
     "type": "stock",
-    "name": "Adobe Inc."
+    "name": "Adobe Inc.",
+    "priority": 1
   },
   {
     "ticker": "MCD",
     "type": "stock",
-    "name": "McDonald's Corp."
+    "name": "McDonald's Corp.",
+    "priority": 1
   },
   {
     "ticker": "CRM",
     "type": "stock",
-    "name": "Salesforce Inc."
+    "name": "Salesforce Inc.",
+    "priority": 1
   },
   {
     "ticker": "ACN",
     "type": "stock",
-    "name": "Accenture PLC"
+    "name": "Accenture PLC",
+    "priority": 1
   },
   {
     "ticker": "TMO",
     "type": "stock",
-    "name": "Thermo Fisher Scientific Inc."
+    "name": "Thermo Fisher Scientific Inc.",
+    "priority": 1
   },
   {
     "ticker": "ABT",
     "type": "stock",
-    "name": "Abbott Laboratories"
+    "name": "Abbott Laboratories",
+    "priority": 1
   },
   {
     "ticker": "CSCO",
     "type": "stock",
-    "name": "Cisco Systems Inc."
+    "name": "Cisco Systems Inc.",
+    "priority": 1
   },
   {
     "ticker": "LIN",
     "type": "stock",
-    "name": "Linde PLC"
+    "name": "Linde PLC",
+    "priority": 1
   },
   {
     "ticker": "IBM",
     "type": "stock",
-    "name": "International Business Machines"
+    "name": "International Business Machines",
+    "priority": 1
   },
   {
     "ticker": "QCOM",
     "type": "stock",
-    "name": "Qualcomm Inc."
+    "name": "Qualcomm Inc.",
+    "priority": 1
   },
   {
     "ticker": "TXN",
     "type": "stock",
-    "name": "Texas Instruments Inc."
+    "name": "Texas Instruments Inc.",
+    "priority": 1
   },
   {
     "ticker": "AMGN",
     "type": "stock",
-    "name": "Amgen Inc."
+    "name": "Amgen Inc.",
+    "priority": 1
   },
   {
     "ticker": "PM",
     "type": "stock",
-    "name": "Philip Morris International"
+    "name": "Philip Morris International",
+    "priority": 1
   },
   {
     "ticker": "GE",
     "type": "stock",
-    "name": "GE Aerospace"
+    "name": "GE Aerospace",
+    "priority": 1
   },
   {
     "ticker": "CAT",
     "type": "stock",
-    "name": "Caterpillar Inc."
+    "name": "Caterpillar Inc.",
+    "priority": 1
   },
   {
     "ticker": "NEE",
     "type": "stock",
-    "name": "NextEra Energy Inc."
+    "name": "NextEra Energy Inc.",
+    "priority": 1
   },
   {
     "ticker": "INTU",
     "type": "stock",
-    "name": "Intuit Inc."
+    "name": "Intuit Inc.",
+    "priority": 1
   },
   {
     "ticker": "RTX",
     "type": "stock",
-    "name": "RTX Corp."
+    "name": "RTX Corp.",
+    "priority": 1
   },
   {
     "ticker": "SPGI",
     "type": "stock",
-    "name": "S&P Global Inc."
+    "name": "S&P Global Inc.",
+    "priority": 1
   },
   {
     "ticker": "ISRG",
     "type": "stock",
-    "name": "Intuitive Surgical Inc."
+    "name": "Intuitive Surgical Inc.",
+    "priority": 1
   },
   {
     "ticker": "HON",
     "type": "stock",
-    "name": "Honeywell International Inc."
+    "name": "Honeywell International Inc.",
+    "priority": 1
   },
   {
     "ticker": "VZ",
     "type": "stock",
-    "name": "Verizon Communications Inc."
+    "name": "Verizon Communications Inc.",
+    "priority": 1
   },
   {
     "ticker": "T",
     "type": "stock",
-    "name": "AT&T Inc."
+    "name": "AT&T Inc.",
+    "priority": 1
   },
   {
     "ticker": "NOW",
     "type": "stock",
-    "name": "ServiceNow Inc."
+    "name": "ServiceNow Inc.",
+    "priority": 1
   },
   {
     "ticker": "BKNG",
     "type": "stock",
-    "name": "Booking Holdings Inc."
+    "name": "Booking Holdings Inc.",
+    "priority": 1
   },
   {
     "ticker": "GS",
     "type": "stock",
-    "name": "Goldman Sachs Group Inc."
+    "name": "Goldman Sachs Group Inc.",
+    "priority": 1
   },
   {
     "ticker": "AXP",
     "type": "stock",
-    "name": "American Express Co."
+    "name": "American Express Co.",
+    "priority": 1
   },
   {
     "ticker": "LRCX",
     "type": "stock",
-    "name": "Lam Research Corp."
+    "name": "Lam Research Corp.",
+    "priority": 1
   },
   {
     "ticker": "SYK",
     "type": "stock",
-    "name": "Stryker Corp."
+    "name": "Stryker Corp.",
+    "priority": 1
   },
   {
     "ticker": "UNP",
     "type": "stock",
-    "name": "Union Pacific Corp."
+    "name": "Union Pacific Corp.",
+    "priority": 1
   },
   {
     "ticker": "C",
     "type": "stock",
-    "name": "Citigroup Inc."
+    "name": "Citigroup Inc.",
+    "priority": 1
   },
   {
     "ticker": "PLD",
     "type": "stock",
-    "name": "Prologis Inc."
+    "name": "Prologis Inc.",
+    "priority": 1
   },
   {
     "ticker": "MS",
     "type": "stock",
-    "name": "Morgan Stanley"
+    "name": "Morgan Stanley",
+    "priority": 1
   },
   {
     "ticker": "BLK",
     "type": "stock",
-    "name": "BlackRock Inc."
+    "name": "BlackRock Inc.",
+    "priority": 1
   },
   {
     "ticker": "DE",
     "type": "stock",
-    "name": "Deere & Co."
+    "name": "Deere & Co.",
+    "priority": 1
   },
   {
     "ticker": "AMAT",
     "type": "stock",
-    "name": "Applied Materials Inc."
+    "name": "Applied Materials Inc.",
+    "priority": 1
   },
   {
     "ticker": "ADI",
     "type": "stock",
-    "name": "Analog Devices Inc."
+    "name": "Analog Devices Inc.",
+    "priority": 1
   },
   {
     "ticker": "PANW",
     "type": "stock",
-    "name": "Palo Alto Networks Inc."
+    "name": "Palo Alto Networks Inc.",
+    "priority": 1
   },
   {
     "ticker": "MU",
     "type": "stock",
-    "name": "Micron Technology Inc."
+    "name": "Micron Technology Inc.",
+    "priority": 1
   },
   {
     "ticker": "REGN",
     "type": "stock",
-    "name": "Regeneron Pharmaceuticals Inc."
+    "name": "Regeneron Pharmaceuticals Inc.",
+    "priority": 1
   },
   {
     "ticker": "GILD",
     "type": "stock",
-    "name": "Gilead Sciences Inc."
+    "name": "Gilead Sciences Inc.",
+    "priority": 1
   },
   {
     "ticker": "MMC",
     "type": "stock",
-    "name": "Marsh & McLennan Co."
+    "name": "Marsh & McLennan Co.",
+    "priority": 3
   },
   {
     "ticker": "VRTX",
     "type": "stock",
-    "name": "Vertex Pharmaceuticals Inc."
+    "name": "Vertex Pharmaceuticals Inc.",
+    "priority": 1
   },
   {
     "ticker": "TJX",
     "type": "stock",
-    "name": "TJX Companies Inc."
+    "name": "TJX Companies Inc.",
+    "priority": 1
   },
   {
     "ticker": "BSX",
     "type": "stock",
-    "name": "Boston Scientific Corp."
+    "name": "Boston Scientific Corp.",
+    "priority": 1
   },
   {
     "ticker": "KLAC",
     "type": "stock",
-    "name": "KLA Corp."
+    "name": "KLA Corp.",
+    "priority": 1
   },
   {
     "ticker": "CB",
     "type": "stock",
-    "name": "Chubb Ltd."
+    "name": "Chubb Ltd.",
+    "priority": 1
   },
   {
     "ticker": "SO",
     "type": "stock",
-    "name": "Southern Co."
+    "name": "Southern Co.",
+    "priority": 1
   },
   {
     "ticker": "CI",
     "type": "stock",
-    "name": "Cigna Group"
+    "name": "Cigna Group",
+    "priority": 1
   },
   {
     "ticker": "ETN",
     "type": "stock",
-    "name": "Eaton Corp."
+    "name": "Eaton Corp.",
+    "priority": 1
   },
   {
     "ticker": "SCHW",
     "type": "stock",
-    "name": "Charles Schwab Corp."
+    "name": "Charles Schwab Corp.",
+    "priority": 1
   },
   {
     "ticker": "ZTS",
     "type": "stock",
-    "name": "Zoetis Inc."
+    "name": "Zoetis Inc.",
+    "priority": 1
   },
   {
     "ticker": "WFC",
     "type": "stock",
-    "name": "Wells Fargo & Co."
+    "name": "Wells Fargo & Co.",
+    "priority": 1
   },
   {
     "ticker": "DUK",
     "type": "stock",
-    "name": "Duke Energy Corp."
+    "name": "Duke Energy Corp.",
+    "priority": 2
   },
   {
     "ticker": "PH",
     "type": "stock",
-    "name": "Parker-Hannifin Corp."
+    "name": "Parker-Hannifin Corp.",
+    "priority": 2
   },
   {
     "ticker": "MDLZ",
     "type": "stock",
-    "name": "Mondelez International Inc."
+    "name": "Mondelez International Inc.",
+    "priority": 1
   },
   {
     "ticker": "AON",
     "type": "stock",
-    "name": "Aon PLC"
+    "name": "Aon PLC",
+    "priority": 2
   },
   {
     "ticker": "CME",
     "type": "stock",
-    "name": "CME Group Inc."
+    "name": "CME Group Inc.",
+    "priority": 1
   },
   {
     "ticker": "ICE",
     "type": "stock",
-    "name": "Intercontinental Exchange Inc."
+    "name": "Intercontinental Exchange Inc.",
+    "priority": 1
   },
   {
     "ticker": "MCO",
     "type": "stock",
-    "name": "Moody's Corp."
+    "name": "Moody's Corp.",
+    "priority": 1
   },
   {
     "ticker": "INTC",
     "type": "stock",
-    "name": "Intel Corp."
+    "name": "Intel Corp.",
+    "priority": 1
   },
   {
     "ticker": "SNPS",
     "type": "stock",
-    "name": "Synopsys Inc."
+    "name": "Synopsys Inc.",
+    "priority": 1
   },
   {
     "ticker": "CDNS",
     "type": "stock",
-    "name": "Cadence Design Systems Inc."
+    "name": "Cadence Design Systems Inc.",
+    "priority": 2
   },
   {
     "ticker": "UBER",
     "type": "stock",
-    "name": "Uber Technologies Inc."
+    "name": "Uber Technologies Inc.",
+    "priority": 1
   },
   {
     "ticker": "ABNB",
     "type": "stock",
-    "name": "Airbnb Inc."
+    "name": "Airbnb Inc.",
+    "priority": 1
   },
   {
     "ticker": "PLTR",
     "type": "stock",
-    "name": "Palantir Technologies Inc."
+    "name": "Palantir Technologies Inc.",
+    "priority": 2
   },
   {
     "ticker": "CRWD",
     "type": "stock",
-    "name": "CrowdStrike Holdings Inc."
+    "name": "CrowdStrike Holdings Inc.",
+    "priority": 1
   },
   {
     "ticker": "FTNT",
     "type": "stock",
-    "name": "Fortinet Inc."
+    "name": "Fortinet Inc.",
+    "priority": 2
   },
   {
     "ticker": "SNOW",
     "type": "stock",
-    "name": "Snowflake Inc."
+    "name": "Snowflake Inc.",
+    "priority": 2
   },
   {
     "ticker": "NET",
     "type": "stock",
-    "name": "Cloudflare Inc."
+    "name": "Cloudflare Inc.",
+    "priority": 2
   },
   {
     "ticker": "DDOG",
     "type": "stock",
-    "name": "Datadog Inc."
+    "name": "Datadog Inc.",
+    "priority": 2
   },
   {
     "ticker": "SHOP",
     "type": "stock",
-    "name": "Shopify Inc."
+    "name": "Shopify Inc.",
+    "priority": 1
   },
   {
     "ticker": "SQ",
     "type": "stock",
-    "name": "Block Inc."
+    "name": "Block Inc.",
+    "priority": 3
   },
   {
     "ticker": "PYPL",
     "type": "stock",
-    "name": "PayPal Holdings Inc."
+    "name": "PayPal Holdings Inc.",
+    "priority": 1
   },
   {
     "ticker": "COIN",
     "type": "stock",
-    "name": "Coinbase Global Inc."
+    "name": "Coinbase Global Inc.",
+    "priority": 2
   },
   {
     "ticker": "RBLX",
     "type": "stock",
-    "name": "Roblox Corp."
+    "name": "Roblox Corp.",
+    "priority": 2
   },
   {
     "ticker": "HOOD",
     "type": "stock",
-    "name": "Robinhood Markets Inc."
+    "name": "Robinhood Markets Inc.",
+    "priority": 2
   },
   {
     "ticker": "RIVN",
     "type": "stock",
-    "name": "Rivian Automotive Inc."
+    "name": "Rivian Automotive Inc.",
+    "priority": 2
   },
   {
     "ticker": "LCID",
     "type": "stock",
-    "name": "Lucid Group Inc."
+    "name": "Lucid Group Inc.",
+    "priority": 2
   },
   {
     "ticker": "NIO",
     "type": "stock",
-    "name": "NIO Inc."
+    "name": "NIO Inc.",
+    "priority": 2
   },
   {
     "ticker": "BIDU",
     "type": "stock",
-    "name": "Baidu Inc."
+    "name": "Baidu Inc.",
+    "priority": 2
   },
   {
     "ticker": "BABA",
     "type": "stock",
-    "name": "Alibaba Group Holding Ltd."
+    "name": "Alibaba Group Holding Ltd.",
+    "priority": 1
   },
   {
     "ticker": "JD",
     "type": "stock",
-    "name": "JD.com Inc."
+    "name": "JD.com Inc.",
+    "priority": 2
   },
   {
     "ticker": "PDD",
     "type": "stock",
-    "name": "PDD Holdings Inc."
+    "name": "PDD Holdings Inc.",
+    "priority": 1
   },
   {
     "ticker": "TCEHY",
     "type": "stock",
-    "name": "Tencent Holdings Ltd."
+    "name": "Tencent Holdings Ltd.",
+    "priority": 1
   },
   {
     "ticker": "TSM",
     "type": "stock",
-    "name": "Taiwan Semiconductor Mfg. Co."
+    "name": "Taiwan Semiconductor Mfg. Co.",
+    "priority": 0
   },
   {
     "ticker": "ASML",
     "type": "stock",
-    "name": "ASML Holding NV"
+    "name": "ASML Holding NV",
+    "priority": 1
   },
   {
     "ticker": "SAP",
     "type": "stock",
-    "name": "SAP SE"
+    "name": "SAP SE",
+    "priority": 1
   },
   {
     "ticker": "TM",
     "type": "stock",
-    "name": "Toyota Motor Corp."
+    "name": "Toyota Motor Corp.",
+    "priority": 1
   },
   {
     "ticker": "SONY",
     "type": "stock",
-    "name": "Sony Group Corp."
+    "name": "Sony Group Corp.",
+    "priority": 1
   },
   {
     "ticker": "NVO",
     "type": "stock",
-    "name": "Novo Nordisk A/S"
+    "name": "Novo Nordisk A/S",
+    "priority": 1
   },
   {
     "ticker": "LVMUY",
     "type": "stock",
-    "name": "LVMH Moet Hennessy Louis Vuitton"
+    "name": "LVMH Moet Hennessy Louis Vuitton",
+    "priority": 1
   },
   {
     "ticker": "NSRGY",
     "type": "stock",
-    "name": "Nestl\u00e9 SA"
+    "name": "Nestlé SA",
+    "priority": 1
   },
   {
     "ticker": "RHHBY",
     "type": "stock",
-    "name": "Roche Holding AG"
+    "name": "Roche Holding AG",
+    "priority": 1
   },
   {
     "ticker": "AZN",
     "type": "stock",
-    "name": "AstraZeneca PLC"
+    "name": "AstraZeneca PLC",
+    "priority": 1
   },
   {
     "ticker": "SHEL",
     "type": "stock",
-    "name": "Shell PLC"
+    "name": "Shell PLC",
+    "priority": 0
   },
   {
     "ticker": "BP",
     "type": "stock",
-    "name": "BP PLC"
+    "name": "BP PLC",
+    "priority": 0
   },
   {
     "ticker": "RIO",
     "type": "stock",
-    "name": "Rio Tinto PLC"
+    "name": "Rio Tinto PLC",
+    "priority": 0
   },
   {
     "ticker": "BHP",
     "type": "stock",
-    "name": "BHP Group Ltd."
+    "name": "BHP Group Ltd.",
+    "priority": 0
   },
   {
     "ticker": "ARM",
     "type": "stock",
-    "name": "Arm Holdings PLC"
+    "name": "Arm Holdings PLC",
+    "priority": 1
   },
   {
     "ticker": "MSTR",
     "type": "stock",
-    "name": "MicroStrategy Inc."
+    "name": "MicroStrategy Inc.",
+    "priority": 2
   },
   {
     "ticker": "SMCI",
     "type": "stock",
-    "name": "Super Micro Computer Inc."
+    "name": "Super Micro Computer Inc.",
+    "priority": 1
   },
   {
     "ticker": "MRVL",
     "type": "stock",
-    "name": "Marvell Technology Inc."
+    "name": "Marvell Technology Inc.",
+    "priority": 1
   },
   {
     "ticker": "FICO",
     "type": "stock",
-    "name": "Fair Isaac Corp."
+    "name": "Fair Isaac Corp.",
+    "priority": 2
   },
   {
     "ticker": "APH",
     "type": "stock",
-    "name": "Amphenol Corp."
+    "name": "Amphenol Corp.",
+    "priority": 2
   },
   {
     "ticker": "PWR",
     "type": "stock",
-    "name": "Quanta Services Inc."
+    "name": "Quanta Services Inc.",
+    "priority": 2
   },
   {
     "ticker": "CEG",
     "type": "stock",
-    "name": "Constellation Energy Corp."
+    "name": "Constellation Energy Corp.",
+    "priority": 0
   },
   {
     "ticker": "VST",
     "type": "stock",
-    "name": "Vistra Corp."
+    "name": "Vistra Corp.",
+    "priority": 0
   },
   {
     "ticker": "NRG",
     "type": "stock",
-    "name": "NRG Energy Inc."
+    "name": "NRG Energy Inc.",
+    "priority": 0
   },
   {
     "ticker": "ANET",
     "type": "stock",
-    "name": "Arista Networks Inc."
+    "name": "Arista Networks Inc.",
+    "priority": 1
   },
   {
     "ticker": "F",
     "type": "stock",
-    "name": "Ford Motor Co."
+    "name": "Ford Motor Co.",
+    "priority": 2
   },
   {
     "ticker": "GM",
     "type": "stock",
-    "name": "General Motors Co."
+    "name": "General Motors Co.",
+    "priority": 2
   },
   {
     "ticker": "BA",
     "type": "stock",
-    "name": "Boeing Co."
+    "name": "Boeing Co.",
+    "priority": 1
   },
   {
     "ticker": "LMT",
     "type": "stock",
-    "name": "Lockheed Martin Corp."
+    "name": "Lockheed Martin Corp.",
+    "priority": 1
   },
   {
     "ticker": "NOC",
     "type": "stock",
-    "name": "Northrop Grumman Corp."
+    "name": "Northrop Grumman Corp.",
+    "priority": 2
   },
   {
     "ticker": "GD",
     "type": "stock",
-    "name": "General Dynamics Corp."
+    "name": "General Dynamics Corp.",
+    "priority": 1
   },
   {
     "ticker": "HII",
     "type": "stock",
-    "name": "Huntington Ingalls Industries"
+    "name": "Huntington Ingalls Industries",
+    "priority": 2
   },
   {
     "ticker": "LDOS",
     "type": "stock",
-    "name": "Leidos Holdings Inc."
+    "name": "Leidos Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "DIS",
     "type": "stock",
-    "name": "Walt Disney Co."
+    "name": "Walt Disney Co.",
+    "priority": 1
   },
   {
     "ticker": "NFLX",
     "type": "stock",
-    "name": "Netflix Inc."
+    "name": "Netflix Inc.",
+    "priority": 1
   },
   {
     "ticker": "CMCSA",
     "type": "stock",
-    "name": "Comcast Corp."
+    "name": "Comcast Corp.",
+    "priority": 1
   },
   {
     "ticker": "WBD",
     "type": "stock",
-    "name": "Warner Bros. Discovery Inc."
+    "name": "Warner Bros. Discovery Inc.",
+    "priority": 2
   },
   {
     "ticker": "PARA",
     "type": "stock",
-    "name": "Paramount Global"
+    "name": "Paramount Global",
+    "priority": 3
   },
   {
     "ticker": "SPOT",
     "type": "stock",
-    "name": "Spotify Technology SA"
+    "name": "Spotify Technology SA",
+    "priority": 2
   },
   {
     "ticker": "LYFT",
     "type": "stock",
-    "name": "Lyft Inc."
+    "name": "Lyft Inc.",
+    "priority": 3
   },
   {
     "ticker": "DASH",
     "type": "stock",
-    "name": "DoorDash Inc."
+    "name": "DoorDash Inc.",
+    "priority": 2
   },
   {
     "ticker": "PINS",
     "type": "stock",
-    "name": "Pinterest Inc."
+    "name": "Pinterest Inc.",
+    "priority": 2
   },
   {
     "ticker": "SNAP",
     "type": "stock",
-    "name": "Snap Inc."
+    "name": "Snap Inc.",
+    "priority": 2
   },
   {
     "ticker": "TWTR",
     "type": "stock",
-    "name": "X Corp. (formerly Twitter)"
+    "name": "X Corp. (formerly Twitter)",
+    "priority": 3
   },
   {
     "ticker": "RDDT",
     "type": "stock",
-    "name": "Reddit Inc."
+    "name": "Reddit Inc.",
+    "priority": 2
   },
   {
     "ticker": "DUOL",
     "type": "stock",
-    "name": "Duolingo Inc."
+    "name": "Duolingo Inc.",
+    "priority": 2
   },
   {
     "ticker": "U",
     "type": "stock",
-    "name": "Unity Software Inc."
+    "name": "Unity Software Inc.",
+    "priority": 2
   },
   {
     "ticker": "RDFN",
     "type": "stock",
-    "name": "Redfin Corp."
+    "name": "Redfin Corp.",
+    "priority": 3
   },
   {
     "ticker": "Z",
     "type": "stock",
-    "name": "Zillow Group Inc."
+    "name": "Zillow Group Inc.",
+    "priority": 2
   },
   {
     "ticker": "OPEN",
     "type": "stock",
-    "name": "Opendoor Technologies Inc."
+    "name": "Opendoor Technologies Inc.",
+    "priority": 3
   },
   {
     "ticker": "UPST",
     "type": "stock",
-    "name": "Upstart Holdings Inc."
+    "name": "Upstart Holdings Inc.",
+    "priority": 3
   },
   {
     "ticker": "SOFI",
     "type": "stock",
-    "name": "SoFi Technologies Inc."
+    "name": "SoFi Technologies Inc.",
+    "priority": 2
   },
   {
     "ticker": "AFRM",
     "type": "stock",
-    "name": "Affirm Holdings Inc."
+    "name": "Affirm Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "DKNG",
     "type": "stock",
-    "name": "DraftKings Inc."
+    "name": "DraftKings Inc.",
+    "priority": 2
   },
   {
     "ticker": "PENN",
     "type": "stock",
-    "name": "PENN Entertainment Inc."
+    "name": "PENN Entertainment Inc.",
+    "priority": 3
   },
   {
     "ticker": "MGM",
     "type": "stock",
-    "name": "MGM Resorts International"
+    "name": "MGM Resorts International",
+    "priority": 2
   },
   {
     "ticker": "LVS",
     "type": "stock",
-    "name": "Las Vegas Sands Corp."
+    "name": "Las Vegas Sands Corp.",
+    "priority": 2
   },
   {
     "ticker": "WYNN",
     "type": "stock",
-    "name": "Wynn Resorts Ltd."
+    "name": "Wynn Resorts Ltd.",
+    "priority": 2
   },
   {
     "ticker": "MAR",
     "type": "stock",
-    "name": "Marriott International Inc."
+    "name": "Marriott International Inc.",
+    "priority": 2
   },
   {
     "ticker": "HLT",
     "type": "stock",
-    "name": "Hilton Worldwide Holdings Inc."
+    "name": "Hilton Worldwide Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "H",
     "type": "stock",
-    "name": "Hyatt Hotels Corp."
+    "name": "Hyatt Hotels Corp.",
+    "priority": 2
   },
   {
     "ticker": "CCL",
     "type": "stock",
-    "name": "Carnival Corp."
+    "name": "Carnival Corp.",
+    "priority": 2
   },
   {
     "ticker": "RCL",
     "type": "stock",
-    "name": "Royal Caribbean Cruises Ltd."
+    "name": "Royal Caribbean Cruises Ltd.",
+    "priority": 2
   },
   {
     "ticker": "UAL",
     "type": "stock",
-    "name": "United Airlines Holdings Inc."
+    "name": "United Airlines Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "DAL",
     "type": "stock",
-    "name": "Delta Air Lines Inc."
+    "name": "Delta Air Lines Inc.",
+    "priority": 2
   },
   {
     "ticker": "AAL",
     "type": "stock",
-    "name": "American Airlines Group Inc."
+    "name": "American Airlines Group Inc.",
+    "priority": 2
   },
   {
     "ticker": "LUV",
     "type": "stock",
-    "name": "Southwest Airlines Co."
+    "name": "Southwest Airlines Co.",
+    "priority": 2
   },
   {
     "ticker": "FDX",
     "type": "stock",
-    "name": "FedEx Corp."
+    "name": "FedEx Corp.",
+    "priority": 2
   },
   {
     "ticker": "UPS",
     "type": "stock",
-    "name": "United Parcel Service Inc."
+    "name": "United Parcel Service Inc.",
+    "priority": 1
   },
   {
     "ticker": "EBAY",
     "type": "stock",
-    "name": "eBay Inc."
+    "name": "eBay Inc.",
+    "priority": 2
   },
   {
     "ticker": "ETSY",
     "type": "stock",
-    "name": "Etsy Inc."
+    "name": "Etsy Inc.",
+    "priority": 2
   },
   {
     "ticker": "W",
     "type": "stock",
-    "name": "Wayfair Inc."
+    "name": "Wayfair Inc.",
+    "priority": 2
   },
   {
     "ticker": "CHWY",
     "type": "stock",
-    "name": "Chewy Inc."
+    "name": "Chewy Inc.",
+    "priority": 2
   },
   {
     "ticker": "CVNA",
     "type": "stock",
-    "name": "Carvana Co."
+    "name": "Carvana Co.",
+    "priority": 2
   },
   {
     "ticker": "CPNG",
     "type": "stock",
-    "name": "Coupang Inc."
+    "name": "Coupang Inc.",
+    "priority": 2
   },
   {
     "ticker": "SE",
     "type": "stock",
-    "name": "Sea Ltd."
+    "name": "Sea Ltd.",
+    "priority": 2
   },
   {
     "ticker": "GRAB",
     "type": "stock",
-    "name": "Grab Holdings Ltd."
+    "name": "Grab Holdings Ltd.",
+    "priority": 2
   },
   {
     "ticker": "GOTO",
     "type": "stock",
-    "name": "GoTo Group"
+    "name": "GoTo Group",
+    "priority": 3
   },
   {
     "ticker": "MDB",
     "type": "stock",
-    "name": "MongoDB Inc."
+    "name": "MongoDB Inc.",
+    "priority": 2
   },
   {
     "ticker": "ZS",
     "type": "stock",
-    "name": "Zscaler Inc."
+    "name": "Zscaler Inc.",
+    "priority": 2
   },
   {
     "ticker": "OKTA",
     "type": "stock",
-    "name": "Okta Inc."
+    "name": "Okta Inc.",
+    "priority": 2
   },
   {
     "ticker": "HUBS",
     "type": "stock",
-    "name": "HubSpot Inc."
+    "name": "HubSpot Inc.",
+    "priority": 2
   },
   {
     "ticker": "VEEV",
     "type": "stock",
-    "name": "Veeva Systems Inc."
+    "name": "Veeva Systems Inc.",
+    "priority": 2
   },
   {
     "ticker": "WDAY",
     "type": "stock",
-    "name": "Workday Inc."
+    "name": "Workday Inc.",
+    "priority": 1
   },
   {
     "ticker": "TTD",
     "type": "stock",
-    "name": "Trade Desk Inc."
+    "name": "Trade Desk Inc.",
+    "priority": 1
   },
   {
     "ticker": "ROKU",
     "type": "stock",
-    "name": "Roku Inc."
+    "name": "Roku Inc.",
+    "priority": 2
   },
   {
     "ticker": "ZM",
     "type": "stock",
-    "name": "Zoom Video Communications Inc."
+    "name": "Zoom Video Communications Inc.",
+    "priority": 2
   },
   {
     "ticker": "DOCU",
     "type": "stock",
-    "name": "DocuSign Inc."
+    "name": "DocuSign Inc.",
+    "priority": 2
   },
   {
     "ticker": "TWLO",
     "type": "stock",
-    "name": "Twilio Inc."
+    "name": "Twilio Inc.",
+    "priority": 2
   },
   {
     "ticker": "CFLT",
     "type": "stock",
-    "name": "Confluent Inc."
+    "name": "Confluent Inc.",
+    "priority": 2
   },
   {
     "ticker": "PATH",
     "type": "stock",
-    "name": "UiPath Inc."
+    "name": "UiPath Inc.",
+    "priority": 2
   },
   {
     "ticker": "AI",
     "type": "stock",
-    "name": "C3.ai Inc."
+    "name": "C3.ai Inc.",
+    "priority": 3
   },
   {
     "ticker": "SOUN",
     "type": "stock",
-    "name": "SoundHound AI Inc."
+    "name": "SoundHound AI Inc.",
+    "priority": 3
   },
   {
     "ticker": "BBAI",
     "type": "stock",
-    "name": "BigBear.ai Holdings Inc."
+    "name": "BigBear.ai Holdings Inc.",
+    "priority": 3
   },
   {
     "ticker": "IONQ",
     "type": "stock",
-    "name": "IonQ Inc."
+    "name": "IonQ Inc.",
+    "priority": 3
   },
   {
     "ticker": "RGTI",
     "type": "stock",
-    "name": "Rigetti Computing Inc."
+    "name": "Rigetti Computing Inc.",
+    "priority": 3
   },
   {
     "ticker": "QBTS",
     "type": "stock",
-    "name": "D-Wave Quantum Inc."
+    "name": "D-Wave Quantum Inc.",
+    "priority": 3
   },
   {
     "ticker": "ACHR",
     "type": "stock",
-    "name": "Archer Aviation Inc."
+    "name": "Archer Aviation Inc.",
+    "priority": 3
   },
   {
     "ticker": "JOBY",
     "type": "stock",
-    "name": "Joby Aviation Inc."
+    "name": "Joby Aviation Inc.",
+    "priority": 3
   },
   {
     "ticker": "SPCE",
     "type": "stock",
-    "name": "Virgin Galactic Holdings Inc."
+    "name": "Virgin Galactic Holdings Inc.",
+    "priority": 3
   },
   {
     "ticker": "RKLB",
     "type": "stock",
-    "name": "Rocket Lab USA Inc."
+    "name": "Rocket Lab USA Inc.",
+    "priority": 2
   },
   {
     "ticker": "ASTR",
     "type": "stock",
-    "name": "Astra Space Inc."
+    "name": "Astra Space Inc.",
+    "priority": 3
   },
   {
     "ticker": "PFE",
     "type": "stock",
-    "name": "Pfizer Inc."
+    "name": "Pfizer Inc.",
+    "priority": 1
   },
   {
     "ticker": "MRNA",
     "type": "stock",
-    "name": "Moderna Inc."
+    "name": "Moderna Inc.",
+    "priority": 2
   },
   {
     "ticker": "BNTX",
     "type": "stock",
-    "name": "BioNTech SE"
+    "name": "BioNTech SE",
+    "priority": 2
   },
   {
     "ticker": "BMY",
     "type": "stock",
-    "name": "Bristol-Myers Squibb Co."
+    "name": "Bristol-Myers Squibb Co.",
+    "priority": 1
   },
   {
     "ticker": "NVS",
     "type": "stock",
-    "name": "Novartis AG"
+    "name": "Novartis AG",
+    "priority": 1
   },
   {
     "ticker": "GSK",
     "type": "stock",
-    "name": "GSK PLC"
+    "name": "GSK PLC",
+    "priority": 2
   },
   {
     "ticker": "SNY",
     "type": "stock",
-    "name": "Sanofi SA"
+    "name": "Sanofi SA",
+    "priority": 1
   },
   {
     "ticker": "CVS",
     "type": "stock",
-    "name": "CVS Health Corp."
+    "name": "CVS Health Corp.",
+    "priority": 1
   },
   {
     "ticker": "WBA",
     "type": "stock",
-    "name": "Walgreens Boots Alliance Inc."
+    "name": "Walgreens Boots Alliance Inc.",
+    "priority": 3
   },
   {
     "ticker": "HUM",
     "type": "stock",
-    "name": "Humana Inc."
+    "name": "Humana Inc.",
+    "priority": 2
   },
   {
     "ticker": "ELV",
     "type": "stock",
-    "name": "Elevance Health Inc."
+    "name": "Elevance Health Inc.",
+    "priority": 1
   },
   {
     "ticker": "CNC",
     "type": "stock",
-    "name": "Centene Corp."
+    "name": "Centene Corp.",
+    "priority": 2
   },
   {
     "ticker": "MCK",
     "type": "stock",
-    "name": "McKesson Corp."
+    "name": "McKesson Corp.",
+    "priority": 2
   },
   {
     "ticker": "CAH",
     "type": "stock",
-    "name": "Cardinal Health Inc."
+    "name": "Cardinal Health Inc.",
+    "priority": 2
   },
   {
     "ticker": "ABC",
     "type": "stock",
-    "name": "AmerisourceBergen Corp."
+    "name": "AmerisourceBergen Corp.",
+    "priority": 3
   },
   {
     "ticker": "DHR",
     "type": "stock",
-    "name": "Danaher Corp."
+    "name": "Danaher Corp.",
+    "priority": 1
   },
   {
     "ticker": "IQV",
     "type": "stock",
-    "name": "IQVIA Holdings Inc."
+    "name": "IQVIA Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "BDX",
     "type": "stock",
-    "name": "Becton Dickinson and Co."
+    "name": "Becton Dickinson and Co.",
+    "priority": 2
   },
   {
     "ticker": "EW",
     "type": "stock",
-    "name": "Edwards Lifesciences Corp."
+    "name": "Edwards Lifesciences Corp.",
+    "priority": 2
   },
   {
     "ticker": "RMD",
     "type": "stock",
-    "name": "ResMed Inc."
+    "name": "ResMed Inc.",
+    "priority": 2
   },
   {
     "ticker": "DXCM",
     "type": "stock",
-    "name": "Dexcom Inc."
+    "name": "Dexcom Inc.",
+    "priority": 2
   },
   {
     "ticker": "IDXX",
     "type": "stock",
-    "name": "IDEXX Laboratories Inc."
+    "name": "IDEXX Laboratories Inc.",
+    "priority": 2
   },
   {
     "ticker": "GEHC",
     "type": "stock",
-    "name": "GE HealthCare Technologies Inc."
+    "name": "GE HealthCare Technologies Inc.",
+    "priority": 2
   },
   {
     "ticker": "BAX",
     "type": "stock",
-    "name": "Baxter International Inc."
+    "name": "Baxter International Inc.",
+    "priority": 2
   },
   {
     "ticker": "ZBH",
     "type": "stock",
-    "name": "Zimmer Biomet Holdings Inc."
+    "name": "Zimmer Biomet Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "HOLX",
     "type": "stock",
-    "name": "Hologic Inc."
+    "name": "Hologic Inc.",
+    "priority": 2
   },
   {
     "ticker": "PODD",
     "type": "stock",
-    "name": "Insulet Corp."
+    "name": "Insulet Corp.",
+    "priority": 3
   },
   {
     "ticker": "TER",
     "type": "stock",
-    "name": "Teradyne Inc."
+    "name": "Teradyne Inc.",
+    "priority": 2
   },
   {
     "ticker": "ENPH",
     "type": "stock",
-    "name": "Enphase Energy Inc."
+    "name": "Enphase Energy Inc.",
+    "priority": 0
   },
   {
     "ticker": "FSLR",
     "type": "stock",
-    "name": "First Solar Inc."
+    "name": "First Solar Inc.",
+    "priority": 0
   },
   {
     "ticker": "SEDG",
     "type": "stock",
-    "name": "SolarEdge Technologies Inc."
+    "name": "SolarEdge Technologies Inc.",
+    "priority": 0
   },
   {
     "ticker": "RUN",
     "type": "stock",
-    "name": "Sunrun Inc."
+    "name": "Sunrun Inc.",
+    "priority": 0
   },
   {
     "ticker": "BE",
     "type": "stock",
-    "name": "Bloom Energy Corp."
+    "name": "Bloom Energy Corp.",
+    "priority": 3
   },
   {
     "ticker": "PLUG",
     "type": "stock",
-    "name": "Plug Power Inc."
+    "name": "Plug Power Inc.",
+    "priority": 0
   },
   {
     "ticker": "CHPT",
     "type": "stock",
-    "name": "ChargePoint Holdings Inc."
+    "name": "ChargePoint Holdings Inc.",
+    "priority": 3
   },
   {
     "ticker": "BLNK",
     "type": "stock",
-    "name": "Blink Charging Co."
+    "name": "Blink Charging Co.",
+    "priority": 3
   },
   {
     "ticker": "ALB",
     "type": "stock",
-    "name": "Albemarle Corp."
+    "name": "Albemarle Corp.",
+    "priority": 2
   },
   {
     "ticker": "MP",
     "type": "stock",
-    "name": "MP Materials Corp."
+    "name": "MP Materials Corp.",
+    "priority": 2
   },
   {
     "ticker": "LAC",
     "type": "stock",
-    "name": "Lithium Americas Corp."
+    "name": "Lithium Americas Corp.",
+    "priority": 2
   },
   {
     "ticker": "FCX",
     "type": "stock",
-    "name": "Freeport-McMoRan Inc."
+    "name": "Freeport-McMoRan Inc.",
+    "priority": 0
   },
   {
     "ticker": "NEM",
     "type": "stock",
-    "name": "Newmont Corp."
+    "name": "Newmont Corp.",
+    "priority": 0
   },
   {
     "ticker": "GOLD",
     "type": "stock",
-    "name": "Barrick Gold Corp."
+    "name": "Barrick Gold Corp.",
+    "priority": 0
   },
   {
     "ticker": "KGC",
     "type": "stock",
-    "name": "Kinross Gold Corp."
+    "name": "Kinross Gold Corp.",
+    "priority": 0
   },
   {
     "ticker": "AEM",
     "type": "stock",
-    "name": "Agnico Eagle Mines Ltd."
+    "name": "Agnico Eagle Mines Ltd.",
+    "priority": 0
   },
   {
     "ticker": "WPM",
     "type": "stock",
-    "name": "Wheaton Precious Metals Corp."
+    "name": "Wheaton Precious Metals Corp.",
+    "priority": 0
   },
   {
     "ticker": "COP",
     "type": "stock",
-    "name": "ConocoPhillips"
+    "name": "ConocoPhillips",
+    "priority": 0
   },
   {
     "ticker": "OXY",
     "type": "stock",
-    "name": "Occidental Petroleum Corp."
+    "name": "Occidental Petroleum Corp.",
+    "priority": 0
   },
   {
     "ticker": "DVN",
     "type": "stock",
-    "name": "Devon Energy Corp."
+    "name": "Devon Energy Corp.",
+    "priority": 0
   },
   {
     "ticker": "HAL",
     "type": "stock",
-    "name": "Halliburton Co."
+    "name": "Halliburton Co.",
+    "priority": 0
   },
   {
     "ticker": "SLB",
     "type": "stock",
-    "name": "SLB (Schlumberger)"
+    "name": "SLB (Schlumberger)",
+    "priority": 0
   },
   {
     "ticker": "BKR",
     "type": "stock",
-    "name": "Baker Hughes Co."
+    "name": "Baker Hughes Co.",
+    "priority": 0
   },
   {
     "ticker": "MPC",
     "type": "stock",
-    "name": "Marathon Petroleum Corp."
+    "name": "Marathon Petroleum Corp.",
+    "priority": 0
   },
   {
     "ticker": "VLO",
     "type": "stock",
-    "name": "Valero Energy Corp."
+    "name": "Valero Energy Corp.",
+    "priority": 0
   },
   {
     "ticker": "PSX",
     "type": "stock",
-    "name": "Phillips 66"
+    "name": "Phillips 66",
+    "priority": 0
   },
   {
     "ticker": "EOG",
     "type": "stock",
-    "name": "EOG Resources Inc."
+    "name": "EOG Resources Inc.",
+    "priority": 0
   },
   {
     "ticker": "PXD",
     "type": "stock",
-    "name": "Pioneer Natural Resources Co."
+    "name": "Pioneer Natural Resources Co.",
+    "priority": 3
   },
   {
     "ticker": "USB",
     "type": "stock",
-    "name": "U.S. Bancorp"
+    "name": "U.S. Bancorp",
+    "priority": 1
   },
   {
     "ticker": "TFC",
     "type": "stock",
-    "name": "Truist Financial Corp."
+    "name": "Truist Financial Corp.",
+    "priority": 2
   },
   {
     "ticker": "PNC",
     "type": "stock",
-    "name": "PNC Financial Services Group"
+    "name": "PNC Financial Services Group",
+    "priority": 2
   },
   {
     "ticker": "COF",
     "type": "stock",
-    "name": "Capital One Financial Corp."
+    "name": "Capital One Financial Corp.",
+    "priority": 2
   },
   {
     "ticker": "DFS",
     "type": "stock",
-    "name": "Discover Financial Services"
+    "name": "Discover Financial Services",
+    "priority": 3
   },
   {
     "ticker": "AIG",
     "type": "stock",
-    "name": "American International Group"
+    "name": "American International Group",
+    "priority": 2
   },
   {
     "ticker": "MET",
     "type": "stock",
-    "name": "MetLife Inc."
+    "name": "MetLife Inc.",
+    "priority": 2
   },
   {
     "ticker": "PRU",
     "type": "stock",
-    "name": "Prudential Financial Inc."
+    "name": "Prudential Financial Inc.",
+    "priority": 2
   },
   {
     "ticker": "AFL",
     "type": "stock",
-    "name": "Aflac Inc."
+    "name": "Aflac Inc.",
+    "priority": 2
   },
   {
     "ticker": "ALL",
     "type": "stock",
-    "name": "Allstate Corp."
+    "name": "Allstate Corp.",
+    "priority": 2
   },
   {
     "ticker": "PGR",
     "type": "stock",
-    "name": "Progressive Corp."
+    "name": "Progressive Corp.",
+    "priority": 1
   },
   {
     "ticker": "TRV",
     "type": "stock",
-    "name": "Travelers Companies Inc."
+    "name": "Travelers Companies Inc.",
+    "priority": 2
   },
   {
     "ticker": "HIG",
     "type": "stock",
-    "name": "Hartford Financial Services Group"
+    "name": "Hartford Financial Services Group",
+    "priority": 2
   },
   {
     "ticker": "WELL",
     "type": "stock",
-    "name": "Welltower Inc."
+    "name": "Welltower Inc.",
+    "priority": 2
   },
   {
     "ticker": "AMT",
     "type": "stock",
-    "name": "American Tower Corp."
+    "name": "American Tower Corp.",
+    "priority": 1
   },
   {
     "ticker": "CCI",
     "type": "stock",
-    "name": "Crown Castle Inc."
+    "name": "Crown Castle Inc.",
+    "priority": 2
   },
   {
     "ticker": "EQIX",
     "type": "stock",
-    "name": "Equinix Inc."
+    "name": "Equinix Inc.",
+    "priority": 1
   },
   {
     "ticker": "DLR",
     "type": "stock",
-    "name": "Digital Realty Trust Inc."
+    "name": "Digital Realty Trust Inc.",
+    "priority": 2
   },
   {
     "ticker": "SBAC",
     "type": "stock",
-    "name": "SBA Communications Corp."
+    "name": "SBA Communications Corp.",
+    "priority": 2
   },
   {
     "ticker": "O",
     "type": "stock",
-    "name": "Realty Income Corp."
+    "name": "Realty Income Corp.",
+    "priority": 2
   },
   {
     "ticker": "SPG",
     "type": "stock",
-    "name": "Simon Property Group Inc."
+    "name": "Simon Property Group Inc.",
+    "priority": 1
   },
   {
     "ticker": "AVB",
     "type": "stock",
-    "name": "AvalonBay Communities Inc."
+    "name": "AvalonBay Communities Inc.",
+    "priority": 2
   },
   {
     "ticker": "EQR",
     "type": "stock",
-    "name": "Equity Residential"
+    "name": "Equity Residential",
+    "priority": 2
   },
   {
     "ticker": "PSA",
     "type": "stock",
-    "name": "Public Storage"
+    "name": "Public Storage",
+    "priority": 2
   },
   {
     "ticker": "IRM",
     "type": "stock",
-    "name": "Iron Mountain Inc."
+    "name": "Iron Mountain Inc.",
+    "priority": 2
   },
   {
     "ticker": "WY",
     "type": "stock",
-    "name": "Weyerhaeuser Co."
+    "name": "Weyerhaeuser Co.",
+    "priority": 2
   },
   {
     "ticker": "NKE",
     "type": "stock",
-    "name": "Nike Inc."
+    "name": "Nike Inc.",
+    "priority": 1
   },
   {
     "ticker": "LULU",
     "type": "stock",
-    "name": "Lululemon Athletica Inc."
+    "name": "Lululemon Athletica Inc.",
+    "priority": 2
   },
   {
     "ticker": "UAA",
     "type": "stock",
-    "name": "Under Armour Inc."
+    "name": "Under Armour Inc.",
+    "priority": 3
   },
   {
     "ticker": "RL",
     "type": "stock",
-    "name": "Ralph Lauren Corp."
+    "name": "Ralph Lauren Corp.",
+    "priority": 2
   },
   {
     "ticker": "TPR",
     "type": "stock",
-    "name": "Tapestry Inc."
+    "name": "Tapestry Inc.",
+    "priority": 2
   },
   {
     "ticker": "CPRI",
     "type": "stock",
-    "name": "Capri Holdings Ltd."
+    "name": "Capri Holdings Ltd.",
+    "priority": 3
   },
   {
     "ticker": "VFC",
     "type": "stock",
-    "name": "VF Corp."
+    "name": "VF Corp.",
+    "priority": 3
   },
   {
     "ticker": "HAS",
     "type": "stock",
-    "name": "Hasbro Inc."
+    "name": "Hasbro Inc.",
+    "priority": 2
   },
   {
     "ticker": "MAT",
     "type": "stock",
-    "name": "Mattel Inc."
+    "name": "Mattel Inc.",
+    "priority": 2
   },
   {
     "ticker": "CLX",
     "type": "stock",
-    "name": "Clorox Co."
+    "name": "Clorox Co.",
+    "priority": 2
   },
   {
     "ticker": "CL",
     "type": "stock",
-    "name": "Colgate-Palmolive Co."
+    "name": "Colgate-Palmolive Co.",
+    "priority": 2
   },
   {
     "ticker": "KMB",
     "type": "stock",
-    "name": "Kimberly-Clark Corp."
+    "name": "Kimberly-Clark Corp.",
+    "priority": 2
   },
   {
     "ticker": "CHD",
     "type": "stock",
-    "name": "Church & Dwight Co."
+    "name": "Church & Dwight Co.",
+    "priority": 2
   },
   {
     "ticker": "EL",
     "type": "stock",
-    "name": "Estee Lauder Companies Inc."
+    "name": "Estee Lauder Companies Inc.",
+    "priority": 2
   },
   {
     "ticker": "ULTA",
     "type": "stock",
-    "name": "Ulta Beauty Inc."
+    "name": "Ulta Beauty Inc.",
+    "priority": 2
   },
   {
     "ticker": "COTY",
     "type": "stock",
-    "name": "Coty Inc."
+    "name": "Coty Inc.",
+    "priority": 2
   },
   {
     "ticker": "SYY",
     "type": "stock",
-    "name": "Sysco Corp."
+    "name": "Sysco Corp.",
+    "priority": 2
   },
   {
     "ticker": "GIS",
     "type": "stock",
-    "name": "General Mills Inc."
+    "name": "General Mills Inc.",
+    "priority": 2
   },
   {
     "ticker": "K",
     "type": "stock",
-    "name": "Kellanova"
+    "name": "Kellanova",
+    "priority": 3
   },
   {
     "ticker": "HSY",
     "type": "stock",
-    "name": "Hershey Co."
+    "name": "Hershey Co.",
+    "priority": 2
   },
   {
     "ticker": "MKC",
     "type": "stock",
-    "name": "McCormick & Co."
+    "name": "McCormick & Co.",
+    "priority": 2
   },
   {
     "ticker": "CAG",
     "type": "stock",
-    "name": "Conagra Brands Inc."
+    "name": "Conagra Brands Inc.",
+    "priority": 2
   },
   {
     "ticker": "CPB",
     "type": "stock",
-    "name": "Campbell Soup Co."
+    "name": "Campbell Soup Co.",
+    "priority": 2
   },
   {
     "ticker": "HRL",
     "type": "stock",
-    "name": "Hormel Foods Corp."
+    "name": "Hormel Foods Corp.",
+    "priority": 2
   },
   {
     "ticker": "TSN",
     "type": "stock",
-    "name": "Tyson Foods Inc."
+    "name": "Tyson Foods Inc.",
+    "priority": 2
   },
   {
     "ticker": "MOS",
     "type": "stock",
-    "name": "Mosaic Co."
+    "name": "Mosaic Co.",
+    "priority": 2
   },
   {
     "ticker": "NTR",
     "type": "stock",
-    "name": "Nutrien Ltd."
+    "name": "Nutrien Ltd.",
+    "priority": 2
   },
   {
     "ticker": "CF",
     "type": "stock",
-    "name": "CF Industries Holdings Inc."
+    "name": "CF Industries Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "FMC",
     "type": "stock",
-    "name": "FMC Corp."
+    "name": "FMC Corp.",
+    "priority": 2
   },
   {
     "ticker": "EMN",
     "type": "stock",
-    "name": "Eastman Chemical Co."
+    "name": "Eastman Chemical Co.",
+    "priority": 2
   },
   {
     "ticker": "PPG",
     "type": "stock",
-    "name": "PPG Industries Inc."
+    "name": "PPG Industries Inc.",
+    "priority": 2
   },
   {
     "ticker": "SHW",
     "type": "stock",
-    "name": "Sherwin-Williams Co."
+    "name": "Sherwin-Williams Co.",
+    "priority": 1
   },
   {
     "ticker": "DOW",
     "type": "stock",
-    "name": "Dow Inc."
+    "name": "Dow Inc.",
+    "priority": 2
   },
   {
     "ticker": "DD",
     "type": "stock",
-    "name": "DuPont de Nemours Inc."
+    "name": "DuPont de Nemours Inc.",
+    "priority": 2
   },
   {
     "ticker": "LYB",
     "type": "stock",
-    "name": "LyondellBasell Industries NV"
+    "name": "LyondellBasell Industries NV",
+    "priority": 2
   },
   {
     "ticker": "CE",
     "type": "stock",
-    "name": "Celanese Corp."
+    "name": "Celanese Corp.",
+    "priority": 2
   },
   {
     "ticker": "IP",
     "type": "stock",
-    "name": "International Paper Co."
+    "name": "International Paper Co.",
+    "priority": 2
   },
   {
     "ticker": "PKG",
     "type": "stock",
-    "name": "Packaging Corp. of America"
+    "name": "Packaging Corp. of America",
+    "priority": 2
   },
   {
     "ticker": "SEE",
     "type": "stock",
-    "name": "Sealed Air Corp."
+    "name": "Sealed Air Corp.",
+    "priority": 2
   },
   {
     "ticker": "BLL",
     "type": "stock",
-    "name": "Ball Corp."
+    "name": "Ball Corp.",
+    "priority": 3
   },
   {
     "ticker": "CCK",
     "type": "stock",
-    "name": "Crown Holdings Inc."
+    "name": "Crown Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "ATI",
     "type": "stock",
-    "name": "ATI Inc."
+    "name": "ATI Inc.",
+    "priority": 2
   },
   {
     "ticker": "RS",
     "type": "stock",
-    "name": "Reliance Steel & Aluminum Co."
+    "name": "Reliance Steel & Aluminum Co.",
+    "priority": 2
   },
   {
     "ticker": "NUE",
     "type": "stock",
-    "name": "Nucor Corp."
+    "name": "Nucor Corp.",
+    "priority": 2
   },
   {
     "ticker": "STLD",
     "type": "stock",
-    "name": "Steel Dynamics Inc."
+    "name": "Steel Dynamics Inc.",
+    "priority": 0
   },
   {
     "ticker": "X",
     "type": "stock",
-    "name": "United States Steel Corp."
+    "name": "United States Steel Corp.",
+    "priority": 3
   },
   {
     "ticker": "CLF",
     "type": "stock",
-    "name": "Cleveland-Cliffs Inc."
+    "name": "Cleveland-Cliffs Inc.",
+    "priority": 0
   },
   {
     "ticker": "AA",
     "type": "stock",
-    "name": "Alcoa Corp."
+    "name": "Alcoa Corp.",
+    "priority": 2
   },
   {
     "ticker": "AME",
     "type": "stock",
-    "name": "AMETEK Inc."
+    "name": "AMETEK Inc.",
+    "priority": 2
   },
   {
     "ticker": "ROK",
     "type": "stock",
-    "name": "Rockwell Automation Inc."
+    "name": "Rockwell Automation Inc.",
+    "priority": 2
   },
   {
     "ticker": "EMR",
     "type": "stock",
-    "name": "Emerson Electric Co."
+    "name": "Emerson Electric Co.",
+    "priority": 2
   },
   {
     "ticker": "XYL",
     "type": "stock",
-    "name": "Xylem Inc."
+    "name": "Xylem Inc.",
+    "priority": 2
   },
   {
     "ticker": "OTIS",
     "type": "stock",
-    "name": "Otis Worldwide Corp."
+    "name": "Otis Worldwide Corp.",
+    "priority": 2
   },
   {
     "ticker": "CARR",
     "type": "stock",
-    "name": "Carrier Global Corp."
+    "name": "Carrier Global Corp.",
+    "priority": 2
   },
   {
     "ticker": "TT",
     "type": "stock",
-    "name": "Trane Technologies PLC"
+    "name": "Trane Technologies PLC",
+    "priority": 2
   },
   {
     "ticker": "JCI",
     "type": "stock",
-    "name": "Johnson Controls International"
+    "name": "Johnson Controls International",
+    "priority": 2
   },
   {
     "ticker": "ALLE",
     "type": "stock",
-    "name": "Allegion PLC"
+    "name": "Allegion PLC",
+    "priority": 2
   },
   {
     "ticker": "AOS",
     "type": "stock",
-    "name": "A.O. Smith Corp."
+    "name": "A.O. Smith Corp.",
+    "priority": 2
   },
   {
     "ticker": "MAS",
     "type": "stock",
-    "name": "Masco Corp."
+    "name": "Masco Corp.",
+    "priority": 2
   },
   {
     "ticker": "LEN",
     "type": "stock",
-    "name": "Lennar Corp."
+    "name": "Lennar Corp.",
+    "priority": 2
   },
   {
     "ticker": "DHI",
     "type": "stock",
-    "name": "D.R. Horton Inc."
+    "name": "D.R. Horton Inc.",
+    "priority": 2
   },
   {
     "ticker": "PHM",
     "type": "stock",
-    "name": "PulteGroup Inc."
+    "name": "PulteGroup Inc.",
+    "priority": 2
   },
   {
     "ticker": "TOL",
     "type": "stock",
-    "name": "Toll Brothers Inc."
+    "name": "Toll Brothers Inc.",
+    "priority": 2
   },
   {
     "ticker": "BLD",
     "type": "stock",
-    "name": "TopBuild Corp."
+    "name": "TopBuild Corp.",
+    "priority": 2
   },
   {
     "ticker": "TREX",
     "type": "stock",
-    "name": "Trex Co."
+    "name": "Trex Co.",
+    "priority": 2
   },
   {
     "ticker": "NVR",
     "type": "stock",
-    "name": "NVR Inc."
+    "name": "NVR Inc.",
+    "priority": 2
   },
   {
     "ticker": "MTH",
     "type": "stock",
-    "name": "Meritage Homes Corp."
+    "name": "Meritage Homes Corp.",
+    "priority": 2
   },
   {
     "ticker": "KBH",
     "type": "stock",
-    "name": "KB Home"
+    "name": "KB Home",
+    "priority": 2
   },
   {
     "ticker": "LOW",
     "type": "stock",
-    "name": "Lowe's Companies Inc."
+    "name": "Lowe's Companies Inc.",
+    "priority": 1
   },
   {
     "ticker": "WSM",
     "type": "stock",
-    "name": "Williams-Sonoma Inc."
+    "name": "Williams-Sonoma Inc.",
+    "priority": 2
   },
   {
     "ticker": "RH",
     "type": "stock",
-    "name": "RH (Restoration Hardware)"
+    "name": "RH (Restoration Hardware)",
+    "priority": 2
   },
   {
     "ticker": "TGT",
     "type": "stock",
-    "name": "Target Corp."
+    "name": "Target Corp.",
+    "priority": 1
   },
   {
     "ticker": "DLTR",
     "type": "stock",
-    "name": "Dollar Tree Inc."
+    "name": "Dollar Tree Inc.",
+    "priority": 2
   },
   {
     "ticker": "DG",
     "type": "stock",
-    "name": "Dollar General Corp."
+    "name": "Dollar General Corp.",
+    "priority": 2
   },
   {
     "ticker": "FIVE",
     "type": "stock",
-    "name": "Five Below Inc."
+    "name": "Five Below Inc.",
+    "priority": 2
   },
   {
     "ticker": "BBY",
     "type": "stock",
-    "name": "Best Buy Co."
+    "name": "Best Buy Co.",
+    "priority": 2
   },
   {
     "ticker": "KR",
     "type": "stock",
-    "name": "Kroger Co."
+    "name": "Kroger Co.",
+    "priority": 2
   },
   {
     "ticker": "ACI",
     "type": "stock",
-    "name": "Albertsons Companies Inc."
+    "name": "Albertsons Companies Inc.",
+    "priority": 2
   },
   {
     "ticker": "SFM",
     "type": "stock",
-    "name": "Sprouts Farmers Market Inc."
+    "name": "Sprouts Farmers Market Inc.",
+    "priority": 2
   },
   {
     "ticker": "SBUX",
     "type": "stock",
-    "name": "Starbucks Corp."
+    "name": "Starbucks Corp.",
+    "priority": 1
   },
   {
     "ticker": "CMG",
     "type": "stock",
-    "name": "Chipotle Mexican Grill Inc."
+    "name": "Chipotle Mexican Grill Inc.",
+    "priority": 1
   },
   {
     "ticker": "YUM",
     "type": "stock",
-    "name": "Yum! Brands Inc."
+    "name": "Yum! Brands Inc.",
+    "priority": 2
   },
   {
     "ticker": "QSR",
     "type": "stock",
-    "name": "Restaurant Brands International"
+    "name": "Restaurant Brands International",
+    "priority": 2
   },
   {
     "ticker": "DPZ",
     "type": "stock",
-    "name": "Domino's Pizza Inc."
+    "name": "Domino's Pizza Inc.",
+    "priority": 2
   },
   {
     "ticker": "WING",
     "type": "stock",
-    "name": "Wingstop Inc."
+    "name": "Wingstop Inc.",
+    "priority": 2
   },
   {
     "ticker": "TXRH",
     "type": "stock",
-    "name": "Texas Roadhouse Inc."
+    "name": "Texas Roadhouse Inc.",
+    "priority": 2
   },
   {
     "ticker": "DARDEN",
     "type": "stock",
-    "name": "Darden Restaurants Inc."
+    "name": "Darden Restaurants Inc.",
+    "priority": 3
   },
   {
     "ticker": "SHAK",
     "type": "stock",
-    "name": "Shake Shack Inc."
+    "name": "Shake Shack Inc.",
+    "priority": 3
   },
   {
     "ticker": "BROS",
     "type": "stock",
-    "name": "Dutch Bros Inc."
+    "name": "Dutch Bros Inc.",
+    "priority": 3
   },
   {
     "ticker": "CELH",
     "type": "stock",
-    "name": "Celsius Holdings Inc."
+    "name": "Celsius Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "MNST",
     "type": "stock",
-    "name": "Monster Beverage Corp."
+    "name": "Monster Beverage Corp.",
+    "priority": 2
   },
   {
     "ticker": "STZ",
     "type": "stock",
-    "name": "Constellation Brands Inc."
+    "name": "Constellation Brands Inc.",
+    "priority": 2
   },
   {
     "ticker": "BUD",
     "type": "stock",
-    "name": "Anheuser-Busch InBev SA"
+    "name": "Anheuser-Busch InBev SA",
+    "priority": 2
   },
   {
     "ticker": "TAP",
     "type": "stock",
-    "name": "Molson Coors Beverage Co."
+    "name": "Molson Coors Beverage Co.",
+    "priority": 2
   },
   {
     "ticker": "SAM",
     "type": "stock",
-    "name": "Boston Beer Co."
+    "name": "Boston Beer Co.",
+    "priority": 3
   },
   {
     "ticker": "DNUT",
     "type": "stock",
-    "name": "Krispy Kreme Inc."
+    "name": "Krispy Kreme Inc.",
+    "priority": 3
   },
   {
     "ticker": "COKE",
     "type": "stock",
-    "name": "Coca-Cola Consolidated Inc."
+    "name": "Coca-Cola Consolidated Inc.",
+    "priority": 2
   },
   {
     "ticker": "APP",
     "type": "stock",
-    "name": "AppLovin Corp."
+    "name": "AppLovin Corp.",
+    "priority": 2
   },
   {
     "ticker": "APLD",
     "type": "stock",
-    "name": "Applied Digital Corp."
+    "name": "Applied Digital Corp.",
+    "priority": 3
   },
   {
     "ticker": "CIEN",
     "type": "stock",
-    "name": "Ciena Corp."
+    "name": "Ciena Corp.",
+    "priority": 2
   },
   {
     "ticker": "FLEX",
     "type": "stock",
-    "name": "Flex Ltd."
+    "name": "Flex Ltd.",
+    "priority": 2
   },
   {
     "ticker": "JNPR",
     "type": "stock",
-    "name": "Juniper Networks Inc."
+    "name": "Juniper Networks Inc.",
+    "priority": 3
   },
   {
     "ticker": "GLW",
     "type": "stock",
-    "name": "Corning Inc."
+    "name": "Corning Inc.",
+    "priority": 2
   },
   {
     "ticker": "STX",
     "type": "stock",
-    "name": "Seagate Technology Holdings"
+    "name": "Seagate Technology Holdings",
+    "priority": 2
   },
   {
     "ticker": "WDC",
     "type": "stock",
-    "name": "Western Digital Corp."
+    "name": "Western Digital Corp.",
+    "priority": 2
   },
   {
     "ticker": "NTAP",
     "type": "stock",
-    "name": "NetApp Inc."
+    "name": "NetApp Inc.",
+    "priority": 2
   },
   {
     "ticker": "HPE",
     "type": "stock",
-    "name": "Hewlett Packard Enterprise Co."
+    "name": "Hewlett Packard Enterprise Co.",
+    "priority": 2
   },
   {
     "ticker": "HPQ",
     "type": "stock",
-    "name": "HP Inc."
+    "name": "HP Inc.",
+    "priority": 2
   },
   {
     "ticker": "DELL",
     "type": "stock",
-    "name": "Dell Technologies Inc."
+    "name": "Dell Technologies Inc.",
+    "priority": 1
   },
   {
     "ticker": "NCR",
     "type": "stock",
-    "name": "NCR Atleos Corp."
+    "name": "NCR Atleos Corp.",
+    "priority": 3
   },
   {
     "ticker": "NXPI",
     "type": "stock",
-    "name": "NXP Semiconductors NV"
+    "name": "NXP Semiconductors NV",
+    "priority": 2
   },
   {
     "ticker": "ON",
     "type": "stock",
-    "name": "ON Semiconductor Corp."
+    "name": "ON Semiconductor Corp.",
+    "priority": 2
   },
   {
     "ticker": "MPWR",
     "type": "stock",
-    "name": "Monolithic Power Systems Inc."
+    "name": "Monolithic Power Systems Inc.",
+    "priority": 2
   },
   {
     "ticker": "SWKS",
     "type": "stock",
-    "name": "Skyworks Solutions Inc."
+    "name": "Skyworks Solutions Inc.",
+    "priority": 2
   },
   {
     "ticker": "QRVO",
     "type": "stock",
-    "name": "Qorvo Inc."
+    "name": "Qorvo Inc.",
+    "priority": 2
   },
   {
     "ticker": "WOLF",
     "type": "stock",
-    "name": "Wolfspeed Inc."
+    "name": "Wolfspeed Inc.",
+    "priority": 3
   },
   {
     "ticker": "MTSI",
     "type": "stock",
-    "name": "MACOM Technology Solutions"
+    "name": "MACOM Technology Solutions",
+    "priority": 2
   },
   {
     "ticker": "AXON",
     "type": "stock",
-    "name": "Axon Enterprise Inc."
+    "name": "Axon Enterprise Inc.",
+    "priority": 2
   },
   {
     "ticker": "TRMB",
     "type": "stock",
-    "name": "Trimble Inc."
+    "name": "Trimble Inc.",
+    "priority": 2
   },
   {
     "ticker": "FTV",
     "type": "stock",
-    "name": "Fortive Corp."
+    "name": "Fortive Corp.",
+    "priority": 2
   },
   {
     "ticker": "VRSK",
     "type": "stock",
-    "name": "Verisk Analytics Inc."
+    "name": "Verisk Analytics Inc.",
+    "priority": 2
   },
   {
     "ticker": "MSCI",
     "type": "stock",
-    "name": "MSCI Inc."
+    "name": "MSCI Inc.",
+    "priority": 1
   },
   {
     "ticker": "NDAQ",
     "type": "stock",
-    "name": "Nasdaq Inc."
+    "name": "Nasdaq Inc.",
+    "priority": 2
   },
   {
     "ticker": "CBOE",
     "type": "stock",
-    "name": "Cboe Global Markets Inc."
+    "name": "Cboe Global Markets Inc.",
+    "priority": 2
   },
   {
     "ticker": "WEX",
     "type": "stock",
-    "name": "WEX Inc."
+    "name": "WEX Inc.",
+    "priority": 2
   },
   {
     "ticker": "FIS",
     "type": "stock",
-    "name": "Fidelity National Information Services"
+    "name": "Fidelity National Information Services",
+    "priority": 2
   },
   {
     "ticker": "FI",
     "type": "stock",
-    "name": "Fiserv Inc."
+    "name": "Fiserv Inc.",
+    "priority": 3
   },
   {
     "ticker": "GPN",
     "type": "stock",
-    "name": "Global Payments Inc."
+    "name": "Global Payments Inc.",
+    "priority": 2
   },
   {
     "ticker": "WU",
     "type": "stock",
-    "name": "Western Union Co."
+    "name": "Western Union Co.",
+    "priority": 2
   },
   {
     "ticker": "MONEYLION",
     "type": "stock",
-    "name": "MoneyLion Inc."
+    "name": "MoneyLion Inc.",
+    "priority": 3
   },
   {
     "ticker": "NU",
     "type": "stock",
-    "name": "Nu Holdings Ltd."
+    "name": "Nu Holdings Ltd.",
+    "priority": 2
   },
   {
     "ticker": "STNE",
     "type": "stock",
-    "name": "StoneCo Ltd."
+    "name": "StoneCo Ltd.",
+    "priority": 2
   },
   {
     "ticker": "PAGS",
     "type": "stock",
-    "name": "PagSeguro Digital Ltd."
+    "name": "PagSeguro Digital Ltd.",
+    "priority": 3
   },
   {
     "ticker": "TOST",
     "type": "stock",
-    "name": "Toast Inc."
+    "name": "Toast Inc.",
+    "priority": 2
   },
   {
     "ticker": "BILL",
     "type": "stock",
-    "name": "Bill Holdings Inc."
+    "name": "Bill Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "ADYEY",
     "type": "stock",
-    "name": "Adyen NV"
+    "name": "Adyen NV",
+    "priority": 2
   },
   {
     "ticker": "WISE",
     "type": "stock",
-    "name": "Wise PLC"
+    "name": "Wise PLC",
+    "priority": 3
   },
   {
     "ticker": "SPY",
     "type": "etf",
-    "name": "SPDR S&P 500 ETF Trust"
+    "name": "SPDR S&P 500 ETF Trust",
+    "priority": 0
   },
   {
     "ticker": "QQQ",
     "type": "etf",
-    "name": "Invesco QQQ Trust (Nasdaq-100)"
+    "name": "Invesco QQQ Trust (Nasdaq-100)",
+    "priority": 0
   },
   {
     "ticker": "IWM",
     "type": "etf",
-    "name": "iShares Russell 2000 ETF"
+    "name": "iShares Russell 2000 ETF",
+    "priority": 2
   },
   {
     "ticker": "VOO",
     "type": "etf",
-    "name": "Vanguard S&P 500 ETF"
+    "name": "Vanguard S&P 500 ETF",
+    "priority": 1
   },
   {
     "ticker": "VTI",
     "type": "etf",
-    "name": "Vanguard Total Stock Market ETF"
+    "name": "Vanguard Total Stock Market ETF",
+    "priority": 1
   },
   {
     "ticker": "GLD",
     "type": "etf",
-    "name": "SPDR Gold Shares"
+    "name": "SPDR Gold Shares",
+    "priority": 0
   },
   {
     "ticker": "SLV",
     "type": "etf",
-    "name": "iShares Silver Trust"
+    "name": "iShares Silver Trust",
+    "priority": 0
   },
   {
     "ticker": "IAU",
     "type": "etf",
-    "name": "iShares Gold Trust"
+    "name": "iShares Gold Trust",
+    "priority": 0
   },
   {
     "ticker": "TLT",
     "type": "etf",
-    "name": "iShares 20+ Year Treasury Bond ETF"
+    "name": "iShares 20+ Year Treasury Bond ETF",
+    "priority": 1
   },
   {
     "ticker": "HYG",
     "type": "etf",
-    "name": "iShares iBoxx High Yield Corporate Bond ETF"
+    "name": "iShares iBoxx High Yield Corporate Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "LQD",
     "type": "etf",
-    "name": "iShares iBoxx Investment Grade Corporate Bond ETF"
+    "name": "iShares iBoxx Investment Grade Corporate Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "AGG",
     "type": "etf",
-    "name": "iShares Core US Aggregate Bond ETF"
+    "name": "iShares Core US Aggregate Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "BND",
     "type": "etf",
-    "name": "Vanguard Total Bond Market ETF"
+    "name": "Vanguard Total Bond Market ETF",
+    "priority": 2
   },
   {
     "ticker": "XLF",
     "type": "etf",
-    "name": "Financial Select Sector SPDR Fund"
+    "name": "Financial Select Sector SPDR Fund",
+    "priority": 1
   },
   {
     "ticker": "XLK",
     "type": "etf",
-    "name": "Technology Select Sector SPDR Fund"
+    "name": "Technology Select Sector SPDR Fund",
+    "priority": 1
   },
   {
     "ticker": "XLE",
     "type": "etf",
-    "name": "Energy Select Sector SPDR Fund"
+    "name": "Energy Select Sector SPDR Fund",
+    "priority": 0
   },
   {
     "ticker": "XLV",
     "type": "etf",
-    "name": "Health Care Select Sector SPDR Fund"
+    "name": "Health Care Select Sector SPDR Fund",
+    "priority": 1
   },
   {
     "ticker": "XLI",
     "type": "etf",
-    "name": "Industrial Select Sector SPDR Fund"
+    "name": "Industrial Select Sector SPDR Fund",
+    "priority": 2
   },
   {
     "ticker": "XLY",
     "type": "etf",
-    "name": "Consumer Discretionary Select Sector SPDR Fund"
+    "name": "Consumer Discretionary Select Sector SPDR Fund",
+    "priority": 2
   },
   {
     "ticker": "XLP",
     "type": "etf",
-    "name": "Consumer Staples Select Sector SPDR Fund"
+    "name": "Consumer Staples Select Sector SPDR Fund",
+    "priority": 2
   },
   {
     "ticker": "XLU",
     "type": "etf",
-    "name": "Utilities Select Sector SPDR Fund"
+    "name": "Utilities Select Sector SPDR Fund",
+    "priority": 2
   },
   {
     "ticker": "XLB",
     "type": "etf",
-    "name": "Materials Select Sector SPDR Fund"
+    "name": "Materials Select Sector SPDR Fund",
+    "priority": 2
   },
   {
     "ticker": "XLRE",
     "type": "etf",
-    "name": "Real Estate Select Sector SPDR Fund"
+    "name": "Real Estate Select Sector SPDR Fund",
+    "priority": 2
   },
   {
     "ticker": "XLC",
     "type": "etf",
-    "name": "Communication Services Select Sector SPDR Fund"
+    "name": "Communication Services Select Sector SPDR Fund",
+    "priority": 2
   },
   {
     "ticker": "TQQQ",
     "type": "etf",
-    "name": "ProShares UltraPro QQQ (3x Nasdaq)"
+    "name": "ProShares UltraPro QQQ (3x Nasdaq)",
+    "priority": 1
   },
   {
     "ticker": "SQQQ",
     "type": "etf",
-    "name": "ProShares UltraPro Short QQQ (-3x Nasdaq)"
+    "name": "ProShares UltraPro Short QQQ (-3x Nasdaq)",
+    "priority": 2
   },
   {
     "ticker": "SPXU",
     "type": "etf",
-    "name": "ProShares UltraPro Short S&P500 (-3x)"
+    "name": "ProShares UltraPro Short S&P500 (-3x)",
+    "priority": 2
   },
   {
     "ticker": "UPRO",
     "type": "etf",
-    "name": "ProShares UltraPro S&P500 (3x)"
+    "name": "ProShares UltraPro S&P500 (3x)",
+    "priority": 2
   },
   {
     "ticker": "SOXL",
     "type": "etf",
-    "name": "Direxion Daily Semiconductor Bull 3x"
+    "name": "Direxion Daily Semiconductor Bull 3x",
+    "priority": 2
   },
   {
     "ticker": "SOXS",
     "type": "etf",
-    "name": "Direxion Daily Semiconductor Bear 3x"
+    "name": "Direxion Daily Semiconductor Bear 3x",
+    "priority": 2
   },
   {
     "ticker": "LABU",
     "type": "etf",
-    "name": "Direxion Daily S&P Biotech Bull 3x"
+    "name": "Direxion Daily S&P Biotech Bull 3x",
+    "priority": 3
   },
   {
     "ticker": "LABD",
     "type": "etf",
-    "name": "Direxion Daily S&P Biotech Bear 3x"
+    "name": "Direxion Daily S&P Biotech Bear 3x",
+    "priority": 3
   },
   {
     "ticker": "FAS",
     "type": "etf",
-    "name": "Direxion Daily Financial Bull 3x"
+    "name": "Direxion Daily Financial Bull 3x",
+    "priority": 2
   },
   {
     "ticker": "FAZ",
     "type": "etf",
-    "name": "Direxion Daily Financial Bear 3x"
+    "name": "Direxion Daily Financial Bear 3x",
+    "priority": 2
   },
   {
     "ticker": "SPXS",
     "type": "etf",
-    "name": "Direxion Daily S&P 500 Bear 3x"
+    "name": "Direxion Daily S&P 500 Bear 3x",
+    "priority": 2
   },
   {
     "ticker": "IBIT",
     "type": "etf",
-    "name": "iShares Bitcoin Trust ETF"
+    "name": "iShares Bitcoin Trust ETF",
+    "priority": 2
   },
   {
     "ticker": "FBTC",
     "type": "etf",
-    "name": "Fidelity Wise Origin Bitcoin Fund"
+    "name": "Fidelity Wise Origin Bitcoin Fund",
+    "priority": 2
   },
   {
     "ticker": "GBTC",
     "type": "etf",
-    "name": "Grayscale Bitcoin Trust"
+    "name": "Grayscale Bitcoin Trust",
+    "priority": 2
   },
   {
     "ticker": "BITB",
     "type": "etf",
-    "name": "Bitwise Bitcoin ETF"
+    "name": "Bitwise Bitcoin ETF",
+    "priority": 2
   },
   {
     "ticker": "ARKB",
     "type": "etf",
-    "name": "ARK 21Shares Bitcoin ETF"
+    "name": "ARK 21Shares Bitcoin ETF",
+    "priority": 2
   },
   {
     "ticker": "ETHA",
     "type": "etf",
-    "name": "iShares Ethereum Trust ETF"
+    "name": "iShares Ethereum Trust ETF",
+    "priority": 2
   },
   {
     "ticker": "ETHW",
     "type": "etf",
-    "name": "Bitwise Ethereum ETF"
+    "name": "Bitwise Ethereum ETF",
+    "priority": 3
   },
   {
     "ticker": "ARKK",
     "type": "etf",
-    "name": "ARK Innovation ETF"
+    "name": "ARK Innovation ETF",
+    "priority": 2
   },
   {
     "ticker": "ARKG",
     "type": "etf",
-    "name": "ARK Genomic Revolution ETF"
+    "name": "ARK Genomic Revolution ETF",
+    "priority": 2
   },
   {
     "ticker": "ARKW",
     "type": "etf",
-    "name": "ARK Next Generation Internet ETF"
+    "name": "ARK Next Generation Internet ETF",
+    "priority": 2
   },
   {
     "ticker": "ARKF",
     "type": "etf",
-    "name": "ARK Fintech Innovation ETF"
+    "name": "ARK Fintech Innovation ETF",
+    "priority": 2
   },
   {
     "ticker": "ARKQ",
     "type": "etf",
-    "name": "ARK Autonomous Technology & Robotics ETF"
+    "name": "ARK Autonomous Technology & Robotics ETF",
+    "priority": 2
   },
   {
     "ticker": "BOTZ",
     "type": "etf",
-    "name": "Global X Robotics & AI ETF"
+    "name": "Global X Robotics & AI ETF",
+    "priority": 2
   },
   {
     "ticker": "ROBO",
     "type": "etf",
-    "name": "ROBO Global Robotics & Automation ETF"
+    "name": "ROBO Global Robotics & Automation ETF",
+    "priority": 3
   },
   {
     "ticker": "AIQ",
     "type": "etf",
-    "name": "Global X Artificial Intelligence & Technology ETF"
+    "name": "Global X Artificial Intelligence & Technology ETF",
+    "priority": 2
   },
   {
     "ticker": "SOXX",
     "type": "etf",
-    "name": "iShares Semiconductor ETF"
+    "name": "iShares Semiconductor ETF",
+    "priority": 1
   },
   {
     "ticker": "SMH",
     "type": "etf",
-    "name": "VanEck Semiconductor ETF"
+    "name": "VanEck Semiconductor ETF",
+    "priority": 1
   },
   {
     "ticker": "IBB",
     "type": "etf",
-    "name": "iShares Biotechnology ETF"
+    "name": "iShares Biotechnology ETF",
+    "priority": 2
   },
   {
     "ticker": "XBI",
     "type": "etf",
-    "name": "SPDR S&P Biotech ETF"
+    "name": "SPDR S&P Biotech ETF",
+    "priority": 2
   },
   {
     "ticker": "ICLN",
     "type": "etf",
-    "name": "iShares Global Clean Energy ETF"
+    "name": "iShares Global Clean Energy ETF",
+    "priority": 0
   },
   {
     "ticker": "QCLN",
     "type": "etf",
-    "name": "First Trust NASDAQ Clean Edge Green Energy ETF"
+    "name": "First Trust NASDAQ Clean Edge Green Energy ETF",
+    "priority": 0
   },
   {
     "ticker": "TAN",
     "type": "etf",
-    "name": "Invesco Solar ETF"
+    "name": "Invesco Solar ETF",
+    "priority": 0
   },
   {
     "ticker": "FAN",
     "type": "etf",
-    "name": "First Trust Global Wind Energy ETF"
+    "name": "First Trust Global Wind Energy ETF",
+    "priority": 0
   },
   {
     "ticker": "JETS",
     "type": "etf",
-    "name": "US Global Jets ETF"
+    "name": "US Global Jets ETF",
+    "priority": 2
   },
   {
     "ticker": "MOO",
     "type": "etf",
-    "name": "VanEck Agribusiness ETF"
+    "name": "VanEck Agribusiness ETF",
+    "priority": 2
   },
   {
     "ticker": "DBA",
     "type": "etf",
-    "name": "Invesco DB Agriculture Fund"
+    "name": "Invesco DB Agriculture Fund",
+    "priority": 2
   },
   {
     "ticker": "USO",
     "type": "etf",
-    "name": "United States Oil Fund"
+    "name": "United States Oil Fund",
+    "priority": 0
   },
   {
     "ticker": "UNG",
     "type": "etf",
-    "name": "United States Natural Gas Fund"
+    "name": "United States Natural Gas Fund",
+    "priority": 0
   },
   {
     "ticker": "PDBC",
     "type": "etf",
-    "name": "Invesco Optimum Yield Diversified Commodity"
+    "name": "Invesco Optimum Yield Diversified Commodity",
+    "priority": 2
   },
   {
     "ticker": "DJP",
     "type": "etf",
-    "name": "iPath Bloomberg Commodity Index ETN"
+    "name": "iPath Bloomberg Commodity Index ETN",
+    "priority": 3
   },
   {
     "ticker": "GSG",
     "type": "etf",
-    "name": "iShares S&P GSCI Commodity ETF"
+    "name": "iShares S&P GSCI Commodity ETF",
+    "priority": 2
   },
   {
     "ticker": "EEM",
     "type": "etf",
-    "name": "iShares MSCI Emerging Markets ETF"
+    "name": "iShares MSCI Emerging Markets ETF",
+    "priority": 2
   },
   {
     "ticker": "VWO",
     "type": "etf",
-    "name": "Vanguard FTSE Emerging Markets ETF"
+    "name": "Vanguard FTSE Emerging Markets ETF",
+    "priority": 2
   },
   {
     "ticker": "EFA",
     "type": "etf",
-    "name": "iShares MSCI EAFE ETF"
+    "name": "iShares MSCI EAFE ETF",
+    "priority": 2
   },
   {
     "ticker": "VEA",
     "type": "etf",
-    "name": "Vanguard FTSE Developed Markets ETF"
+    "name": "Vanguard FTSE Developed Markets ETF",
+    "priority": 2
   },
   {
     "ticker": "FXI",
     "type": "etf",
-    "name": "iShares China Large-Cap ETF"
+    "name": "iShares China Large-Cap ETF",
+    "priority": 2
   },
   {
     "ticker": "MCHI",
     "type": "etf",
-    "name": "iShares MSCI China ETF"
+    "name": "iShares MSCI China ETF",
+    "priority": 2
   },
   {
     "ticker": "KWEB",
     "type": "etf",
-    "name": "KraneShares CSI China Internet ETF"
+    "name": "KraneShares CSI China Internet ETF",
+    "priority": 2
   },
   {
     "ticker": "EWJ",
     "type": "etf",
-    "name": "iShares MSCI Japan ETF"
+    "name": "iShares MSCI Japan ETF",
+    "priority": 2
   },
   {
     "ticker": "EWZ",
     "type": "etf",
-    "name": "iShares MSCI Brazil ETF"
+    "name": "iShares MSCI Brazil ETF",
+    "priority": 2
   },
   {
     "ticker": "EWY",
     "type": "etf",
-    "name": "iShares MSCI South Korea ETF"
+    "name": "iShares MSCI South Korea ETF",
+    "priority": 2
   },
   {
     "ticker": "EWG",
     "type": "etf",
-    "name": "iShares MSCI Germany ETF"
+    "name": "iShares MSCI Germany ETF",
+    "priority": 2
   },
   {
     "ticker": "EWU",
     "type": "etf",
-    "name": "iShares MSCI United Kingdom ETF"
+    "name": "iShares MSCI United Kingdom ETF",
+    "priority": 2
   },
   {
     "ticker": "EWA",
     "type": "etf",
-    "name": "iShares MSCI Australia ETF"
+    "name": "iShares MSCI Australia ETF",
+    "priority": 2
   },
   {
     "ticker": "EWC",
     "type": "etf",
-    "name": "iShares MSCI Canada ETF"
+    "name": "iShares MSCI Canada ETF",
+    "priority": 2
   },
   {
     "ticker": "INDA",
     "type": "etf",
-    "name": "iShares MSCI India ETF"
+    "name": "iShares MSCI India ETF",
+    "priority": 2
   },
   {
     "ticker": "VNQ",
     "type": "etf",
-    "name": "Vanguard Real Estate ETF"
+    "name": "Vanguard Real Estate ETF",
+    "priority": 2
   },
   {
     "ticker": "IYR",
     "type": "etf",
-    "name": "iShares US Real Estate ETF"
+    "name": "iShares US Real Estate ETF",
+    "priority": 2
   },
   {
     "ticker": "REM",
     "type": "etf",
-    "name": "iShares Mortgage Real Estate ETF"
+    "name": "iShares Mortgage Real Estate ETF",
+    "priority": 3
   },
   {
     "ticker": "KBE",
     "type": "etf",
-    "name": "SPDR S&P Bank ETF"
+    "name": "SPDR S&P Bank ETF",
+    "priority": 2
   },
   {
     "ticker": "KRE",
     "type": "etf",
-    "name": "SPDR S&P Regional Banking ETF"
+    "name": "SPDR S&P Regional Banking ETF",
+    "priority": 2
   },
   {
     "ticker": "GDX",
     "type": "etf",
-    "name": "VanEck Gold Miners ETF"
+    "name": "VanEck Gold Miners ETF",
+    "priority": 0
   },
   {
     "ticker": "GDXJ",
     "type": "etf",
-    "name": "VanEck Junior Gold Miners ETF"
+    "name": "VanEck Junior Gold Miners ETF",
+    "priority": 0
   },
   {
     "ticker": "COPX",
     "type": "etf",
-    "name": "Global X Copper Miners ETF"
+    "name": "Global X Copper Miners ETF",
+    "priority": 0
   },
   {
     "ticker": "LIT",
     "type": "etf",
-    "name": "Global X Lithium & Battery Tech ETF"
+    "name": "Global X Lithium & Battery Tech ETF",
+    "priority": 2
   },
   {
     "ticker": "URA",
     "type": "etf",
-    "name": "Global X Uranium ETF"
+    "name": "Global X Uranium ETF",
+    "priority": 0
   },
   {
     "ticker": "REMX",
     "type": "etf",
-    "name": "VanEck Rare Earth/Strategic Metals ETF"
+    "name": "VanEck Rare Earth/Strategic Metals ETF",
+    "priority": 0
   },
   {
     "ticker": "ITA",
     "type": "etf",
-    "name": "iShares US Aerospace & Defense ETF"
+    "name": "iShares US Aerospace & Defense ETF",
+    "priority": 2
   },
   {
     "ticker": "PPA",
     "type": "etf",
-    "name": "Invesco Aerospace & Defense ETF"
+    "name": "Invesco Aerospace & Defense ETF",
+    "priority": 2
   },
   {
     "ticker": "HACK",
     "type": "etf",
-    "name": "ETFMG Prime Cyber Security ETF"
+    "name": "ETFMG Prime Cyber Security ETF",
+    "priority": 2
   },
   {
     "ticker": "CIBR",
     "type": "etf",
-    "name": "First Trust NASDAQ Cybersecurity ETF"
+    "name": "First Trust NASDAQ Cybersecurity ETF",
+    "priority": 2
   },
   {
     "ticker": "FINX",
     "type": "etf",
-    "name": "Global X FinTech ETF"
+    "name": "Global X FinTech ETF",
+    "priority": 3
   },
   {
     "ticker": "IPAY",
     "type": "etf",
-    "name": "ETFMG Prime Mobile Payments ETF"
+    "name": "ETFMG Prime Mobile Payments ETF",
+    "priority": 2
   },
   {
     "ticker": "SKYY",
     "type": "etf",
-    "name": "First Trust Cloud Computing ETF"
+    "name": "First Trust Cloud Computing ETF",
+    "priority": 2
   },
   {
     "ticker": "CLOU",
     "type": "etf",
-    "name": "Global X Cloud Computing ETF"
+    "name": "Global X Cloud Computing ETF",
+    "priority": 2
   },
   {
     "ticker": "WCLD",
     "type": "etf",
-    "name": "WisdomTree Cloud Computing ETF"
+    "name": "WisdomTree Cloud Computing ETF",
+    "priority": 2
   },
   {
     "ticker": "BLOK",
     "type": "etf",
-    "name": "Amplify Transformational Data Sharing ETF"
+    "name": "Amplify Transformational Data Sharing ETF",
+    "priority": 3
   },
   {
     "ticker": "BITO",
     "type": "etf",
-    "name": "ProShares Bitcoin Strategy ETF"
+    "name": "ProShares Bitcoin Strategy ETF",
+    "priority": 2
   },
   {
     "ticker": "BTF",
     "type": "etf",
-    "name": "Valkyrie Bitcoin Strategy ETF"
+    "name": "Valkyrie Bitcoin Strategy ETF",
+    "priority": 3
   },
   {
     "ticker": "BITX",
     "type": "etf",
-    "name": "2x Bitcoin Strategy ETF"
+    "name": "2x Bitcoin Strategy ETF",
+    "priority": 2
   },
   {
     "ticker": "MSOS",
     "type": "etf",
-    "name": "AdvisorShares Pure US Cannabis ETF"
+    "name": "AdvisorShares Pure US Cannabis ETF",
+    "priority": 3
   },
   {
     "ticker": "MJ",
     "type": "etf",
-    "name": "ETFMG Alternative Harvest ETF"
+    "name": "ETFMG Alternative Harvest ETF",
+    "priority": 3
   },
   {
     "ticker": "VICE",
     "type": "etf",
-    "name": "AdvisorShares Vice ETF"
+    "name": "AdvisorShares Vice ETF",
+    "priority": 3
   },
   {
     "ticker": "HERO",
     "type": "etf",
-    "name": "Global X Video Games & Esports ETF"
+    "name": "Global X Video Games & Esports ETF",
+    "priority": 3
   },
   {
     "ticker": "ESPO",
     "type": "etf",
-    "name": "VanEck Video Gaming & eSports ETF"
+    "name": "VanEck Video Gaming & eSports ETF",
+    "priority": 3
   },
   {
     "ticker": "METV",
     "type": "etf",
-    "name": "Roundhill Ball Metaverse ETF"
+    "name": "Roundhill Ball Metaverse ETF",
+    "priority": 3
   },
   {
     "ticker": "UFO",
     "type": "etf",
-    "name": "Procure Space ETF"
+    "name": "Procure Space ETF",
+    "priority": 3
   },
   {
     "ticker": "GNOM",
     "type": "etf",
-    "name": "Global X Genomics & Biotechnology ETF"
+    "name": "Global X Genomics & Biotechnology ETF",
+    "priority": 3
   },
   {
     "ticker": "EDUT",
     "type": "etf",
-    "name": "Global X Education ETF"
+    "name": "Global X Education ETF",
+    "priority": 3
   },
   {
     "ticker": "DRIV",
     "type": "etf",
-    "name": "Global X Autonomous & Electric Vehicles ETF"
+    "name": "Global X Autonomous & Electric Vehicles ETF",
+    "priority": 2
   },
   {
     "ticker": "KARS",
     "type": "etf",
-    "name": "KraneShares Electric Vehicles ETF"
+    "name": "KraneShares Electric Vehicles ETF",
+    "priority": 3
   },
   {
     "ticker": "BATT",
     "type": "etf",
-    "name": "Amplify Lithium & Battery Technology ETF"
+    "name": "Amplify Lithium & Battery Technology ETF",
+    "priority": 2
   },
   {
     "ticker": "HYDR",
     "type": "etf",
-    "name": "Global X Hydrogen ETF"
+    "name": "Global X Hydrogen ETF",
+    "priority": 0
   },
   {
     "ticker": "GRID",
     "type": "etf",
-    "name": "First Trust NASDAQ Clean Edge Smart Grid ETF"
+    "name": "First Trust NASDAQ Clean Edge Smart Grid ETF",
+    "priority": 2
   },
   {
     "ticker": "DTCR",
     "type": "etf",
-    "name": "Global X Data Center & Digital Infrastructure ETF"
+    "name": "Global X Data Center & Digital Infrastructure ETF",
+    "priority": 3
   },
   {
     "ticker": "DIA",
     "type": "etf",
-    "name": "SPDR Dow Jones Industrial Average ETF"
+    "name": "SPDR Dow Jones Industrial Average ETF",
+    "priority": 2
   },
   {
     "ticker": "MDY",
     "type": "etf",
-    "name": "SPDR S&P MidCap 400 ETF"
+    "name": "SPDR S&P MidCap 400 ETF",
+    "priority": 2
   },
   {
     "ticker": "IJH",
     "type": "etf",
-    "name": "iShares Core S&P Mid-Cap ETF"
+    "name": "iShares Core S&P Mid-Cap ETF",
+    "priority": 2
   },
   {
     "ticker": "IJR",
     "type": "etf",
-    "name": "iShares Core S&P Small-Cap ETF"
+    "name": "iShares Core S&P Small-Cap ETF",
+    "priority": 2
   },
   {
     "ticker": "VB",
     "type": "etf",
-    "name": "Vanguard Small-Cap ETF"
+    "name": "Vanguard Small-Cap ETF",
+    "priority": 2
   },
   {
     "ticker": "VUG",
     "type": "etf",
-    "name": "Vanguard Growth ETF"
+    "name": "Vanguard Growth ETF",
+    "priority": 1
   },
   {
     "ticker": "VTV",
     "type": "etf",
-    "name": "Vanguard Value ETF"
+    "name": "Vanguard Value ETF",
+    "priority": 1
   },
   {
     "ticker": "MTUM",
     "type": "etf",
-    "name": "iShares MSCI USA Momentum Factor ETF"
+    "name": "iShares MSCI USA Momentum Factor ETF",
+    "priority": 2
   },
   {
     "ticker": "QUAL",
     "type": "etf",
-    "name": "iShares MSCI USA Quality Factor ETF"
+    "name": "iShares MSCI USA Quality Factor ETF",
+    "priority": 2
   },
   {
     "ticker": "VLUE",
     "type": "etf",
-    "name": "iShares MSCI USA Value Factor ETF"
+    "name": "iShares MSCI USA Value Factor ETF",
+    "priority": 2
   },
   {
     "ticker": "USMV",
     "type": "etf",
-    "name": "iShares MSCI USA Min Vol Factor ETF"
+    "name": "iShares MSCI USA Min Vol Factor ETF",
+    "priority": 2
   },
   {
     "ticker": "IEF",
     "type": "etf",
-    "name": "iShares 7-10 Year Treasury Bond ETF"
+    "name": "iShares 7-10 Year Treasury Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "SHY",
     "type": "etf",
-    "name": "iShares 1-3 Year Treasury Bond ETF"
+    "name": "iShares 1-3 Year Treasury Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "TIPS",
     "type": "etf",
-    "name": "iShares TIPS Bond ETF"
+    "name": "iShares TIPS Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "EMB",
     "type": "etf",
-    "name": "iShares JP Morgan USD Emerging Markets Bond ETF"
+    "name": "iShares JP Morgan USD Emerging Markets Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "JNK",
     "type": "etf",
-    "name": "SPDR Bloomberg High Yield Bond ETF"
+    "name": "SPDR Bloomberg High Yield Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "BNDX",
     "type": "etf",
-    "name": "Vanguard Total International Bond ETF"
+    "name": "Vanguard Total International Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "IGSB",
     "type": "etf",
-    "name": "iShares Short-Term Corporate Bond ETF"
+    "name": "iShares Short-Term Corporate Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "VCIT",
     "type": "etf",
-    "name": "Vanguard Intermediate-Term Corporate Bond ETF"
+    "name": "Vanguard Intermediate-Term Corporate Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "VCSH",
     "type": "etf",
-    "name": "Vanguard Short-Term Corporate Bond ETF"
+    "name": "Vanguard Short-Term Corporate Bond ETF",
+    "priority": 2
   },
   {
     "ticker": "SCHD",
     "type": "etf",
-    "name": "Schwab US Dividend Equity ETF"
+    "name": "Schwab US Dividend Equity ETF",
+    "priority": 2
   },
   {
     "ticker": "DVY",
     "type": "etf",
-    "name": "iShares Select Dividend ETF"
+    "name": "iShares Select Dividend ETF",
+    "priority": 2
   },
   {
     "ticker": "VYM",
     "type": "etf",
-    "name": "Vanguard High Dividend Yield ETF"
+    "name": "Vanguard High Dividend Yield ETF",
+    "priority": 2
   },
   {
     "ticker": "SDY",
     "type": "etf",
-    "name": "SPDR S&P Dividend ETF"
+    "name": "SPDR S&P Dividend ETF",
+    "priority": 2
   },
   {
     "ticker": "DGRO",
     "type": "etf",
-    "name": "iShares Core Dividend Growth ETF"
+    "name": "iShares Core Dividend Growth ETF",
+    "priority": 2
   },
   {
     "ticker": "NOBL",
     "type": "etf",
-    "name": "ProShares S&P 500 Dividend Aristocrats ETF"
+    "name": "ProShares S&P 500 Dividend Aristocrats ETF",
+    "priority": 2
   },
   {
     "ticker": "BTC",
     "type": "crypto",
-    "name": "Bitcoin"
+    "name": "Bitcoin",
+    "priority": 0
   },
   {
     "ticker": "ETH",
     "type": "crypto",
-    "name": "Ethereum"
+    "name": "Ethereum",
+    "priority": 0
   },
   {
     "ticker": "USDT",
     "type": "crypto",
-    "name": "Tether"
+    "name": "Tether",
+    "priority": 0
   },
   {
     "ticker": "BNB",
     "type": "crypto",
-    "name": "BNB"
+    "name": "BNB",
+    "priority": 0
   },
   {
     "ticker": "SOL",
     "type": "crypto",
-    "name": "Solana"
+    "name": "Solana",
+    "priority": 0
   },
   {
     "ticker": "XRP",
     "type": "crypto",
-    "name": "XRP"
+    "name": "XRP",
+    "priority": 2
   },
   {
     "ticker": "USDC",
     "type": "crypto",
-    "name": "USD Coin"
+    "name": "USD Coin",
+    "priority": 2
   },
   {
     "ticker": "ADA",
     "type": "crypto",
-    "name": "Cardano"
+    "name": "Cardano",
+    "priority": 2
   },
   {
     "ticker": "AVAX",
     "type": "crypto",
-    "name": "Avalanche"
+    "name": "Avalanche",
+    "priority": 2
   },
   {
     "ticker": "DOGE",
     "type": "crypto",
-    "name": "Dogecoin"
+    "name": "Dogecoin",
+    "priority": 2
   },
   {
     "ticker": "TRX",
     "type": "crypto",
-    "name": "TRON"
+    "name": "TRON",
+    "priority": 2
   },
   {
     "ticker": "DOT",
     "type": "crypto",
-    "name": "Polkadot"
+    "name": "Polkadot",
+    "priority": 2
   },
   {
     "ticker": "MATIC",
     "type": "crypto",
-    "name": "Polygon"
+    "name": "Polygon",
+    "priority": 2
   },
   {
     "ticker": "LINK",
     "type": "crypto",
-    "name": "Chainlink"
+    "name": "Chainlink",
+    "priority": 2
   },
   {
     "ticker": "SHIB",
     "type": "crypto",
-    "name": "Shiba Inu"
+    "name": "Shiba Inu",
+    "priority": 2
   },
   {
     "ticker": "LTC",
     "type": "crypto",
-    "name": "Litecoin"
+    "name": "Litecoin",
+    "priority": 2
   },
   {
     "ticker": "BCH",
     "type": "crypto",
-    "name": "Bitcoin Cash"
+    "name": "Bitcoin Cash",
+    "priority": 2
   },
   {
     "ticker": "UNI",
     "type": "crypto",
-    "name": "Uniswap"
+    "name": "Uniswap",
+    "priority": 2
   },
   {
     "ticker": "ATOM",
     "type": "crypto",
-    "name": "Cosmos"
+    "name": "Cosmos",
+    "priority": 3
   },
   {
     "ticker": "XLM",
     "type": "crypto",
-    "name": "Stellar"
+    "name": "Stellar",
+    "priority": 2
   },
   {
     "ticker": "ETC",
     "type": "crypto",
-    "name": "Ethereum Classic"
+    "name": "Ethereum Classic",
+    "priority": 3
   },
   {
     "ticker": "ALGO",
     "type": "crypto",
-    "name": "Algorand"
+    "name": "Algorand",
+    "priority": 3
   },
   {
     "ticker": "VET",
     "type": "crypto",
-    "name": "VeChain"
+    "name": "VeChain",
+    "priority": 3
   },
   {
     "ticker": "FIL",
     "type": "crypto",
-    "name": "Filecoin"
+    "name": "Filecoin",
+    "priority": 3
   },
   {
     "ticker": "ICP",
     "type": "crypto",
-    "name": "Internet Computer"
+    "name": "Internet Computer",
+    "priority": 3
   },
   {
     "ticker": "APT",
     "type": "crypto",
-    "name": "Aptos"
+    "name": "Aptos",
+    "priority": 3
   },
   {
     "ticker": "ARB",
     "type": "crypto",
-    "name": "Arbitrum"
+    "name": "Arbitrum",
+    "priority": 3
   },
   {
     "ticker": "OP",
     "type": "crypto",
-    "name": "Optimism"
+    "name": "Optimism",
+    "priority": 3
   },
   {
     "ticker": "SUI",
     "type": "crypto",
-    "name": "Sui"
+    "name": "Sui",
+    "priority": 2
   },
   {
     "ticker": "SEI",
     "type": "crypto",
-    "name": "Sei"
+    "name": "Sei",
+    "priority": 2
   },
   {
     "ticker": "INJ",
     "type": "crypto",
-    "name": "Injective"
+    "name": "Injective",
+    "priority": 3
   },
   {
     "ticker": "TIA",
     "type": "crypto",
-    "name": "Celestia"
+    "name": "Celestia",
+    "priority": 3
   },
   {
     "ticker": "JTO",
     "type": "crypto",
-    "name": "Jito"
+    "name": "Jito",
+    "priority": 3
   },
   {
     "ticker": "PYTH",
     "type": "crypto",
-    "name": "Pyth Network"
+    "name": "Pyth Network",
+    "priority": 3
   },
   {
     "ticker": "JUP",
     "type": "crypto",
-    "name": "Jupiter"
+    "name": "Jupiter",
+    "priority": 3
   },
   {
     "ticker": "BONK",
     "type": "crypto",
-    "name": "Bonk"
+    "name": "Bonk",
+    "priority": 3
   },
   {
     "ticker": "WIF",
     "type": "crypto",
-    "name": "Dogwifhat"
+    "name": "Dogwifhat",
+    "priority": 3
   },
   {
     "ticker": "PEPE",
     "type": "crypto",
-    "name": "Pepe"
+    "name": "Pepe",
+    "priority": 3
   },
   {
     "ticker": "FLOKI",
     "type": "crypto",
-    "name": "Floki"
+    "name": "Floki",
+    "priority": 3
   },
   {
     "ticker": "NEAR",
     "type": "crypto",
-    "name": "NEAR Protocol"
+    "name": "NEAR Protocol",
+    "priority": 2
   },
   {
     "ticker": "FTM",
     "type": "crypto",
-    "name": "Fantom"
+    "name": "Fantom",
+    "priority": 3
   },
   {
     "ticker": "S",
     "type": "crypto",
-    "name": "Sonic (prev. Fantom)"
+    "name": "Sonic (prev. Fantom)",
+    "priority": 2
   },
   {
     "ticker": "GRT",
     "type": "crypto",
-    "name": "The Graph"
+    "name": "The Graph",
+    "priority": 3
   },
   {
     "ticker": "SAND",
     "type": "crypto",
-    "name": "The Sandbox"
+    "name": "The Sandbox",
+    "priority": 3
   },
   {
     "ticker": "MANA",
     "type": "crypto",
-    "name": "Decentraland"
+    "name": "Decentraland",
+    "priority": 3
   },
   {
     "ticker": "AXS",
     "type": "crypto",
-    "name": "Axie Infinity"
+    "name": "Axie Infinity",
+    "priority": 3
   },
   {
     "ticker": "THETA",
     "type": "crypto",
-    "name": "Theta Network"
+    "name": "Theta Network",
+    "priority": 3
   },
   {
     "ticker": "AAVE",
     "type": "crypto",
-    "name": "Aave"
+    "name": "Aave",
+    "priority": 3
   },
   {
     "ticker": "MKR",
     "type": "crypto",
-    "name": "Maker"
+    "name": "Maker",
+    "priority": 3
   },
   {
     "ticker": "SNX",
     "type": "crypto",
-    "name": "Synthetix"
+    "name": "Synthetix",
+    "priority": 3
   },
   {
     "ticker": "CRV",
     "type": "crypto",
-    "name": "Curve DAO Token"
+    "name": "Curve DAO Token",
+    "priority": 3
   },
   {
     "ticker": "LDO",
     "type": "crypto",
-    "name": "Lido DAO"
+    "name": "Lido DAO",
+    "priority": 3
   },
   {
     "ticker": "RPL",
     "type": "crypto",
-    "name": "Rocket Pool"
+    "name": "Rocket Pool",
+    "priority": 3
   },
   {
     "ticker": "RUNE",
     "type": "crypto",
-    "name": "THORChain"
+    "name": "THORChain",
+    "priority": 3
   },
   {
     "ticker": "DYDX",
     "type": "crypto",
-    "name": "dYdX"
+    "name": "dYdX",
+    "priority": 3
   },
   {
     "ticker": "GMX",
     "type": "crypto",
-    "name": "GMX"
+    "name": "GMX",
+    "priority": 3
   },
   {
     "ticker": "PENDLE",
     "type": "crypto",
-    "name": "Pendle"
+    "name": "Pendle",
+    "priority": 3
   },
   {
     "ticker": "ENA",
     "type": "crypto",
-    "name": "Ethena"
+    "name": "Ethena",
+    "priority": 3
   },
   {
     "ticker": "EIGEN",
     "type": "crypto",
-    "name": "EigenLayer"
+    "name": "EigenLayer",
+    "priority": 3
   },
   {
     "ticker": "STRK",
     "type": "crypto",
-    "name": "Starknet"
+    "name": "Starknet",
+    "priority": 3
   },
   {
     "ticker": "ZK",
     "type": "crypto",
-    "name": "ZKsync"
+    "name": "ZKsync",
+    "priority": 3
   },
   {
     "ticker": "BLAST",
     "type": "crypto",
-    "name": "Blast"
+    "name": "Blast",
+    "priority": 3
   },
   {
     "ticker": "ZETA",
     "type": "crypto",
-    "name": "ZetaChain"
+    "name": "ZetaChain",
+    "priority": 3
   },
   {
     "ticker": "TAO",
     "type": "crypto",
-    "name": "Bittensor"
+    "name": "Bittensor",
+    "priority": 3
   },
   {
     "ticker": "FET",
     "type": "crypto",
-    "name": "Fetch.ai"
+    "name": "Fetch.ai",
+    "priority": 3
   },
   {
     "ticker": "AGIX",
     "type": "crypto",
-    "name": "SingularityNET"
+    "name": "SingularityNET",
+    "priority": 3
   },
   {
     "ticker": "OCEAN",
     "type": "crypto",
-    "name": "Ocean Protocol"
+    "name": "Ocean Protocol",
+    "priority": 3
   },
   {
     "ticker": "RNDR",
     "type": "crypto",
-    "name": "Render"
+    "name": "Render",
+    "priority": 3
   },
   {
     "ticker": "AKT",
     "type": "crypto",
-    "name": "Akash Network"
+    "name": "Akash Network",
+    "priority": 3
   },
   {
     "ticker": "KAS",
     "type": "crypto",
-    "name": "Kaspa"
+    "name": "Kaspa",
+    "priority": 3
   },
   {
     "ticker": "TON",
     "type": "crypto",
-    "name": "Toncoin"
+    "name": "Toncoin",
+    "priority": 2
   },
   {
     "ticker": "NOT",
     "type": "crypto",
-    "name": "Notcoin"
+    "name": "Notcoin",
+    "priority": 3
   },
   {
     "ticker": "HMSTR",
     "type": "crypto",
-    "name": "Hamster Kombat"
+    "name": "Hamster Kombat",
+    "priority": 3
   },
   {
     "ticker": "DOGS",
     "type": "crypto",
-    "name": "Dogs"
+    "name": "Dogs",
+    "priority": 3
   },
   {
     "ticker": "CATI",
     "type": "crypto",
-    "name": "Catizen"
+    "name": "Catizen",
+    "priority": 3
   },
   {
     "ticker": "XMR",
     "type": "crypto",
-    "name": "Monero"
+    "name": "Monero",
+    "priority": 2
   },
   {
     "ticker": "ZEC",
     "type": "crypto",
-    "name": "Zcash"
+    "name": "Zcash",
+    "priority": 3
   },
   {
     "ticker": "BTT",
     "type": "crypto",
-    "name": "BitTorrent"
+    "name": "BitTorrent",
+    "priority": 3
   },
   {
     "ticker": "HOT",
     "type": "crypto",
-    "name": "Holo"
+    "name": "Holo",
+    "priority": 3
   },
   {
     "ticker": "ONE",
     "type": "crypto",
-    "name": "Harmony"
+    "name": "Harmony",
+    "priority": 3
   },
   {
     "ticker": "IOTA",
     "type": "crypto",
-    "name": "IOTA"
+    "name": "IOTA",
+    "priority": 3
   },
   {
     "ticker": "ZIL",
     "type": "crypto",
-    "name": "Zilliqa"
+    "name": "Zilliqa",
+    "priority": 3
   },
   {
     "ticker": "QTUM",
     "type": "crypto",
-    "name": "Qtum"
+    "name": "Qtum",
+    "priority": 3
   },
   {
     "ticker": "ICX",
     "type": "crypto",
-    "name": "ICON"
+    "name": "ICON",
+    "priority": 3
   },
   {
     "ticker": "ONT",
     "type": "crypto",
-    "name": "Ontology"
+    "name": "Ontology",
+    "priority": 3
   },
   {
     "ticker": "NEO",
     "type": "crypto",
-    "name": "NEO"
+    "name": "NEO",
+    "priority": 3
   },
   {
     "ticker": "EOS",
     "type": "crypto",
-    "name": "EOS"
+    "name": "EOS",
+    "priority": 3
   },
   {
     "ticker": "WAVES",
     "type": "crypto",
-    "name": "Waves"
+    "name": "Waves",
+    "priority": 3
   },
   {
     "ticker": "KSM",
     "type": "crypto",
-    "name": "Kusama"
+    "name": "Kusama",
+    "priority": 3
   },
   {
     "ticker": "CFX",
     "type": "crypto",
-    "name": "Conflux"
+    "name": "Conflux",
+    "priority": 0
   },
   {
     "ticker": "CORE",
     "type": "crypto",
-    "name": "Core"
+    "name": "Core",
+    "priority": 3
   },
   {
     "ticker": "MINA",
     "type": "crypto",
-    "name": "Mina Protocol"
+    "name": "Mina Protocol",
+    "priority": 3
   },
   {
     "ticker": "FLOW",
     "type": "crypto",
-    "name": "Flow"
+    "name": "Flow",
+    "priority": 3
   },
   {
     "ticker": "IMX",
     "type": "crypto",
-    "name": "Immutable"
+    "name": "Immutable",
+    "priority": 3
   },
   {
     "ticker": "GODS",
     "type": "crypto",
-    "name": "Gods Unchained"
+    "name": "Gods Unchained",
+    "priority": 3
   },
   {
     "ticker": "MAGIC",
     "type": "crypto",
-    "name": "Magic (Treasure)"
+    "name": "Magic (Treasure)",
+    "priority": 3
   },
   {
     "ticker": "GALA",
     "type": "crypto",
-    "name": "Gala"
+    "name": "Gala",
+    "priority": 3
   },
   {
     "ticker": "ENJ",
     "type": "crypto",
-    "name": "Enjin Coin"
+    "name": "Enjin Coin",
+    "priority": 3
   },
   {
     "ticker": "CHZ",
     "type": "crypto",
-    "name": "Chiliz"
+    "name": "Chiliz",
+    "priority": 3
   },
   {
     "ticker": "DENT",
     "type": "crypto",
-    "name": "Dent"
+    "name": "Dent",
+    "priority": 3
   },
   {
     "ticker": "BAT",
     "type": "crypto",
-    "name": "Basic Attention Token"
+    "name": "Basic Attention Token",
+    "priority": 3
   },
   {
     "ticker": "1INCH",
     "type": "crypto",
-    "name": "1inch Network"
+    "name": "1inch Network",
+    "priority": 3
   },
   {
     "ticker": "SUSHI",
     "type": "crypto",
-    "name": "SushiSwap"
+    "name": "SushiSwap",
+    "priority": 3
   },
   {
     "ticker": "CAKE",
     "type": "crypto",
-    "name": "PancakeSwap"
+    "name": "PancakeSwap",
+    "priority": 3
   },
   {
     "ticker": "COMP",
     "type": "crypto",
-    "name": "Compound"
+    "name": "Compound",
+    "priority": 3
   },
   {
     "ticker": "YFI",
     "type": "crypto",
-    "name": "Yearn Finance"
+    "name": "Yearn Finance",
+    "priority": 3
   },
   {
     "ticker": "BAL",
     "type": "crypto",
-    "name": "Balancer"
+    "name": "Balancer",
+    "priority": 3
   },
   {
     "ticker": "ZRX",
     "type": "crypto",
-    "name": "0x Protocol"
+    "name": "0x Protocol",
+    "priority": 3
   },
   {
     "ticker": "BLUR",
     "type": "crypto",
-    "name": "Blur"
+    "name": "Blur",
+    "priority": 3
   },
   {
     "ticker": "LooksRARE",
     "type": "crypto",
-    "name": "LooksRare"
+    "name": "LooksRare",
+    "priority": 3
   },
   {
     "ticker": "RARI",
     "type": "crypto",
-    "name": "Rarible"
+    "name": "Rarible",
+    "priority": 3
   },
   {
     "ticker": "RVN",
     "type": "crypto",
-    "name": "Ravencoin"
+    "name": "Ravencoin",
+    "priority": 3
   },
   {
     "ticker": "HNT",
     "type": "crypto",
-    "name": "Helium"
+    "name": "Helium",
+    "priority": 3
   },
   {
     "ticker": "MOBILE",
     "type": "crypto",
-    "name": "Helium Mobile"
+    "name": "Helium Mobile",
+    "priority": 3
   },
   {
     "ticker": "JASMY",
     "type": "crypto",
-    "name": "JasmyCoin"
+    "name": "JasmyCoin",
+    "priority": 3
   },
   {
     "ticker": "ANKR",
     "type": "crypto",
-    "name": "Ankr"
+    "name": "Ankr",
+    "priority": 3
   },
   {
     "ticker": "NMR",
     "type": "crypto",
-    "name": "Numeraire"
+    "name": "Numeraire",
+    "priority": 2
   },
   {
     "ticker": "API3",
     "type": "crypto",
-    "name": "API3"
+    "name": "API3",
+    "priority": 3
   },
   {
     "ticker": "BAND",
     "type": "crypto",
-    "name": "Band Protocol"
+    "name": "Band Protocol",
+    "priority": 3
   },
   {
     "ticker": "TRB",
     "type": "crypto",
-    "name": "Tellor"
+    "name": "Tellor",
+    "priority": 3
   },
   {
     "ticker": "UMA",
     "type": "crypto",
-    "name": "UMA"
+    "name": "UMA",
+    "priority": 3
   },
   {
     "ticker": "RSS3",
     "type": "crypto",
-    "name": "RSS3"
+    "name": "RSS3",
+    "priority": 3
   },
   {
     "ticker": "DAI",
     "type": "crypto",
-    "name": "Dai"
+    "name": "Dai",
+    "priority": 2
   },
   {
     "ticker": "FRAX",
     "type": "crypto",
-    "name": "Frax"
+    "name": "Frax",
+    "priority": 3
   },
   {
     "ticker": "TUSD",
     "type": "crypto",
-    "name": "TrueUSD"
+    "name": "TrueUSD",
+    "priority": 3
   },
   {
     "ticker": "BUSD",
     "type": "crypto",
-    "name": "Binance USD"
+    "name": "Binance USD",
+    "priority": 2
   },
   {
     "ticker": "PYUSD",
     "type": "crypto",
-    "name": "PayPal USD"
+    "name": "PayPal USD",
+    "priority": 3
   },
   {
     "ticker": "USDE",
     "type": "crypto",
-    "name": "Ethena USDe"
+    "name": "Ethena USDe",
+    "priority": 3
   },
   {
     "ticker": "GC=F",
     "type": "commodity",
-    "name": "Gold Futures"
+    "name": "Gold Futures",
+    "priority": 0
   },
   {
     "ticker": "SI=F",
     "type": "commodity",
-    "name": "Silver Futures"
+    "name": "Silver Futures",
+    "priority": 0
   },
   {
     "ticker": "CL=F",
     "type": "commodity",
-    "name": "Crude Oil (WTI) Futures"
+    "name": "Crude Oil (WTI) Futures",
+    "priority": 0
   },
   {
     "ticker": "BZ=F",
     "type": "commodity",
-    "name": "Brent Crude Oil Futures"
+    "name": "Brent Crude Oil Futures",
+    "priority": 0
   },
   {
     "ticker": "NG=F",
     "type": "commodity",
-    "name": "Natural Gas Futures"
+    "name": "Natural Gas Futures",
+    "priority": 0
   },
   {
     "ticker": "HG=F",
     "type": "commodity",
-    "name": "Copper Futures"
+    "name": "Copper Futures",
+    "priority": 0
   },
   {
     "ticker": "PL=F",
     "type": "commodity",
-    "name": "Platinum Futures"
+    "name": "Platinum Futures",
+    "priority": 0
   },
   {
     "ticker": "PA=F",
     "type": "commodity",
-    "name": "Palladium Futures"
+    "name": "Palladium Futures",
+    "priority": 0
   },
   {
     "ticker": "ZC=F",
     "type": "commodity",
-    "name": "Corn Futures"
+    "name": "Corn Futures",
+    "priority": 3
   },
   {
     "ticker": "ZW=F",
     "type": "commodity",
-    "name": "Wheat Futures"
+    "name": "Wheat Futures",
+    "priority": 3
   },
   {
     "ticker": "ZS=F",
     "type": "commodity",
-    "name": "Soybean Futures"
+    "name": "Soybean Futures",
+    "priority": 3
   },
   {
     "ticker": "CT=F",
     "type": "commodity",
-    "name": "Cotton Futures"
+    "name": "Cotton Futures",
+    "priority": 3
   },
   {
     "ticker": "KC=F",
     "type": "commodity",
-    "name": "Coffee Futures"
+    "name": "Coffee Futures",
+    "priority": 3
   },
   {
     "ticker": "SB=F",
     "type": "commodity",
-    "name": "Sugar Futures"
+    "name": "Sugar Futures",
+    "priority": 3
   },
   {
     "ticker": "CC=F",
     "type": "commodity",
-    "name": "Cocoa Futures"
+    "name": "Cocoa Futures",
+    "priority": 3
   },
   {
     "ticker": "LB=F",
     "type": "commodity",
-    "name": "Lumber Futures"
+    "name": "Lumber Futures",
+    "priority": 3
   },
   {
     "ticker": "LE=F",
     "type": "commodity",
-    "name": "Live Cattle Futures"
+    "name": "Live Cattle Futures",
+    "priority": 3
   },
   {
     "ticker": "HE=F",
     "type": "commodity",
-    "name": "Lean Hogs Futures"
+    "name": "Lean Hogs Futures",
+    "priority": 3
   },
   {
     "ticker": "ALI=F",
     "type": "commodity",
-    "name": "Aluminum Futures"
+    "name": "Aluminum Futures",
+    "priority": 3
   },
   {
     "ticker": "UX=F",
     "type": "commodity",
-    "name": "Uranium Futures"
+    "name": "Uranium Futures",
+    "priority": 0
   },
   {
     "ticker": "^GSPC",
     "type": "index",
-    "name": "S&P 500 Index"
+    "name": "S&P 500 Index",
+    "priority": 3
   },
   {
     "ticker": "^IXIC",
     "type": "index",
-    "name": "Nasdaq Composite Index"
+    "name": "Nasdaq Composite Index",
+    "priority": 3
   },
   {
     "ticker": "^DJI",
     "type": "index",
-    "name": "Dow Jones Industrial Average"
+    "name": "Dow Jones Industrial Average",
+    "priority": 3
   },
   {
     "ticker": "^RUT",
     "type": "index",
-    "name": "Russell 2000 Index"
+    "name": "Russell 2000 Index",
+    "priority": 3
   },
   {
     "ticker": "^VIX",
     "type": "index",
-    "name": "CBOE Volatility Index (VIX)"
+    "name": "CBOE Volatility Index (VIX)",
+    "priority": 3
   },
   {
     "ticker": "^FTSE",
     "type": "index",
-    "name": "FTSE 100 Index"
+    "name": "FTSE 100 Index",
+    "priority": 3
   },
   {
     "ticker": "^GDAXI",
     "type": "index",
-    "name": "DAX Index (Germany)"
+    "name": "DAX Index (Germany)",
+    "priority": 3
   },
   {
     "ticker": "^FCHI",
     "type": "index",
-    "name": "CAC 40 Index (France)"
+    "name": "CAC 40 Index (France)",
+    "priority": 3
   },
   {
     "ticker": "^N225",
     "type": "index",
-    "name": "Nikkei 225 Index (Japan)"
+    "name": "Nikkei 225 Index (Japan)",
+    "priority": 3
   },
   {
     "ticker": "^HSI",
     "type": "index",
-    "name": "Hang Seng Index (Hong Kong)"
+    "name": "Hang Seng Index (Hong Kong)",
+    "priority": 3
   },
   {
     "ticker": "000001.SS",
     "type": "index",
-    "name": "SSE Composite Index (China)"
+    "name": "SSE Composite Index (China)",
+    "priority": 3
   },
   {
     "ticker": "^AXJO",
     "type": "index",
-    "name": "ASX 200 Index (Australia)"
+    "name": "ASX 200 Index (Australia)",
+    "priority": 3
   },
   {
     "ticker": "^BSESN",
     "type": "index",
-    "name": "BSE Sensex Index (India)"
+    "name": "BSE Sensex Index (India)",
+    "priority": 3
   },
   {
     "ticker": "^NSEI",
     "type": "index",
-    "name": "Nifty 50 Index (India)"
+    "name": "Nifty 50 Index (India)",
+    "priority": 3
   },
   {
     "ticker": "^KS11",
     "type": "index",
-    "name": "KOSPI Index (South Korea)"
+    "name": "KOSPI Index (South Korea)",
+    "priority": 3
   },
   {
     "ticker": "EURUSD=X",
     "type": "forex",
-    "name": "Euro / US Dollar"
+    "name": "Euro / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "GBPUSD=X",
     "type": "forex",
-    "name": "British Pound / US Dollar"
+    "name": "British Pound / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "JPY=X",
     "type": "forex",
-    "name": "US Dollar / Japanese Yen"
+    "name": "US Dollar / Japanese Yen",
+    "priority": 3
   },
   {
     "ticker": "AUDUSD=X",
     "type": "forex",
-    "name": "Australian Dollar / US Dollar"
+    "name": "Australian Dollar / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "CADUSD=X",
     "type": "forex",
-    "name": "Canadian Dollar / US Dollar"
+    "name": "Canadian Dollar / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "CHFUSD=X",
     "type": "forex",
-    "name": "Swiss Franc / US Dollar"
+    "name": "Swiss Franc / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "CNYUSD=X",
     "type": "forex",
-    "name": "Chinese Yuan / US Dollar"
+    "name": "Chinese Yuan / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "INRUSD=X",
     "type": "forex",
-    "name": "Indian Rupee / US Dollar"
+    "name": "Indian Rupee / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "BRLUSD=X",
     "type": "forex",
-    "name": "Brazilian Real / US Dollar"
+    "name": "Brazilian Real / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "MXNUSD=X",
     "type": "forex",
-    "name": "Mexican Peso / US Dollar"
+    "name": "Mexican Peso / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "KRWUSD=X",
     "type": "forex",
-    "name": "South Korean Won / US Dollar"
+    "name": "South Korean Won / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "SGDUSD=X",
     "type": "forex",
-    "name": "Singapore Dollar / US Dollar"
+    "name": "Singapore Dollar / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "HKDUSD=X",
     "type": "forex",
-    "name": "Hong Kong Dollar / US Dollar"
+    "name": "Hong Kong Dollar / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "NOKUSD=X",
     "type": "forex",
-    "name": "Norwegian Krone / US Dollar"
+    "name": "Norwegian Krone / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "SEKUSD=X",
     "type": "forex",
-    "name": "Swedish Krona / US Dollar"
+    "name": "Swedish Krona / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "TRYUSD=X",
     "type": "forex",
-    "name": "Turkish Lira / US Dollar"
+    "name": "Turkish Lira / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "ZARUSD=X",
     "type": "forex",
-    "name": "South African Rand / US Dollar"
+    "name": "South African Rand / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "RUBUSD=X",
     "type": "forex",
-    "name": "Russian Ruble / US Dollar"
+    "name": "Russian Ruble / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "ARUSD=X",
     "type": "forex",
-    "name": "Argentine Peso / US Dollar"
+    "name": "Argentine Peso / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "NZDUSD=X",
     "type": "forex",
-    "name": "New Zealand Dollar / US Dollar"
+    "name": "New Zealand Dollar / US Dollar",
+    "priority": 3
   },
   {
     "ticker": "ZT=F",
     "type": "bond",
-    "name": "2-Year US Treasury Futures"
+    "name": "2-Year US Treasury Futures",
+    "priority": 3
   },
   {
     "ticker": "ZF=F",
     "type": "bond",
-    "name": "5-Year US Treasury Futures"
+    "name": "5-Year US Treasury Futures",
+    "priority": 3
   },
   {
     "ticker": "ZN=F",
     "type": "bond",
-    "name": "10-Year US Treasury Futures"
+    "name": "10-Year US Treasury Futures",
+    "priority": 3
   },
   {
     "ticker": "ZB=F",
     "type": "bond",
-    "name": "30-Year US Treasury Futures"
+    "name": "30-Year US Treasury Futures",
+    "priority": 3
   },
   {
     "ticker": "^TNX",
     "type": "bond",
-    "name": "10-Year US Treasury Yield"
+    "name": "10-Year US Treasury Yield",
+    "priority": 3
   },
   {
     "ticker": "^TYX",
     "type": "bond",
-    "name": "30-Year US Treasury Yield"
+    "name": "30-Year US Treasury Yield",
+    "priority": 3
   },
   {
     "ticker": "^FVX",
     "type": "bond",
-    "name": "5-Year US Treasury Yield"
+    "name": "5-Year US Treasury Yield",
+    "priority": 3
   },
   {
     "ticker": "^IRX",
     "type": "bond",
-    "name": "13-Week Treasury Bill Yield"
+    "name": "13-Week Treasury Bill Yield",
+    "priority": 3
   },
   {
     "ticker": "TME",
     "type": "stock",
-    "name": "Tencent Music Entertainment"
+    "name": "Tencent Music Entertainment",
+    "priority": 2
   },
   {
     "ticker": "BILI",
     "type": "stock",
-    "name": "Bilibili Inc."
+    "name": "Bilibili Inc.",
+    "priority": 3
   },
   {
     "ticker": "IQ",
     "type": "stock",
-    "name": "iQIYI Inc."
+    "name": "iQIYI Inc.",
+    "priority": 3
   },
   {
     "ticker": "XPEV",
     "type": "stock",
-    "name": "XPeng Inc."
+    "name": "XPeng Inc.",
+    "priority": 2
   },
   {
     "ticker": "LI",
     "type": "stock",
-    "name": "Li Auto Inc."
+    "name": "Li Auto Inc.",
+    "priority": 2
   },
   {
     "ticker": "WB",
     "type": "stock",
-    "name": "Weibo Corp."
+    "name": "Weibo Corp.",
+    "priority": 3
   },
   {
     "ticker": "VNET",
     "type": "stock",
-    "name": "VNET Group Inc."
+    "name": "VNET Group Inc.",
+    "priority": 3
   },
   {
     "ticker": "HTHT",
     "type": "stock",
-    "name": "H World Group Ltd."
+    "name": "H World Group Ltd.",
+    "priority": 2
   },
   {
     "ticker": "YUMC",
     "type": "stock",
-    "name": "Yum China Holdings Inc."
+    "name": "Yum China Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "ZTO",
     "type": "stock",
-    "name": "ZTO Express Inc."
+    "name": "ZTO Express Inc.",
+    "priority": 2
   },
   {
     "ticker": "NTES",
     "type": "stock",
-    "name": "NetEase Inc."
+    "name": "NetEase Inc.",
+    "priority": 1
   },
   {
     "ticker": "DIDI",
     "type": "stock",
-    "name": "DiDi Global Inc."
+    "name": "DiDi Global Inc.",
+    "priority": 3
   },
   {
     "ticker": "FUTU",
     "type": "stock",
-    "name": "Futu Holdings Ltd."
+    "name": "Futu Holdings Ltd.",
+    "priority": 2
   },
   {
     "ticker": "TIGR",
     "type": "stock",
-    "name": "UP Fintech Holding Ltd."
+    "name": "UP Fintech Holding Ltd.",
+    "priority": 3
   },
   {
     "ticker": "MELI",
     "type": "stock",
-    "name": "MercadoLibre Inc."
+    "name": "MercadoLibre Inc.",
+    "priority": 1
   },
   {
     "ticker": "INFY",
     "type": "stock",
-    "name": "Infosys Ltd."
+    "name": "Infosys Ltd.",
+    "priority": 1
   },
   {
     "ticker": "WIT",
     "type": "stock",
-    "name": "Wipro Ltd."
+    "name": "Wipro Ltd.",
+    "priority": 2
   },
   {
     "ticker": "HDB",
     "type": "stock",
-    "name": "HDFC Bank Ltd."
+    "name": "HDFC Bank Ltd.",
+    "priority": 1
   },
   {
     "ticker": "IBN",
     "type": "stock",
-    "name": "ICICI Bank Ltd."
+    "name": "ICICI Bank Ltd.",
+    "priority": 2
   },
   {
     "ticker": "ITUB",
     "type": "stock",
-    "name": "Ita\u00fa Unibanco Holding SA"
+    "name": "Itaú Unibanco Holding SA",
+    "priority": 1
   },
   {
     "ticker": "BBD",
     "type": "stock",
-    "name": "Banco Bradesco SA"
+    "name": "Banco Bradesco SA",
+    "priority": 2
   },
   {
     "ticker": "VALE",
     "type": "stock",
-    "name": "Vale SA"
+    "name": "Vale SA",
+    "priority": 0
   },
   {
     "ticker": "PBR",
     "type": "stock",
-    "name": "Petr\u00f3leo Brasileiro SA"
+    "name": "Petróleo Brasileiro SA",
+    "priority": 0
   },
   {
     "ticker": "SID",
     "type": "stock",
-    "name": "Companhia Sider\u00fargica Nacional"
+    "name": "Companhia Siderúrgica Nacional",
+    "priority": 0
   },
   {
     "ticker": "ERJ",
     "type": "stock",
-    "name": "Embraer SA"
+    "name": "Embraer SA",
+    "priority": 3
   },
   {
     "ticker": "ABEV",
     "type": "stock",
-    "name": "Ambev SA"
+    "name": "Ambev SA",
+    "priority": 2
   },
   {
     "ticker": "BAK",
     "type": "stock",
-    "name": "Braskem SA"
+    "name": "Braskem SA",
+    "priority": 3
   },
   {
     "ticker": "LREN3.SA",
     "type": "stock",
-    "name": "Lojas Renner SA"
+    "name": "Lojas Renner SA",
+    "priority": 3
   },
   {
     "ticker": "KB",
     "type": "stock",
-    "name": "KB Financial Group Inc."
+    "name": "KB Financial Group Inc.",
+    "priority": 2
   },
   {
     "ticker": "SHG",
     "type": "stock",
-    "name": "Shinhan Financial Group Co."
+    "name": "Shinhan Financial Group Co.",
+    "priority": 2
   },
   {
     "ticker": "HMC",
     "type": "stock",
-    "name": "Honda Motor Co. Ltd."
+    "name": "Honda Motor Co. Ltd.",
+    "priority": 2
   },
   {
     "ticker": "NSANY",
     "type": "stock",
-    "name": "Nissan Motor Co. Ltd."
+    "name": "Nissan Motor Co. Ltd.",
+    "priority": 2
   },
   {
     "ticker": "MZDAY",
     "type": "stock",
-    "name": "Mazda Motor Corp."
+    "name": "Mazda Motor Corp.",
+    "priority": 3
   },
   {
     "ticker": "7267.T",
     "type": "stock",
-    "name": "Honda Motor Co. (Tokyo)"
+    "name": "Honda Motor Co. (Tokyo)",
+    "priority": 3
   },
   {
     "ticker": "9984.T",
     "type": "stock",
-    "name": "SoftBank Group Corp."
+    "name": "SoftBank Group Corp.",
+    "priority": 3
   },
   {
     "ticker": "6758.T",
     "type": "stock",
-    "name": "Sony Group Corp. (Tokyo)"
+    "name": "Sony Group Corp. (Tokyo)",
+    "priority": 3
   },
   {
     "ticker": "7203.T",
     "type": "stock",
-    "name": "Toyota Motor Corp. (Tokyo)"
+    "name": "Toyota Motor Corp. (Tokyo)",
+    "priority": 3
   },
   {
     "ticker": "6861.T",
     "type": "stock",
-    "name": "Keyence Corp."
+    "name": "Keyence Corp.",
+    "priority": 3
   },
   {
     "ticker": "SIEGY",
     "type": "stock",
-    "name": "Siemens AG"
+    "name": "Siemens AG",
+    "priority": 1
   },
   {
     "ticker": "ADDYY",
     "type": "stock",
-    "name": "adidas AG"
+    "name": "adidas AG",
+    "priority": 2
   },
   {
     "ticker": "BAYRY",
     "type": "stock",
-    "name": "Bayer AG"
+    "name": "Bayer AG",
+    "priority": 2
   },
   {
     "ticker": "BASFY",
     "type": "stock",
-    "name": "BASF SE"
+    "name": "BASF SE",
+    "priority": 2
   },
   {
     "ticker": "DPSGY",
     "type": "stock",
-    "name": "Deutsche Post AG"
+    "name": "Deutsche Post AG",
+    "priority": 3
   },
   {
     "ticker": "VWAGY",
     "type": "stock",
-    "name": "Volkswagen AG"
+    "name": "Volkswagen AG",
+    "priority": 2
   },
   {
     "ticker": "BMWYY",
     "type": "stock",
-    "name": "BMW AG"
+    "name": "BMW AG",
+    "priority": 3
   },
   {
     "ticker": "MBGYY",
     "type": "stock",
-    "name": "Mercedes-Benz Group AG"
+    "name": "Mercedes-Benz Group AG",
+    "priority": 2
   },
   {
     "ticker": "DB",
     "type": "stock",
-    "name": "Deutsche Bank AG"
+    "name": "Deutsche Bank AG",
+    "priority": 2
   },
   {
     "ticker": "AIQUY",
     "type": "stock",
-    "name": "Air Liquide SA"
+    "name": "Air Liquide SA",
+    "priority": 2
   },
   {
     "ticker": "STMEF",
     "type": "stock",
-    "name": "STMicroelectronics NV"
+    "name": "STMicroelectronics NV",
+    "priority": 3
   },
   {
     "ticker": "ERICB",
     "type": "stock",
-    "name": "Ericsson"
+    "name": "Ericsson",
+    "priority": 3
   },
   {
     "ticker": "NOK",
     "type": "stock",
-    "name": "Nokia Corp."
+    "name": "Nokia Corp.",
+    "priority": 2
   },
   {
     "ticker": "RACE",
     "type": "stock",
-    "name": "Ferrari NV"
+    "name": "Ferrari NV",
+    "priority": 2
   },
   {
     "ticker": "STLA",
     "type": "stock",
-    "name": "Stellantis NV"
+    "name": "Stellantis NV",
+    "priority": 2
   },
   {
     "ticker": "RNO",
     "type": "stock",
-    "name": "Renault SA"
+    "name": "Renault SA",
+    "priority": 3
   },
   {
     "ticker": "NCLH",
     "type": "stock",
-    "name": "Norwegian Cruise Line Holdings"
+    "name": "Norwegian Cruise Line Holdings",
+    "priority": 2
   },
   {
     "ticker": "HA",
     "type": "stock",
-    "name": "Hawaiian Holdings Inc."
+    "name": "Hawaiian Holdings Inc.",
+    "priority": 3
   },
   {
     "ticker": "SAVE",
     "type": "stock",
-    "name": "Spirit Airlines Inc."
+    "name": "Spirit Airlines Inc.",
+    "priority": 3
   },
   {
     "ticker": "ALGT",
     "type": "stock",
-    "name": "Allegiant Travel Co."
+    "name": "Allegiant Travel Co.",
+    "priority": 3
   },
   {
     "ticker": "SKYW",
     "type": "stock",
-    "name": "SkyWest Inc."
+    "name": "SkyWest Inc.",
+    "priority": 2
   },
   {
     "ticker": "JBLU",
     "type": "stock",
-    "name": "JetBlue Airways Corp."
+    "name": "JetBlue Airways Corp.",
+    "priority": 3
   },
   {
     "ticker": "XPO",
     "type": "stock",
-    "name": "XPO Inc."
+    "name": "XPO Inc.",
+    "priority": 2
   },
   {
     "ticker": "SAIA",
     "type": "stock",
-    "name": "Saia Inc."
+    "name": "Saia Inc.",
+    "priority": 2
   },
   {
     "ticker": "ODFL",
     "type": "stock",
-    "name": "Old Dominion Freight Line Inc."
+    "name": "Old Dominion Freight Line Inc.",
+    "priority": 2
   },
   {
     "ticker": "JBHT",
     "type": "stock",
-    "name": "J.B. Hunt Transport Services"
+    "name": "J.B. Hunt Transport Services",
+    "priority": 2
   },
   {
     "ticker": "KNX",
     "type": "stock",
-    "name": "Knight-Swift Transportation"
+    "name": "Knight-Swift Transportation",
+    "priority": 2
   },
   {
     "ticker": "CHRW",
     "type": "stock",
-    "name": "C.H. Robinson Worldwide Inc."
+    "name": "C.H. Robinson Worldwide Inc.",
+    "priority": 2
   },
   {
     "ticker": "EXP",
     "type": "stock",
-    "name": "Eagle Materials Inc."
+    "name": "Eagle Materials Inc.",
+    "priority": 2
   },
   {
     "ticker": "MLM",
     "type": "stock",
-    "name": "Martin Marietta Materials Inc."
+    "name": "Martin Marietta Materials Inc.",
+    "priority": 2
   },
   {
     "ticker": "VMC",
     "type": "stock",
-    "name": "Vulcan Materials Co."
+    "name": "Vulcan Materials Co.",
+    "priority": 2
   },
   {
     "ticker": "SUM",
     "type": "stock",
-    "name": "Summit Materials Inc."
+    "name": "Summit Materials Inc.",
+    "priority": 3
   },
   {
     "ticker": "CRH",
     "type": "stock",
-    "name": "CRH PLC"
+    "name": "CRH PLC",
+    "priority": 2
   },
   {
     "ticker": "HZNP",
     "type": "stock",
-    "name": "Horizon Therapeutics PLC"
+    "name": "Horizon Therapeutics PLC",
+    "priority": 3
   },
   {
     "ticker": "BIIB",
     "type": "stock",
-    "name": "Biogen Inc."
+    "name": "Biogen Inc.",
+    "priority": 2
   },
   {
     "ticker": "ILMN",
     "type": "stock",
-    "name": "Illumina Inc."
+    "name": "Illumina Inc.",
+    "priority": 2
   },
   {
     "ticker": "IONS",
     "type": "stock",
-    "name": "Ionis Pharmaceuticals Inc."
+    "name": "Ionis Pharmaceuticals Inc.",
+    "priority": 3
   },
   {
     "ticker": "ALNY",
     "type": "stock",
-    "name": "Alnylam Pharmaceuticals Inc."
+    "name": "Alnylam Pharmaceuticals Inc.",
+    "priority": 2
   },
   {
     "ticker": "SRPT",
     "type": "stock",
-    "name": "Sarepta Therapeutics Inc."
+    "name": "Sarepta Therapeutics Inc.",
+    "priority": 2
   },
   {
     "ticker": "FOLD",
     "type": "stock",
-    "name": "Amicus Therapeutics Inc."
+    "name": "Amicus Therapeutics Inc.",
+    "priority": 3
   },
   {
     "ticker": "RARE",
     "type": "stock",
-    "name": "Ultragenyx Pharmaceutical Inc."
+    "name": "Ultragenyx Pharmaceutical Inc.",
+    "priority": 3
   },
   {
     "ticker": "ARGX",
     "type": "stock",
-    "name": "argenx SE"
+    "name": "argenx SE",
+    "priority": 2
   },
   {
     "ticker": "GMAB",
     "type": "stock",
-    "name": "Genmab A/S"
+    "name": "Genmab A/S",
+    "priority": 2
   },
   {
     "ticker": "TAK",
     "type": "stock",
-    "name": "Takeda Pharmaceutical Co."
+    "name": "Takeda Pharmaceutical Co.",
+    "priority": 2
   },
   {
     "ticker": "JAZZ",
     "type": "stock",
-    "name": "Jazz Pharmaceuticals PLC"
+    "name": "Jazz Pharmaceuticals PLC",
+    "priority": 2
   },
   {
     "ticker": "PRGO",
     "type": "stock",
-    "name": "Perrigo Co. PLC"
+    "name": "Perrigo Co. PLC",
+    "priority": 3
   },
   {
     "ticker": "AGN",
     "type": "stock",
-    "name": "Allergan PLC"
+    "name": "Allergan PLC",
+    "priority": 3
   },
   {
     "ticker": "ENDP",
     "type": "stock",
-    "name": "Endo International PLC"
+    "name": "Endo International PLC",
+    "priority": 3
   },
   {
     "ticker": "TEVA",
     "type": "stock",
-    "name": "Teva Pharmaceutical Industries"
+    "name": "Teva Pharmaceutical Industries",
+    "priority": 2
   },
   {
     "ticker": "MYL",
     "type": "stock",
-    "name": "Viatris Inc."
+    "name": "Viatris Inc.",
+    "priority": 3
   },
   {
     "ticker": "VTRS",
     "type": "stock",
-    "name": "Viatris Inc."
+    "name": "Viatris Inc.",
+    "priority": 2
   },
   {
     "ticker": "MNKD",
     "type": "stock",
-    "name": "MannKind Corp."
+    "name": "MannKind Corp.",
+    "priority": 3
   },
   {
     "ticker": "CLOV",
     "type": "stock",
-    "name": "Clover Health Investments Corp."
+    "name": "Clover Health Investments Corp.",
+    "priority": 3
   },
   {
     "ticker": "ONEM",
     "type": "stock",
-    "name": "1Life Healthcare Inc."
+    "name": "1Life Healthcare Inc.",
+    "priority": 3
   },
   {
     "ticker": "ACAD",
     "type": "stock",
-    "name": "ACADIA Pharmaceuticals Inc."
+    "name": "ACADIA Pharmaceuticals Inc.",
+    "priority": 3
   },
   {
     "ticker": "EXEL",
     "type": "stock",
-    "name": "Exelixis Inc."
+    "name": "Exelixis Inc.",
+    "priority": 2
   },
   {
     "ticker": "NKTR",
     "type": "stock",
-    "name": "Nektar Therapeutics"
+    "name": "Nektar Therapeutics",
+    "priority": 3
   },
   {
     "ticker": "PTCT",
     "type": "stock",
-    "name": "PTC Therapeutics Inc."
+    "name": "PTC Therapeutics Inc.",
+    "priority": 3
   },
   {
     "ticker": "FATE",
     "type": "stock",
-    "name": "Fate Therapeutics Inc."
+    "name": "Fate Therapeutics Inc.",
+    "priority": 3
   },
   {
     "ticker": "BEAM",
     "type": "stock",
-    "name": "Beam Therapeutics Inc."
+    "name": "Beam Therapeutics Inc.",
+    "priority": 3
   },
   {
     "ticker": "CRSP",
     "type": "stock",
-    "name": "CRISPR Therapeutics AG"
+    "name": "CRISPR Therapeutics AG",
+    "priority": 3
   },
   {
     "ticker": "EDIT",
     "type": "stock",
-    "name": "Editas Medicine Inc."
+    "name": "Editas Medicine Inc.",
+    "priority": 3
   },
   {
     "ticker": "NTLA",
     "type": "stock",
-    "name": "Intellia Therapeutics Inc."
+    "name": "Intellia Therapeutics Inc.",
+    "priority": 3
   },
   {
     "ticker": "VERV",
     "type": "stock",
-    "name": "Verve Therapeutics Inc."
+    "name": "Verve Therapeutics Inc.",
+    "priority": 3
   },
   {
     "ticker": "PMVP",
     "type": "stock",
-    "name": "PMV Pharmaceuticals Inc."
+    "name": "PMV Pharmaceuticals Inc.",
+    "priority": 3
   },
   {
     "ticker": "SGEN",
     "type": "stock",
-    "name": "Seagen Inc."
+    "name": "Seagen Inc.",
+    "priority": 3
   },
   {
     "ticker": "RCUS",
     "type": "stock",
-    "name": "Arcus Biosciences Inc."
+    "name": "Arcus Biosciences Inc.",
+    "priority": 3
   },
   {
     "ticker": "TVTX",
     "type": "stock",
-    "name": "Travere Therapeutics Inc."
+    "name": "Travere Therapeutics Inc.",
+    "priority": 3
   },
   {
     "ticker": "IMVT",
     "type": "stock",
-    "name": "Immunovant Inc."
+    "name": "Immunovant Inc.",
+    "priority": 3
   },
   {
     "ticker": "APLS",
     "type": "stock",
-    "name": "Apellis Pharmaceuticals Inc."
+    "name": "Apellis Pharmaceuticals Inc.",
+    "priority": 2
   },
   {
     "ticker": "PRAX",
     "type": "stock",
-    "name": "Praxis Precision Medicine Inc."
+    "name": "Praxis Precision Medicine Inc.",
+    "priority": 3
   },
   {
     "ticker": "KYMR",
     "type": "stock",
-    "name": "Kymera Therapeutics Inc."
+    "name": "Kymera Therapeutics Inc.",
+    "priority": 3
   },
   {
     "ticker": "RXRX",
     "type": "stock",
-    "name": "Recursion Pharmaceuticals Inc."
+    "name": "Recursion Pharmaceuticals Inc.",
+    "priority": 3
   },
   {
     "ticker": "SDGR",
     "type": "stock",
-    "name": "Schr\u00f6dinger Inc."
+    "name": "Schrödinger Inc.",
+    "priority": 3
   },
   {
     "ticker": "EXAI",
     "type": "stock",
-    "name": "Exscientia PLC"
+    "name": "Exscientia PLC",
+    "priority": 3
   },
   {
     "ticker": "ABCL",
     "type": "stock",
-    "name": "AbCellera Biologics Inc."
+    "name": "AbCellera Biologics Inc.",
+    "priority": 3
   },
   {
     "ticker": "TWST",
     "type": "stock",
-    "name": "Twist Bioscience Corp."
+    "name": "Twist Bioscience Corp.",
+    "priority": 3
   },
   {
     "ticker": "PACB",
     "type": "stock",
-    "name": "Pacific Biosciences of California"
+    "name": "Pacific Biosciences of California",
+    "priority": 3
   },
   {
     "ticker": "OLINK",
     "type": "stock",
-    "name": "Olink Proteomics AB"
+    "name": "Olink Proteomics AB",
+    "priority": 3
   },
   {
     "ticker": "AVITA",
     "type": "stock",
-    "name": "AVITA Medical Inc."
+    "name": "AVITA Medical Inc.",
+    "priority": 3
   },
   {
     "ticker": "INSP",
     "type": "stock",
-    "name": "Inspire Medical Systems Inc."
+    "name": "Inspire Medical Systems Inc.",
+    "priority": 3
   },
   {
     "ticker": "NVCR",
     "type": "stock",
-    "name": "NovoCure Ltd."
+    "name": "NovoCure Ltd.",
+    "priority": 3
   },
   {
     "ticker": "GKOS",
     "type": "stock",
-    "name": "Glaukos Corp."
+    "name": "Glaukos Corp.",
+    "priority": 3
   },
   {
     "ticker": "SILK",
     "type": "stock",
-    "name": "Silk Road Medical Inc."
+    "name": "Silk Road Medical Inc.",
+    "priority": 3
   },
   {
     "ticker": "IRTC",
     "type": "stock",
-    "name": "iRhythm Technologies Inc."
+    "name": "iRhythm Technologies Inc.",
+    "priority": 3
   },
   {
     "ticker": "SWAV",
     "type": "stock",
-    "name": "ShockWave Medical Inc."
+    "name": "ShockWave Medical Inc.",
+    "priority": 3
   },
   {
     "ticker": "APEN",
     "type": "stock",
-    "name": "Apollo Endosurgery Inc."
+    "name": "Apollo Endosurgery Inc.",
+    "priority": 3
   },
   {
     "ticker": "STE",
     "type": "stock",
-    "name": "STERIS PLC"
+    "name": "STERIS PLC",
+    "priority": 2
   },
   {
     "ticker": "MMSI",
     "type": "stock",
-    "name": "Merit Medical Systems Inc."
+    "name": "Merit Medical Systems Inc.",
+    "priority": 3
   },
   {
     "ticker": "LMAT",
     "type": "stock",
-    "name": "LeMaitre Vascular Inc."
+    "name": "LeMaitre Vascular Inc.",
+    "priority": 3
   },
   {
     "ticker": "ICUI",
     "type": "stock",
-    "name": "ICU Medical Inc."
+    "name": "ICU Medical Inc.",
+    "priority": 3
   },
   {
     "ticker": "NARI",
     "type": "stock",
-    "name": "Inari Medical Inc."
+    "name": "Inari Medical Inc.",
+    "priority": 3
   },
   {
     "ticker": "SPT",
     "type": "stock",
-    "name": "Sprinklr Inc."
+    "name": "Sprinklr Inc.",
+    "priority": 2
   },
   {
     "ticker": "GTLB",
     "type": "stock",
-    "name": "GitLab Inc."
+    "name": "GitLab Inc.",
+    "priority": 2
   },
   {
     "ticker": "ASAN",
     "type": "stock",
-    "name": "Asana Inc."
+    "name": "Asana Inc.",
+    "priority": 3
   },
   {
     "ticker": "BASE",
     "type": "stock",
-    "name": "Couchbase Inc."
+    "name": "Couchbase Inc.",
+    "priority": 3
   },
   {
     "ticker": "BRZE",
     "type": "stock",
-    "name": "Braze Inc."
+    "name": "Braze Inc.",
+    "priority": 3
   },
   {
     "ticker": "PCVX",
     "type": "stock",
-    "name": "Vaxcyte Inc."
+    "name": "Vaxcyte Inc.",
+    "priority": 3
   },
   {
     "ticker": "GENI",
     "type": "stock",
-    "name": "Genius Sports Ltd."
+    "name": "Genius Sports Ltd.",
+    "priority": 3
   },
   {
     "ticker": "GAMB",
     "type": "stock",
-    "name": "Gambling.com Group Ltd."
+    "name": "Gambling.com Group Ltd.",
+    "priority": 3
   },
   {
     "ticker": "ACMR",
     "type": "stock",
-    "name": "ACM Research Inc."
+    "name": "ACM Research Inc.",
+    "priority": 3
   },
   {
     "ticker": "CAMT",
     "type": "stock",
-    "name": "Camtek Ltd."
+    "name": "Camtek Ltd.",
+    "priority": 3
   },
   {
     "ticker": "ONTO",
     "type": "stock",
-    "name": "Onto Innovation Inc."
+    "name": "Onto Innovation Inc.",
+    "priority": 3
   },
   {
     "ticker": "FORM",
     "type": "stock",
-    "name": "FormFactor Inc."
+    "name": "FormFactor Inc.",
+    "priority": 3
   },
   {
     "ticker": "ICHR",
     "type": "stock",
-    "name": "Ichor Holdings Ltd."
+    "name": "Ichor Holdings Ltd.",
+    "priority": 3
   },
   {
     "ticker": "UCTT",
     "type": "stock",
-    "name": "Ultra Clean Holdings Inc."
+    "name": "Ultra Clean Holdings Inc.",
+    "priority": 3
   },
   {
     "ticker": "MKSI",
     "type": "stock",
-    "name": "MKS Instruments Inc."
+    "name": "MKS Instruments Inc.",
+    "priority": 2
   },
   {
     "ticker": "COHU",
     "type": "stock",
-    "name": "Cohu Inc."
+    "name": "Cohu Inc.",
+    "priority": 3
   },
   {
     "ticker": "ENTG",
     "type": "stock",
-    "name": "Entegris Inc."
+    "name": "Entegris Inc.",
+    "priority": 2
   },
   {
     "ticker": "AZTA",
     "type": "stock",
-    "name": "Azenta Inc."
+    "name": "Azenta Inc.",
+    "priority": 3
   },
   {
     "ticker": "PDFS",
     "type": "stock",
-    "name": "PDF Solutions Inc."
+    "name": "PDF Solutions Inc.",
+    "priority": 3
   },
   {
     "ticker": "ACLS",
     "type": "stock",
-    "name": "Axcelis Technologies Inc."
+    "name": "Axcelis Technologies Inc.",
+    "priority": 2
   },
   {
     "ticker": "NVMI",
     "type": "stock",
-    "name": "Nova Ltd."
+    "name": "Nova Ltd.",
+    "priority": 3
   },
   {
     "ticker": "AEHR",
     "type": "stock",
-    "name": "Aehr Test Systems"
+    "name": "Aehr Test Systems",
+    "priority": 3
   },
   {
     "ticker": "SWK",
     "type": "stock",
-    "name": "Stanley Black & Decker Inc."
+    "name": "Stanley Black & Decker Inc.",
+    "priority": 2
   },
   {
     "ticker": "ITW",
     "type": "stock",
-    "name": "Illinois Tool Works Inc."
+    "name": "Illinois Tool Works Inc.",
+    "priority": 1
   },
   {
     "ticker": "DOV",
     "type": "stock",
-    "name": "Dover Corp."
+    "name": "Dover Corp.",
+    "priority": 2
   },
   {
     "ticker": "GWW",
     "type": "stock",
-    "name": "W.W. Grainger Inc."
+    "name": "W.W. Grainger Inc.",
+    "priority": 2
   },
   {
     "ticker": "MSM",
     "type": "stock",
-    "name": "MSC Industrial Direct Co."
+    "name": "MSC Industrial Direct Co.",
+    "priority": 2
   },
   {
     "ticker": "FAST",
     "type": "stock",
-    "name": "Fastenal Co."
+    "name": "Fastenal Co.",
+    "priority": 2
   },
   {
     "ticker": "WSO",
     "type": "stock",
-    "name": "Watsco Inc."
+    "name": "Watsco Inc.",
+    "priority": 2
   },
   {
     "ticker": "AGCO",
     "type": "stock",
-    "name": "AGCO Corp."
+    "name": "AGCO Corp.",
+    "priority": 2
   },
   {
     "ticker": "CNH",
     "type": "stock",
-    "name": "CNH Industrial NV"
+    "name": "CNH Industrial NV",
+    "priority": 2
   },
   {
     "ticker": "PCAR",
     "type": "stock",
-    "name": "PACCAR Inc."
+    "name": "PACCAR Inc.",
+    "priority": 2
   },
   {
     "ticker": "CMI",
     "type": "stock",
-    "name": "Cummins Inc."
+    "name": "Cummins Inc.",
+    "priority": 2
   },
   {
     "ticker": "TRN",
     "type": "stock",
-    "name": "Trinity Industries Inc."
+    "name": "Trinity Industries Inc.",
+    "priority": 2
   },
   {
     "ticker": "GNRC",
     "type": "stock",
-    "name": "Generac Holdings Inc."
+    "name": "Generac Holdings Inc.",
+    "priority": 2
   },
   {
     "ticker": "GTLS",
     "type": "stock",
-    "name": "Chart Industries Inc."
+    "name": "Chart Industries Inc.",
+    "priority": 2
   },
   {
     "ticker": "FELE",
     "type": "stock",
-    "name": "Franklin Electric Co."
+    "name": "Franklin Electric Co.",
+    "priority": 2
   },
   {
     "ticker": "REXR",
     "type": "stock",
-    "name": "Rexford Industrial Realty Inc."
+    "name": "Rexford Industrial Realty Inc.",
+    "priority": 2
   },
   {
     "ticker": "EXR",
     "type": "stock",
-    "name": "Extra Space Storage Inc."
+    "name": "Extra Space Storage Inc.",
+    "priority": 2
   },
   {
     "ticker": "CUBE",
     "type": "stock",
-    "name": "CubeSmart"
+    "name": "CubeSmart",
+    "priority": 2
   },
   {
     "ticker": "LSI",
     "type": "stock",
-    "name": "Life Storage Inc."
+    "name": "Life Storage Inc.",
+    "priority": 3
   },
   {
     "ticker": "NSA",
     "type": "stock",
-    "name": "National Storage Affiliates Trust"
+    "name": "National Storage Affiliates Trust",
+    "priority": 2
   },
   {
     "ticker": "STAG",
     "type": "stock",
-    "name": "STAG Industrial Inc."
+    "name": "STAG Industrial Inc.",
+    "priority": 2
   },
   {
     "ticker": "EGP",
     "type": "stock",
-    "name": "EastGroup Properties Inc."
+    "name": "EastGroup Properties Inc.",
+    "priority": 2
   },
   {
     "ticker": "FR",
     "type": "stock",
-    "name": "First Industrial Realty Trust"
+    "name": "First Industrial Realty Trust",
+    "priority": 2
   },
   {
     "ticker": "TRNO",
     "type": "stock",
-    "name": "Terreno Realty Corp."
+    "name": "Terreno Realty Corp.",
+    "priority": 2
   },
   {
     "ticker": "IIPR",
     "type": "stock",
-    "name": "Innovative Industrial Properties"
+    "name": "Innovative Industrial Properties",
+    "priority": 2
   },
   {
     "ticker": "WPC",
     "type": "stock",
-    "name": "W. P. Carey Inc."
+    "name": "W. P. Carey Inc.",
+    "priority": 2
   },
   {
     "ticker": "NNN",
     "type": "stock",
-    "name": "NNN REIT Inc."
+    "name": "NNN REIT Inc.",
+    "priority": 2
   },
   {
     "ticker": "ADC",
     "type": "stock",
-    "name": "Agree Realty Corp."
+    "name": "Agree Realty Corp.",
+    "priority": 2
   },
   {
     "ticker": "EPRT",
     "type": "stock",
-    "name": "Essential Properties Realty Trust"
+    "name": "Essential Properties Realty Trust",
+    "priority": 2
   },
   {
     "ticker": "FCPT",
     "type": "stock",
-    "name": "Four Corners Property Trust"
+    "name": "Four Corners Property Trust",
+    "priority": 2
   },
   {
     "ticker": "GTY",
     "type": "stock",
-    "name": "Getty Realty Corp."
+    "name": "Getty Realty Corp.",
+    "priority": 3
   },
   {
     "ticker": "SRC",
     "type": "stock",
-    "name": "Spirit Realty Capital Inc."
+    "name": "Spirit Realty Capital Inc.",
+    "priority": 3
   },
   {
     "ticker": "PINE",
     "type": "stock",
-    "name": "Alpine Income Property Trust"
+    "name": "Alpine Income Property Trust",
+    "priority": 3
   },
   {
     "ticker": "BXP",
     "type": "stock",
-    "name": "Boston Properties Inc."
+    "name": "Boston Properties Inc.",
+    "priority": 2
   },
   {
     "ticker": "SLG",
     "type": "stock",
-    "name": "SL Green Realty Corp."
+    "name": "SL Green Realty Corp.",
+    "priority": 2
   },
   {
     "ticker": "VNO",
     "type": "stock",
-    "name": "Vornado Realty Trust"
+    "name": "Vornado Realty Trust",
+    "priority": 3
   },
   {
     "ticker": "HIW",
     "type": "stock",
-    "name": "Highwoods Properties Inc."
+    "name": "Highwoods Properties Inc.",
+    "priority": 3
   },
   {
     "ticker": "CXW",
     "type": "stock",
-    "name": "CoreCivic Inc."
+    "name": "CoreCivic Inc.",
+    "priority": 3
   },
   {
     "ticker": "GEO",
     "type": "stock",
-    "name": "GEO Group Inc."
+    "name": "GEO Group Inc.",
+    "priority": 3
   },
   {
     "ticker": "AMH",
     "type": "stock",
-    "name": "American Homes 4 Rent"
+    "name": "American Homes 4 Rent",
+    "priority": 2
   },
   {
     "ticker": "INVH",
     "type": "stock",
-    "name": "Invitation Homes Inc."
+    "name": "Invitation Homes Inc.",
+    "priority": 2
   },
   {
     "ticker": "UDR",
     "type": "stock",
-    "name": "UDR Inc."
+    "name": "UDR Inc.",
+    "priority": 2
   },
   {
     "ticker": "CPT",
     "type": "stock",
-    "name": "Camden Property Trust"
+    "name": "Camden Property Trust",
+    "priority": 2
   },
   {
     "ticker": "MAA",
     "type": "stock",
-    "name": "Mid-America Apartment Communities"
+    "name": "Mid-America Apartment Communities",
+    "priority": 2
   },
   {
     "ticker": "ESS",
     "type": "stock",
-    "name": "Essex Property Trust Inc."
+    "name": "Essex Property Trust Inc.",
+    "priority": 2
   },
   {
     "ticker": "NLY",
     "type": "stock",
-    "name": "Annaly Capital Management Inc."
+    "name": "Annaly Capital Management Inc.",
+    "priority": 2
   },
   {
     "ticker": "AGNC",
     "type": "stock",
-    "name": "AGNC Investment Corp."
+    "name": "AGNC Investment Corp.",
+    "priority": 2
   },
   {
     "ticker": "ARR",
     "type": "stock",
-    "name": "ARMOUR Residential REIT Inc."
+    "name": "ARMOUR Residential REIT Inc.",
+    "priority": 3
   },
   {
     "ticker": "DX",
     "type": "stock",
-    "name": "Dynex Capital Inc."
+    "name": "Dynex Capital Inc.",
+    "priority": 3
   },
   {
     "ticker": "TWO",
     "type": "stock",
-    "name": "Two Harbors Investment Corp."
+    "name": "Two Harbors Investment Corp.",
+    "priority": 3
   },
   {
     "ticker": "PMT",
     "type": "stock",
-    "name": "PennyMac Mortgage Investment Trust"
+    "name": "PennyMac Mortgage Investment Trust",
+    "priority": 3
   },
   {
     "ticker": "IVR",
     "type": "stock",
-    "name": "Invesco Mortgage Capital Inc."
+    "name": "Invesco Mortgage Capital Inc.",
+    "priority": 3
   },
   {
     "ticker": "RITM",
     "type": "stock",
-    "name": "Rithm Capital Corp."
+    "name": "Rithm Capital Corp.",
+    "priority": 2
   },
   {
     "ticker": "NYCB",
     "type": "stock",
-    "name": "New York Community Bancorp"
+    "name": "New York Community Bancorp",
+    "priority": 3
   },
   {
     "ticker": "PACW",
     "type": "stock",
-    "name": "PacWest Bancorp"
+    "name": "PacWest Bancorp",
+    "priority": 3
   },
   {
     "ticker": "WAL",
     "type": "stock",
-    "name": "Western Alliance Bancorporation"
+    "name": "Western Alliance Bancorporation",
+    "priority": 2
   },
   {
     "ticker": "ZION",
     "type": "stock",
-    "name": "Zions Bancorporation"
+    "name": "Zions Bancorporation",
+    "priority": 2
   },
   {
     "ticker": "KEY",
     "type": "stock",
-    "name": "KeyCorp"
+    "name": "KeyCorp",
+    "priority": 2
   },
   {
     "ticker": "RF",
     "type": "stock",
-    "name": "Regions Financial Corp."
+    "name": "Regions Financial Corp.",
+    "priority": 2
   },
   {
     "ticker": "CFG",
     "type": "stock",
-    "name": "Citizens Financial Group Inc."
+    "name": "Citizens Financial Group Inc.",
+    "priority": 2
   },
   {
     "ticker": "HBAN",
     "type": "stock",
-    "name": "Huntington Bancshares Inc."
+    "name": "Huntington Bancshares Inc.",
+    "priority": 2
   },
   {
     "ticker": "MTB",
     "type": "stock",
-    "name": "M&T Bank Corp."
+    "name": "M&T Bank Corp.",
+    "priority": 2
   },
   {
     "ticker": "FHN",
     "type": "stock",
-    "name": "First Horizon Corp."
+    "name": "First Horizon Corp.",
+    "priority": 2
   },
   {
     "ticker": "BOH",
     "type": "stock",
-    "name": "Bank of Hawaii Corp."
+    "name": "Bank of Hawaii Corp.",
+    "priority": 2
   },
   {
     "ticker": "UMPQ",
     "type": "stock",
-    "name": "Umpqua Holdings Corp."
+    "name": "Umpqua Holdings Corp.",
+    "priority": 3
   },
   {
     "ticker": "WTFC",
     "type": "stock",
-    "name": "Wintrust Financial Corp."
+    "name": "Wintrust Financial Corp.",
+    "priority": 2
   },
   {
     "ticker": "SNV",
     "type": "stock",
-    "name": "Synovus Financial Corp."
+    "name": "Synovus Financial Corp.",
+    "priority": 3
   },
   {
     "ticker": "CBSH",
     "type": "stock",
-    "name": "Commerce Bancshares Inc."
+    "name": "Commerce Bancshares Inc.",
+    "priority": 2
   },
   {
     "ticker": "UBSI",
     "type": "stock",
-    "name": "United Bankshares Inc."
+    "name": "United Bankshares Inc.",
+    "priority": 2
   },
   {
     "ticker": "FFIN",
     "type": "stock",
-    "name": "Cullen/Frost Bankers Inc."
+    "name": "Cullen/Frost Bankers Inc.",
+    "priority": 3
   },
   {
     "ticker": "BOKF",
     "type": "stock",
-    "name": "BOK Financial Corp."
+    "name": "BOK Financial Corp.",
+    "priority": 2
   },
   {
     "ticker": "IBCP",
     "type": "stock",
-    "name": "Independent Bank Corp."
+    "name": "Independent Bank Corp.",
+    "priority": 3
   },
   {
     "ticker": "FULT",
     "type": "stock",
-    "name": "Fulton Financial Corp."
+    "name": "Fulton Financial Corp.",
+    "priority": 3
   }
 ]

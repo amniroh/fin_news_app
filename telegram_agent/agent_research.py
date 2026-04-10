@@ -32,9 +32,10 @@ from telegram_agent.memory_structured import (
     merge_memory_state,
     memory_meta_wrapper,
 )
+from telegram_agent.agent_tester import load_strategy_test_aggregate
 from telegram_agent.research_publish import format_research_telegram_message, publish_research_to_target
 from telegram_agent.summarizer import _get_openrouter_client
-from telegram_agent.symbol_universe import symbol_universe_set
+from telegram_agent.symbol_universe import load_symbol_universe, symbol_universe_set
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +153,52 @@ def _tester_rows_to_prompt_lines(rows: List[Any]) -> str:
     return "\n".join(f"- {ln}" for ln in lines_out)
 
 
+def _compact_strategy_aggregate(agg: Dict[str, Any]) -> Dict[str, Any]:
+    keys = (
+        "n_legs",
+        "benchmark_symbol",
+        "risk_free_annual",
+        "oos_split",
+        "sharpe",
+        "alpha_vs_benchmark_mean",
+        "alpha_n_legs_with_benchmark",
+        "max_drawdown",
+        "sharpe_in_sample",
+        "sharpe_out_of_sample",
+        "oos_n_is",
+        "oos_n_oos",
+        "calmar",
+        "mean_return_per_trade_pct",
+        "significance_p_value_mean_return",
+        "optimization_metric",
+        "optimization_value",
+        "evaluated_at",
+        "note",
+    )
+    return {k: agg[k] for k in keys if k in agg}
+
+
+def _strategy_optimization_feedback_for_prompt(cfg: dict, con) -> str:
+    """
+    Aggregate metrics from last `test-suggestions` run (kv_state), including the configured
+    optimization scalar for steering research quality.
+    """
+    agg = load_strategy_test_aggregate(con)
+    if not agg:
+        return (
+            "(No aggregate strategy-test metrics yet. Run `python -m telegram_agent.agent test-suggestions` "
+            "after price history exists and strategy legs are stored in `recommendations`.)"
+        )
+    opt_k = str(cfg.get("test_optimization_metric") or "sharpe").strip()
+    compact = _compact_strategy_aggregate(agg)
+    head = (
+        f"Configured optimization metric: {opt_k}. Field `optimization_value` is derived so that **higher is better** "
+        f"(max drawdown is negated; p-values use (1-p) so higher means more significant). "
+        f"Use this block as feedback when improving suggestion quality.\n"
+    )
+    return head + json.dumps(compact, indent=2, default=str)
+
+
 @dataclass
 class ResearchRunContext:
     """Live run uses wall-clock now + 14d news; daily backfill simulates one UTC calendar day."""
@@ -183,17 +230,29 @@ def _end_of_utc_day(day_start: datetime) -> datetime:
     return day_start + timedelta(days=1) - timedelta(seconds=1)
 
 
-def _price_context(con, symbol: str, asof: datetime) -> Dict[str, Any]:
-    out: Dict[str, Any] = {"symbol": symbol}
-    for days, label in [(1, "ret_1d"), (5, "ret_5d"), (30, "ret_30d")]:
+def _price_returns_pct_only(
+    con, symbol: str, asof: datetime
+) -> Dict[str, float]:
+    """
+    Return only horizons where we have two valid closes (percent change vs asof).
+    Values are **percentage points** (e.g. 1.5 means +1.5%), comparable across tickers.
+    Omits any horizon with missing prices — never None.
+    """
+    out: Dict[str, float] = {}
+    for days, label in [(1, "1d"), (5, "5d"), (30, "30d")]:
         t0 = asof - timedelta(days=days)
         c0 = get_close_at_or_before(con, symbol, t0)
         c1 = get_close_at_or_before(con, symbol, asof)
         if c0 and c1 and c0 > 0:
             out[label] = round((c1 - c0) / c0 * 100.0, 3)
-        else:
-            out[label] = None
     return out
+
+
+def _format_price_context_line(sym: str, mention_count: int, pct_by_horizon: Dict[str, float]) -> str:
+    """Single line: explicit % labels, only horizons present."""
+    parts = [f"{h} {pct_by_horizon[h]:+.3f}%" for h in ("1d", "5d", "30d") if h in pct_by_horizon]
+    body = "  ".join(parts) if parts else ""
+    return f"{sym} (news_mentions_in_db={mention_count}): {body}"
 
 
 def _build_research_prompts(
@@ -210,6 +269,9 @@ def _build_research_prompts(
 
     lines: List[str] = []
     news_count = 0
+    # Single knob: controls both fetch limit and prompt inclusion count.
+    max_news = int(cfg.get("agent_research_max_num_ofnews", 200))
+    max_news = max(0, min(5000, max_news))
 
     if ctx.daily_mode and ctx.day_start_utc is not None:
         day_start = ctx.day_start_utc
@@ -218,9 +280,9 @@ def _build_research_prompts(
         day_start = day_start.astimezone(timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-        news = fetch_news_rows_calendar_day_utc(con, day_start, limit=400)
+        news = fetch_news_rows_calendar_day_utc(con, day_start, limit=max_news)
         news_count = len(news)
-        for r in news[:200]:
+        for r in news[:max_news]:
             t0 = str(r["title"] or "")
             c0 = str(r["content"] or "")
             t = t0[:120]
@@ -233,9 +295,9 @@ def _build_research_prompts(
         news_scope = f"BACKFILL (daily): only news items with timestamps on this UTC calendar day ({day_start.date().isoformat()}). {news_count} row(s) in DB for that day."
     else:
         start = sim_now - timedelta(days=14)
-        news = fetch_news_rows_between(con, start, sim_now, limit=400)
+        news = fetch_news_rows_between(con, start, sim_now, limit=max_news)
         news_count = len(news)
-        for r in news[:200]:
+        for r in news[:max_news]:
             t0 = str(r["title"] or "")
             c0 = str(r["content"] or "")
             t = t0[:120]
@@ -253,14 +315,49 @@ def _build_research_prompts(
     mem_txt = format_memory_for_prompt(prev_struct, max_chars=mem_cap)
 
     allowed_syms = symbol_universe_set(cfg)
+    universe_list: Optional[List[str]] = None
     if allowed_syms is not None:
-        syms = [(s, c) for (s, c) in syms if s in allowed_syms][:30]
-    else:
-        syms = syms[:30]
+        try:
+            universe_list = load_symbol_universe(cfg)
+        except Exception:
+            universe_list = None
+        if not universe_list:
+            universe_list = sorted(allowed_syms)
+        syms = [(s, c) for (s, c) in syms if s in allowed_syms]
+
+    # Price context: every symbol in the priority-filtered universe (when universe mode is on),
+    # else every symbol from the mention leaderboard. Order: news-linked symbols first, then
+    # remaining universe names (same set as allowlist / max_priority research config).
+    px_pairs: List[Tuple[str, int]] = []
+    seen_px: set[str] = set()
+    for s, c in syms:
+        if s not in seen_px:
+            seen_px.add(s)
+            px_pairs.append((s, c))
+    if allowed_syms is not None and universe_list:
+        for u in universe_list:
+            if u not in seen_px:
+                seen_px.add(u)
+                px_pairs.append((u, 0))
+
     px_lines: List[str] = []
-    for sym, cnt in syms:
-        ctx_px = _price_context(con, sym, sim_now)
-        px_lines.append(f"{sym} (mentions={cnt}): {ctx_px}")
+    for sym, cnt in px_pairs:
+        pct_map = _price_returns_pct_only(con, sym, sim_now)
+        if not pct_map:
+            continue
+        px_lines.append(_format_price_context_line(sym, cnt, pct_map))
+
+    universe_prompt_txt = ""
+    if allowed_syms is not None and universe_list:
+        joined = ", ".join(universe_list)
+        max_u = 14000
+        if len(joined) > max_u:
+            universe_prompt_txt = (
+                joined[:max_u]
+                + f"\n... [truncated; {len(universe_list)} tickers total in universe — use only tickers from your configured universe]"
+            )
+        else:
+            universe_prompt_txt = joined
 
     cap_s = int(cfg.get("agent_memory_cap_strongest", 20))
     cap_r = int(cfg.get("agent_memory_cap_recent", 20))
@@ -279,6 +376,7 @@ def _build_research_prompts(
         con, before_ts_utc=sim_now, limit=tester_limit
     )
     tester_txt = _tester_rows_to_prompt_lines(tester_rows)
+    strategy_opt_txt = _strategy_optimization_feedback_for_prompt(cfg, con)
     epistemic_user = _epistemic_guidance_text(n_snapshots)
 
     mode_extra = ""
@@ -292,7 +390,7 @@ def _build_research_prompts(
     system = f"""You are a disciplined market research agent.
 You MUST output ONLY valid JSON (no markdown fences) with exactly this shape:
 {{
-  "thinking": "<string: your reasoning. Include (1) rising or emerging trends visible in the news sample, (2) for each important theme already in prior memory, whether evidence suggests it is STRENGTHENING, FADING, or UNCHANGED, (3) cross-check vs price context, (4) how **suggestion backtests** (if any in the user prompt) support or undermine prior themes and suggestion quality.>",
+  "thinking": "<string: your reasoning. Include (1) rising or emerging trends visible in the news sample, (2) for each important theme already in prior memory, whether evidence suggests it is STRENGTHENING, FADING, or UNCHANGED, (3) cross-check vs price context, (4) how **per-leg backtests** and **aggregate strategy metrics** (if any in the user prompt) support or undermine prior themes and suggestion quality.>",
   "memory_update": {{
     "strongest_trends": [
       {{ "text": "<concise trend line>", "confidence": <integer 0-10 — calibrated per rules below> }}
@@ -331,8 +429,22 @@ Rules:
 - **Concrete suggestions only**: every suggestion must have all timestamp fields AND what_to_acquire filled so a tester can simulate fills.
 - **Novelty**: set novel_vs_memory true only for ideas you would persist; omit weak duplicates.
 - **Persistence threshold**: only persist suggestion rows with confidence >= {min_confidence} (still obey calibration — if nothing meets the bar, return an empty suggestions array).
-- **Symbols**: prefer tickers from news/mentions; you may name liquid ETFs or majors if thesis is justified. Respect the user's configured symbol universe if the user prompt says it is active — in that case ONLY emit symbols from that set.
+- **Ranking / limit**: sort `suggestions` by `confidence` (descending) and return **at most 5** suggestions total, all meeting the persistence threshold.
+- **Symbols**: When **symbol universe mode is active** (see user prompt), every `suggestions[].symbol` MUST be **exactly** one ticker from the **allowlist** printed there — not merely “mentioned in news”. Prefer names that also appear in the news sample when relevant; if news is thin, you may still propose universe names supported by price/tester context.
 - If nothing qualifies, return an empty suggestions array and still refresh memory_update + thinking.{mode_extra}"""
+
+    if allowed_syms is not None:
+        px_title = (
+            "Recent return context (**all** symbols in the priority-filtered universe for this run — same tickers as the "
+            "allowlist above; membership follows `max_priority` / `--max-priority` and the universe JSON) as of simulated time:"
+        )
+        px_order = "- Ordering: symbols tied to news mentions first, then the rest of the allowlist (same priority-filtered set)."
+    else:
+        px_title = (
+            "Recent return context (all symbols from the news mention leaderboard for this run; symbol universe mode is **off**) "
+            "as of simulated time:"
+        )
+        px_order = "- Ordering: by mention frequency (most-mentioned first)."
 
     user = f"""Simulated current time (UTC) for this run: {sim_now.isoformat()}
 News scope: {news_scope}
@@ -344,16 +456,22 @@ Research memory depth (snapshots completed **before** this run, used for calibra
 === SUGGESTION BACKTESTS (tester — realized outcomes vs plan; use to validate or downgrade confidence) ===
 {tester_txt}
 
+=== AGGREGATE STRATEGY METRICS (portfolio-style; optimization target for research feedback) ===
+{strategy_opt_txt}
+
 Prior structured memory (baseline — compare every idea against this; for daily backfill this is the state **before** the simulated day only):
 {mem_txt}
 
 News sample for this run:
 {chr(10).join(lines) if lines else "(no news rows in scope)"}
 
-Mentioned symbols + recent return context as of simulated time (% over ~1d/5d/30d where data exists):
-{chr(10).join(px_lines) if px_lines else "(no symbols in scope)"}
+{"=== SYMBOL UNIVERSE ALLOWLIST (use ONLY these tickers in suggestions[].symbol) ===\n" + universe_prompt_txt + "\n\n" if universe_prompt_txt else ""}{px_title}
+- Values are **total return in percent** vs the prior close for each horizon (1d/5d/30d). Only horizons with price history are shown; symbols with no usable closes are omitted.
+- `news_mentions_in_db` = how often that ticker appeared in the **news rows in this prompt's scope** (0 only when the row was added from the universe list without appearing in those news rows).
+{px_order}
+{chr(10).join(px_lines) if px_lines else "(no price context rows)"}
 
-Symbol universe mode: {"ACTIVE — suggestions must use ONLY symbols that appear in the mention list above (or ask for none)." if allowed_syms is not None else "OFF — you may suggest other liquid names if justified."}
+Symbol universe mode: {"ACTIVE — `suggestions[].symbol` must be chosen **only** from the allowlist block above (same set as price pipeline / extract)." if allowed_syms is not None else "OFF — you may suggest other liquid names if justified."}
 
 Produce JSON only."""
 
@@ -397,7 +515,9 @@ def estimate_research_dry_run(cfg: dict) -> Dict[str, Any]:
     min_conf = float(cfg.get("agent_research_min_confidence", 0.75))
     now = datetime.now(timezone.utc)
     ctx = ResearchRunContext(sim_now=now, daily_mode=False)
-    news = fetch_news_rows_between(con, now - timedelta(days=14), now, limit=400)
+    max_news = int(cfg.get("agent_research_max_num_ofnews", 200))
+    max_news = max(0, min(5000, max_news))
+    news = fetch_news_rows_between(con, now - timedelta(days=14), now, limit=max_news)
     mem = latest_memory(con)
     allowed_syms = symbol_universe_set(cfg)
     syms = top_mentioned_symbols(con, limit=80)
@@ -444,7 +564,7 @@ def estimate_research_dry_run(cfg: dict) -> Dict[str, Any]:
         "total_usd_worst": est_worst["total_usd"],
         "stats": {
             "news_rows_in_prompt_window": len(news),
-            "news_lines_in_prompt": min(200, len(news)),
+            "news_lines_in_prompt": min(max_news, len(news)),
             "memory_snapshot_present": bool(mem),
             "structured_memory_chars_in_prompt": len(mem_fmt),
             "price_context_symbols": len(syms_in_prompt),
@@ -475,7 +595,9 @@ def estimate_research_dry_run_for_calendar_day(cfg: dict, day: date) -> Dict[str
     sim_now = _end_of_utc_day(day_start)
     ctx = ResearchRunContext(sim_now=sim_now, daily_mode=True, day_start_utc=day_start)
 
-    news = fetch_news_rows_calendar_day_utc(con, day_start, limit=400)
+    max_news = int(cfg.get("agent_research_max_num_ofnews", 200))
+    max_news = max(0, min(5000, max_news))
+    news = fetch_news_rows_calendar_day_utc(con, day_start, limit=max_news)
     mem_row = latest_memory_before(con, day_start)
     allowed_syms = symbol_universe_set(cfg)
     syms = top_mentioned_symbols_for_news_window(
@@ -524,7 +646,7 @@ def estimate_research_dry_run_for_calendar_day(cfg: dict, day: date) -> Dict[str
         "total_usd_worst": est_worst["total_usd"],
         "stats": {
             "news_rows_in_prompt_window": len(news),
-            "news_lines_in_prompt": min(200, len(news)),
+            "news_lines_in_prompt": min(max_news, len(news)),
             "memory_snapshot_present": bool(mem_row),
             "structured_memory_chars_in_prompt": len(mem_fmt),
             "price_context_symbols": len(syms_in_prompt),
@@ -558,16 +680,34 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
         return 0
 
     try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=0.2,
-            max_tokens=max_out,
-        )
-        raw = (resp.choices[0].message.content or "").strip()
+        # Prefer JSON-typed responses when supported to reduce "almost JSON but not quite"
+        # outputs (observed with some models, incl. Claude Sonnet variants).
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                temperature=0.2,
+                max_tokens=max_out,
+                response_format={"type": "json_object"},
+            )
+        except Exception:
+            # Fallback for providers/models that don't support response_format.
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                temperature=0.2,
+                max_tokens=max_out,
+            )
+        raw = resp.choices[0].message.content or ""
+        if not isinstance(raw, str):
+            raw = str(raw)
+        raw = raw.strip()
     except Exception as e:
         logger.error("Research LLM failed: %s", e)
         return 0
@@ -580,8 +720,21 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
-        logger.error("Research output not JSON; first 500 chars: %s", raw[:500])
-        return 0
+        # Heuristic salvage: extract the largest {...} region and retry parsing.
+        i0 = raw.find("{")
+        i1 = raw.rfind("}")
+        if i0 != -1 and i1 != -1 and i1 > i0:
+            candidate = raw[i0 : i1 + 1].strip()
+            try:
+                data = json.loads(candidate)
+            except json.JSONDecodeError:
+                logger.error(
+                    "Research output not JSON; first 500 chars: %s", raw[:500]
+                )
+                return 0
+        else:
+            logger.error("Research output not JSON; first 500 chars: %s", raw[:500])
+            return 0
 
     if not isinstance(data, dict):
         logger.error("Research output root must be an object")
@@ -816,7 +969,9 @@ def estimate_research_backfill_dry_run(
     ctx = ResearchRunContext(sim_now=sim_now, daily_mode=True, day_start_utc=day_start)
     min_conf = float(cfg.get("agent_research_min_confidence", 0.75))
     system, user = _build_research_prompts(cfg, con, min_confidence=min_conf, ctx=ctx)
-    news = fetch_news_rows_calendar_day_utc(con, day_start, limit=400)
+    max_news = int(cfg.get("agent_research_max_num_ofnews", 200))
+    max_news = max(0, min(5000, max_news))
+    news = fetch_news_rows_calendar_day_utc(con, day_start, limit=max_news)
     con.close()
 
     model = cfg.get("agent_research_model") or cfg.get("llm_model", DEFAULT_LLM_MODEL)

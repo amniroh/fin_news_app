@@ -1,4 +1,8 @@
-from .telegram_collector import collect_telegram
-from .rss_collector import collect_rss
+"""
+Collectors package.
 
-__all__ = ["collect_telegram", "collect_rss"]
+Keep this module dependency-light: avoid importing optional heavy deps (e.g. telethon)
+at import time so tooling can import non-Telegram collectors without needing telethon installed.
+"""
+
+__all__ = []
