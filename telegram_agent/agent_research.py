@@ -7,17 +7,20 @@ import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from telegram_agent.agent_db import (
     connect,
     init_db,
     count_memories_before,
     fetch_news_rows_between,
+    fetch_news_rows_between_universe_linked,
     fetch_news_rows_calendar_day_utc,
+    fetch_news_rows_calendar_day_universe_linked,
     list_recommendations_with_tester_for_prompt,
     top_mentioned_symbols,
     top_mentioned_symbols_for_news_window,
+    top_mentioned_symbols_linkage_range,
     get_close_at_or_before,
     insert_recommendation,
     latest_memory,
@@ -248,11 +251,26 @@ def _price_returns_pct_only(
     return out
 
 
-def _format_price_context_line(sym: str, mention_count: int, pct_by_horizon: Dict[str, float]) -> str:
+def _format_price_context_line(sym: str, pct_by_horizon: Dict[str, float]) -> str:
     """Single line: explicit % labels, only horizons present."""
     parts = [f"{h} {pct_by_horizon[h]:+.3f}%" for h in ("1d", "5d", "30d") if h in pct_by_horizon]
     body = "  ".join(parts) if parts else ""
-    return f"{sym} (news_mentions_in_db={mention_count}): {body}"
+    return f"{sym}: {body}"
+
+
+def _cfg_for_research_universe(cfg: dict) -> dict:
+    """
+    Research-only universe priority override.
+    If agent_research_max_priority is set, use it as max_priority when loading the universe
+    and when filtering linkage/news for this run.
+    """
+    cfg2 = dict(cfg)
+    if cfg2.get("agent_research_max_priority") is not None:
+        try:
+            cfg2["max_priority"] = int(cfg2["agent_research_max_priority"])
+        except Exception:
+            pass
+    return cfg2
 
 
 def _build_research_prompts(
@@ -262,6 +280,7 @@ def _build_research_prompts(
     min_confidence: float,
     ctx: ResearchRunContext,
 ) -> Tuple[str, str]:
+    cfg = _cfg_for_research_universe(cfg)
     sim_now = ctx.sim_now
     if sim_now.tzinfo is None:
         sim_now = sim_now.replace(tzinfo=timezone.utc)
@@ -273,48 +292,7 @@ def _build_research_prompts(
     max_news = int(cfg.get("agent_research_max_num_ofnews", 200))
     max_news = max(0, min(5000, max_news))
 
-    if ctx.daily_mode and ctx.day_start_utc is not None:
-        day_start = ctx.day_start_utc
-        if day_start.tzinfo is None:
-            day_start = day_start.replace(tzinfo=timezone.utc)
-        day_start = day_start.astimezone(timezone.utc).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        news = fetch_news_rows_calendar_day_utc(con, day_start, limit=max_news)
-        news_count = len(news)
-        for r in news[:max_news]:
-            t0 = str(r["title"] or "")
-            c0 = str(r["content"] or "")
-            t = t0[:120]
-            c = _clean_news_text(str(r["source_name"] or ""), t0, c0)[:400]
-            lines.append(f"- [{r['ts_utc']}] {r['source_name']}: {t}\n  {c}")
-        mem_row = latest_memory_before(con, day_start)
-        syms = top_mentioned_symbols_for_news_window(
-            con, day_start, day_start + timedelta(days=1), limit=80
-        )
-        news_scope = f"BACKFILL (daily): only news items with timestamps on this UTC calendar day ({day_start.date().isoformat()}). {news_count} row(s) in DB for that day."
-    else:
-        start = sim_now - timedelta(days=14)
-        news = fetch_news_rows_between(con, start, sim_now, limit=max_news)
-        news_count = len(news)
-        for r in news[:max_news]:
-            t0 = str(r["title"] or "")
-            c0 = str(r["content"] or "")
-            t = t0[:120]
-            c = _clean_news_text(str(r["source_name"] or ""), t0, c0)[:400]
-            lines.append(f"- [{r['ts_utc']}] {r['source_name']}: {t}\n  {c}")
-        mem_row = latest_memory(con)
-        syms = top_mentioned_symbols(con, limit=80)
-        news_scope = "LIVE: rolling 14d news window (sample in prompt)."
-
-    prev_struct = parse_memory_payload(
-        (mem_row["text"] if mem_row else "") or "",
-        (mem_row["meta_json"] if mem_row else None),
-    )
-    mem_cap = int(cfg.get("agent_memory_prompt_chars", 8000))
-    mem_txt = format_memory_for_prompt(prev_struct, max_chars=mem_cap)
-
-    allowed_syms = symbol_universe_set(cfg)
+    allowed_syms: Optional[Set[str]] = symbol_universe_set(cfg)
     universe_list: Optional[List[str]] = None
     if allowed_syms is not None:
         try:
@@ -323,6 +301,87 @@ def _build_research_prompts(
             universe_list = None
         if not universe_list:
             universe_list = sorted(allowed_syms)
+
+    use_universe_linkage = (
+        allowed_syms is not None
+        and bool(cfg.get("agent_research_universe_news_linkage", True))
+    )
+
+    if ctx.daily_mode and ctx.day_start_utc is not None:
+        day_start = ctx.day_start_utc
+        if day_start.tzinfo is None:
+            day_start = day_start.replace(tzinfo=timezone.utc)
+        day_start = day_start.astimezone(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        day_end_excl = day_start + timedelta(days=1)
+        if use_universe_linkage and allowed_syms:
+            news = fetch_news_rows_calendar_day_universe_linked(
+                con, day_start, allowed_syms, limit=max_news
+            )
+            syms = top_mentioned_symbols_linkage_range(
+                con,
+                day_start,
+                day_end_excl,
+                allowed_syms,
+                inclusive_end=False,
+                limit=80,
+            )
+            news_scope = (
+                f"BACKFILL (daily): only news on this UTC calendar day ({day_start.date().isoformat()}) "
+                f"that are linked to at least one allowlist ticker (universe preprocessor). "
+                f"{len(news)} row(s) after linkage filter."
+            )
+        else:
+            news = fetch_news_rows_calendar_day_utc(con, day_start, limit=max_news)
+            syms = top_mentioned_symbols_for_news_window(
+                con, day_start, day_end_excl, limit=80
+            )
+            news_scope = f"BACKFILL (daily): only news items with timestamps on this UTC calendar day ({day_start.date().isoformat()}). {len(news)} row(s) in DB for that day."
+        news_count = len(news)
+        for r in news[:max_news]:
+            t0 = str(r["title"] or "")
+            c0 = str(r["content"] or "")
+            t = t0[:120]
+            c = _clean_news_text(str(r["source_name"] or ""), t0, c0)[:400]
+            lines.append(f"- [{r['ts_utc']}] {r['source_name']}: {t}\n  {c}")
+        # Latest snapshot strictly before simulated run time (not midnight of the day):
+        # includes any prior run on this calendar day and matches tester / price asof semantics.
+        mem_row = latest_memory_before(con, sim_now)
+    else:
+        start = sim_now - timedelta(days=14)
+        if use_universe_linkage and allowed_syms:
+            news = fetch_news_rows_between_universe_linked(
+                con, start, sim_now, allowed_syms, limit=max_news
+            )
+            syms = top_mentioned_symbols_linkage_range(
+                con, start, sim_now, allowed_syms, inclusive_end=True, limit=80
+            )
+            news_scope = (
+                "LIVE: rolling 14d window; news items are **restricted to those linked to allowlist tickers** "
+                f"(universe preprocessor). {len(news)} row(s) after linkage filter."
+            )
+        else:
+            news = fetch_news_rows_between(con, start, sim_now, limit=max_news)
+            syms = top_mentioned_symbols(con, limit=80)
+            news_scope = "LIVE: rolling 14d news window (sample in prompt)."
+        news_count = len(news)
+        for r in news[:max_news]:
+            t0 = str(r["title"] or "")
+            c0 = str(r["content"] or "")
+            t = t0[:120]
+            c = _clean_news_text(str(r["source_name"] or ""), t0, c0)[:400]
+            lines.append(f"- [{r['ts_utc']}] {r['source_name']}: {t}\n  {c}")
+        mem_row = latest_memory(con)
+
+    prev_struct = parse_memory_payload(
+        (mem_row["text"] if mem_row else "") or "",
+        (mem_row["meta_json"] if mem_row else None),
+    )
+    mem_cap = int(cfg.get("agent_memory_prompt_chars", 8000))
+    mem_txt = format_memory_for_prompt(prev_struct, max_chars=mem_cap)
+
+    if allowed_syms is not None:
         syms = [(s, c) for (s, c) in syms if s in allowed_syms]
 
     # Price context: every symbol in the priority-filtered universe (when universe mode is on),
@@ -345,7 +404,7 @@ def _build_research_prompts(
         pct_map = _price_returns_pct_only(con, sym, sim_now)
         if not pct_map:
             continue
-        px_lines.append(_format_price_context_line(sym, cnt, pct_map))
+        px_lines.append(_format_price_context_line(sym, pct_map))
 
     universe_prompt_txt = ""
     if allowed_syms is not None and universe_list:
@@ -363,13 +422,7 @@ def _build_research_prompts(
     cap_r = int(cfg.get("agent_memory_cap_recent", 20))
     sug_d = int(cfg.get("agent_memory_suggestion_days", 30))
 
-    if ctx.daily_mode and ctx.day_start_utc is not None:
-        ds = ctx.day_start_utc.astimezone(timezone.utc).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        n_snapshots = count_memories_before(con, ds)
-    else:
-        n_snapshots = count_memories_before(con, sim_now)
+    n_snapshots = count_memories_before(con, sim_now)
 
     tester_limit = int(cfg.get("agent_research_tester_prompt_limit", 50))
     tester_rows = list_recommendations_with_tester_for_prompt(
@@ -383,11 +436,12 @@ def _build_research_prompts(
     if ctx.daily_mode and ctx.day_start_utc is not None:
         d = ctx.day_start_utc.astimezone(timezone.utc).date().isoformat()
         mode_extra = f"""
-- **Daily backfill:** You are simulating the market research desk at the **end of this UTC calendar day ({d})**. Only today's news (below) exists to you; prior memory is the state **before** this day. All trend labels, thinking, and suggestion timestamps must be consistent with a trader operating **on {d}** (no knowledge of future days).
+- **Daily backfill:** You are simulating the market research desk at the **end of this UTC calendar day ({d})**. Only today's news (below) exists to you; prior memory is the **latest saved snapshot strictly before this simulated moment** (end of {d}) — if research was skipped for prior days, that memory may be days or weeks old. All trend labels, thinking, and suggestion timestamps must be consistent with a trader operating **on {d}** (no knowledge of future days).
 - **suggestion_ts_utc** and plan windows must use dates **on or after** {d} as appropriate.
 - **Confidence vs simulated calendar:** Early simulated days in a backfill behave like early real runs: keep trend confidences **low** until cumulative evidence (and in later days, tester results) supports higher scores."""
 
     system = f"""You are a disciplined market research agent.
+Use plain language suitable for a smart general reader with no investing background — minimize jargon, define any unavoidable terms briefly, and keep trends/suggestions easy to understand.
 You MUST output ONLY valid JSON (no markdown fences) with exactly this shape:
 {{
   "thinking": "<string: your reasoning. Include (1) rising or emerging trends visible in the news sample, (2) for each important theme already in prior memory, whether evidence suggests it is STRENGTHENING, FADING, or UNCHANGED, (3) cross-check vs price context, (4) how **per-leg backtests** and **aggregate strategy metrics** (if any in the user prompt) support or undermine prior themes and suggestion quality.>",
@@ -446,6 +500,13 @@ Rules:
         )
         px_order = "- Ordering: by mention frequency (most-mentioned first)."
 
+    news_filter_note = ""
+    if use_universe_linkage and allowed_syms:
+        news_filter_note = (
+            "Only news rows that the **universe preprocessor** linked to at least one allowlist ticker are included "
+            "(duplicates and unrelated headlines are dropped relative to the raw ingest stream).\n\n"
+        )
+
     user = f"""Simulated current time (UTC) for this run: {sim_now.isoformat()}
 News scope: {news_scope}
 
@@ -463,11 +524,10 @@ Prior structured memory (baseline — compare every idea against this; for daily
 {mem_txt}
 
 News sample for this run:
-{chr(10).join(lines) if lines else "(no news rows in scope)"}
+{news_filter_note}{chr(10).join(lines) if lines else "(no news rows in scope)"}
 
 {"=== SYMBOL UNIVERSE ALLOWLIST (use ONLY these tickers in suggestions[].symbol) ===\n" + universe_prompt_txt + "\n\n" if universe_prompt_txt else ""}{px_title}
 - Values are **total return in percent** vs the prior close for each horizon (1d/5d/30d). Only horizons with price history are shown; symbols with no usable closes are omitted.
-- `news_mentions_in_db` = how often that ticker appeared in the **news rows in this prompt's scope** (0 only when the row was added from the universe list without appearing in those news rows).
 {px_order}
 {chr(10).join(px_lines) if px_lines else "(no price context rows)"}
 
@@ -517,14 +577,26 @@ def estimate_research_dry_run(cfg: dict) -> Dict[str, Any]:
     ctx = ResearchRunContext(sim_now=now, daily_mode=False)
     max_news = int(cfg.get("agent_research_max_num_ofnews", 200))
     max_news = max(0, min(5000, max_news))
-    news = fetch_news_rows_between(con, now - timedelta(days=14), now, limit=max_news)
     mem = latest_memory(con)
     allowed_syms = symbol_universe_set(cfg)
-    syms = top_mentioned_symbols(con, limit=80)
-    if allowed_syms is not None:
-        syms_in_prompt = [(s, c) for (s, c) in syms if s in allowed_syms][:30]
+    use_link = allowed_syms is not None and bool(cfg.get("agent_research_universe_news_linkage", True))
+    if use_link and allowed_syms:
+        news = fetch_news_rows_between_universe_linked(
+            con, now - timedelta(days=14), now, allowed_syms, limit=max_news
+        )
     else:
-        syms_in_prompt = syms[:30]
+        news = fetch_news_rows_between(con, now - timedelta(days=14), now, limit=max_news)
+    try:
+        ul = load_symbol_universe(cfg) if allowed_syms else None
+    except Exception:
+        ul = None
+    if allowed_syms is not None and not ul:
+        ul = sorted(allowed_syms)
+    if ul:
+        price_n = len(ul)
+    else:
+        syms = top_mentioned_symbols(con, limit=80)
+        price_n = len(syms)
 
     system, user = _build_research_prompts(cfg, con, min_confidence=min_conf, ctx=ctx)
     mem_struct = parse_memory_payload(
@@ -567,7 +639,7 @@ def estimate_research_dry_run(cfg: dict) -> Dict[str, Any]:
             "news_lines_in_prompt": min(max_news, len(news)),
             "memory_snapshot_present": bool(mem),
             "structured_memory_chars_in_prompt": len(mem_fmt),
-            "price_context_symbols": len(syms_in_prompt),
+            "price_context_symbols": price_n,
             "symbol_universe_configured": allowed_syms is not None,
         },
         "system_prompt": system,
@@ -597,16 +669,27 @@ def estimate_research_dry_run_for_calendar_day(cfg: dict, day: date) -> Dict[str
 
     max_news = int(cfg.get("agent_research_max_num_ofnews", 200))
     max_news = max(0, min(5000, max_news))
-    news = fetch_news_rows_calendar_day_utc(con, day_start, limit=max_news)
-    mem_row = latest_memory_before(con, day_start)
+    mem_row = latest_memory_before(con, sim_now)
     allowed_syms = symbol_universe_set(cfg)
-    syms = top_mentioned_symbols_for_news_window(
-        con, day_start, day_start + timedelta(days=1), limit=80
-    )
-    if allowed_syms is not None:
-        syms_in_prompt = [(s, c) for (s, c) in syms if s in allowed_syms][:30]
+    use_link = allowed_syms is not None and bool(cfg.get("agent_research_universe_news_linkage", True))
+    day_end_excl = day_start + timedelta(days=1)
+    if use_link and allowed_syms:
+        news = fetch_news_rows_calendar_day_universe_linked(
+            con, day_start, allowed_syms, limit=max_news
+        )
     else:
-        syms_in_prompt = syms[:30]
+        news = fetch_news_rows_calendar_day_utc(con, day_start, limit=max_news)
+    try:
+        ul = load_symbol_universe(cfg) if allowed_syms else None
+    except Exception:
+        ul = None
+    if allowed_syms is not None and not ul:
+        ul = sorted(allowed_syms)
+    if ul:
+        price_n = len(ul)
+    else:
+        syms = top_mentioned_symbols_for_news_window(con, day_start, day_end_excl, limit=80)
+        price_n = len(syms)
 
     system, user = _build_research_prompts(cfg, con, min_confidence=min_conf, ctx=ctx)
     mem_struct = parse_memory_payload(
@@ -649,7 +732,7 @@ def estimate_research_dry_run_for_calendar_day(cfg: dict, day: date) -> Dict[str
             "news_lines_in_prompt": min(max_news, len(news)),
             "memory_snapshot_present": bool(mem_row),
             "structured_memory_chars_in_prompt": len(mem_fmt),
-            "price_context_symbols": len(syms_in_prompt),
+            "price_context_symbols": price_n,
             "symbol_universe_configured": allowed_syms is not None,
         },
         "system_prompt": system,
@@ -669,6 +752,26 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
     if sim_now.tzinfo is None:
         sim_now = sim_now.replace(tzinfo=timezone.utc)
     sim_now = sim_now.astimezone(timezone.utc)
+
+    if cfg.get("agent_research_run_universe_preprocess_before_research", True):
+        try:
+            from telegram_agent.news_universe_preprocess import run_news_universe_preprocess
+
+            pr = run_news_universe_preprocess(
+                cfg,
+                con,
+                limit=int(cfg.get("news_universe_preprocess_max_rows_per_run", 100_000)),
+                max_ts_utc_inclusive=sim_now,
+            )
+            if not pr.get("skipped"):
+                logger.info(
+                    "Universe news preprocess: processed=%s batch_rounds=%s universe=%s",
+                    pr.get("processed"),
+                    pr.get("batches"),
+                    pr.get("allowed_universe_size"),
+                )
+        except Exception as e:
+            logger.warning("Universe news preprocess failed (continuing): %s", e)
 
     system, user = _build_research_prompts(cfg, con, min_confidence=min_conf, ctx=ctx)
     model = cfg.get("agent_research_model") or cfg.get("llm_model", DEFAULT_LLM_MODEL)
@@ -741,10 +844,7 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
         return 0
 
     if ctx.daily_mode and ctx.day_start_utc is not None:
-        day_start = ctx.day_start_utc.astimezone(timezone.utc).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        mem_row = latest_memory_before(con, day_start)
+        mem_row = latest_memory_before(con, sim_now)
     else:
         mem_row = latest_memory(con)
 
@@ -971,7 +1071,14 @@ def estimate_research_backfill_dry_run(
     system, user = _build_research_prompts(cfg, con, min_confidence=min_conf, ctx=ctx)
     max_news = int(cfg.get("agent_research_max_num_ofnews", 200))
     max_news = max(0, min(5000, max_news))
-    news = fetch_news_rows_calendar_day_utc(con, day_start, limit=max_news)
+    allowed_syms = symbol_universe_set(cfg)
+    use_link = allowed_syms is not None and bool(cfg.get("agent_research_universe_news_linkage", True))
+    if use_link and allowed_syms:
+        news = fetch_news_rows_calendar_day_universe_linked(
+            con, day_start, allowed_syms, limit=max_news
+        )
+    else:
+        news = fetch_news_rows_calendar_day_utc(con, day_start, limit=max_news)
     con.close()
 
     model = cfg.get("agent_research_model") or cfg.get("llm_model", DEFAULT_LLM_MODEL)

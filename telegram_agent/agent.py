@@ -7,6 +7,10 @@ Examples:
   python -m telegram_agent.agent ingest --mode backfill --days 365
   python -m telegram_agent.agent extract
   python -m telegram_agent.agent extract --dry-run
+  python -m telegram_agent.agent universe-preprocess
+  python -m telegram_agent.agent universe-preprocess --dry-run
+  python -m telegram_agent.agent universe-preprocess --backfill-from 2026-03-24 --backfill-to 2026-03-24 --dry-run
+  python -m telegram_agent.agent clear-universe-preprocess
   python -m telegram_agent.agent clear-extract
   python -m telegram_agent.agent clear-ingest
   python -m telegram_agent.agent clear-research
@@ -28,9 +32,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -60,6 +65,7 @@ def main() -> None:
         clear_ingest_kv_cursors,
         clear_orphan_instruments,
         clear_research_outputs,
+        clear_universe_preprocess,
     )
     from telegram_agent.prices import backfill_all_mentioned, incremental_prices
     from telegram_agent.agent_memory import run_memory_update
@@ -120,6 +126,77 @@ def main() -> None:
         type=int,
         default=None,
         help="Only allow extracted symbols that are in the universe with priority <= this value (0..3). Default from env MAX_PRIORITY.",
+    )
+
+    pu = sub.add_parser(
+        "universe-preprocess",
+        help="Cheap LLM: tag each news row with tickers from the symbol universe; fills symbol_news_linkage",
+    )
+    pu.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Max news rows to process this run (default: config NEWS_UNIVERSE_PREPROCESS_MAX_ROWS)",
+    )
+    pu.add_argument(
+        "--max-priority",
+        type=int,
+        default=None,
+        help="Universe membership uses priority <= this (0..3). Default MAX_PRIORITY.",
+    )
+    pu.add_argument(
+        "--backfill-from",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="UTC calendar day: only preprocess news with ts_utc on or after this day (inclusive)",
+    )
+    pu.add_argument(
+        "--backfill-to",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="UTC calendar day: end of range inclusive (default: same as --backfill-from)",
+    )
+    pu.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="No API calls: estimate batches, tokens, USD, and write sample prompts to --dry-run-out",
+    )
+    pu.add_argument(
+        "--dry-run-out",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Path for preprocess dry-run export (default: telegram_agent/data/universe_preprocess_dry_run.txt)",
+    )
+    pu.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        choices=[
+            # Match research agent choices
+            # Long-context / strongest reasoning
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-sonnet-4.5",
+            # Popular / strong general reasoning
+            "anthropic/claude-3.5-sonnet",
+            # Fast/cheap baseline
+            "anthropic/claude-3-haiku",
+            # Legacy 200k context
+            "anthropic/claude-2.1",
+            # Additional cheap options
+            "openai/gpt-4o-mini",
+            # Gemini 2.5 (common IDs across providers)
+            "google/gemini-2.5-flash",
+            "google/gemini-2.5-pro",
+        ],
+        help="Override the universe-preprocessor LLM model for this run (provider-specific model id).",
+    )
+
+    sub.add_parser(
+        "clear-universe-preprocess",
+        help="Remove symbol_news_linkage + universe_preprocess mentions; reset preprocess timestamps on news",
     )
 
     pc = sub.add_parser(
@@ -229,6 +306,12 @@ def main() -> None:
         help="Only use universe investments with priority <= this value (0..3) for research context/symbol lists. Default from env MAX_PRIORITY.",
     )
     prs.add_argument(
+        "--research-max-priority",
+        type=int,
+        default=1,
+        help="Research-only universe priority override (priority <= this). If set, research filters news/linkage/universe to this subset without changing other commands' MAX_PRIORITY.",
+    )
+    prs.add_argument(
         "--backfill-from",
         type=str,
         default=None,
@@ -258,6 +341,18 @@ def main() -> None:
     pts = sub.add_parser(
         "test-suggestions",
         help="Strategy test agent: evaluate stored legs in recommendations vs prices; per-row tester + aggregate metrics",
+    )
+    pts.add_argument(
+        "--asof",
+        type=str,
+        default=None,
+        metavar="ISO8601",
+        help="Evaluate as-of this UTC timestamp (use for backfill to avoid future leakage). Default: now.",
+    )
+    pts.add_argument(
+        "--concluded-only",
+        action="store_true",
+        help="Only test legs whose execute_review_utc is earlier than the as-of time.",
     )
     pts.add_argument(
         "--summary",
@@ -290,6 +385,39 @@ def main() -> None:
     )
     pa.add_argument("--skip-memory", action="store_true")
     pa.add_argument("--skip-research", action="store_true")
+
+    po = sub.add_parser(
+        "orchestrate",
+        help="Daily orchestrator: ingest → prices → preprocess → test concluded legs → research (supports backfill)",
+    )
+    po.add_argument(
+        "--backfill-from",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="UTC calendar day: start backfill orchestration (inclusive)",
+    )
+    po.add_argument(
+        "--backfill-to",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="UTC calendar day: end backfill orchestration (inclusive; default: same as --backfill-from)",
+    )
+    po.add_argument(
+        "--cadence",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Backfill only every Nth UTC calendar day from --backfill-from (1=every day). "
+        "Example: --cadence 3 runs on start, start+3d, start+6d, ... while <= --backfill-to.",
+    )
+    po.add_argument(
+        "--max-priority",
+        type=int,
+        default=None,
+        help="Only use universe investments with priority <= this value (0..3). Default MAX_PRIORITY.",
+    )
 
     args = p.parse_args()
     cfg = load_config()
@@ -327,6 +455,100 @@ def main() -> None:
             return
         n = run_extract(cfg, limit=args.limit)
         logger.info("Extract done: %s mention rows", n)
+        return
+
+    if args.cmd == "universe-preprocess":
+        from telegram_agent.news_universe_preprocess import (
+            estimate_universe_preprocess_dry_run,
+            run_news_universe_preprocess,
+            write_universe_preprocess_dry_run_file,
+            utc_range_for_backfill_days,
+        )
+
+        cfg_u = dict(cfg)
+        if getattr(args, "max_priority", None) is not None:
+            cfg_u["max_priority"] = int(args.max_priority)
+        if getattr(args, "model", None):
+            cfg_u["news_universe_preprocess_model"] = str(args.model).strip()
+
+        db = Path(cfg_u.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
+        con = connect(db)
+        init_db(con)
+
+        min_ts = None
+        max_ts_excl = None
+        max_ts_inc = None
+        if args.backfill_from:
+            fd = date.fromisoformat(args.backfill_from)
+            td = date.fromisoformat(args.backfill_to) if args.backfill_to else fd
+            min_ts, max_ts_excl = utc_range_for_backfill_days(fd, td)
+        else:
+            if args.backfill_to:
+                logger.error("--backfill-to requires --backfill-from")
+                con.close()
+                sys.exit(1)
+            max_ts_inc = datetime.now(timezone.utc)
+
+        common_kw = dict(
+            min_ts_utc_inclusive=min_ts,
+            max_ts_utc_exclusive=max_ts_excl,
+            max_ts_utc_inclusive=max_ts_inc,
+        )
+
+        if args.dry_run:
+            rep = estimate_universe_preprocess_dry_run(cfg_u, con, **common_kw)
+            out_path = (
+                Path(args.dry_run_out).expanduser()
+                if args.dry_run_out
+                else DATA_DIR / "universe_preprocess_dry_run.txt"
+            )
+            write_universe_preprocess_dry_run_file(rep, out_path)
+            con.close()
+            print("Universe preprocess LLM dry-run (no API calls)")
+            if rep.get("skipped"):
+                print(f"  Skipped: {rep.get('reason')}")
+                if rep.get("note"):
+                    print(f"  Note: {rep['note']}")
+            print(f"  Pending in scope: {rep.get('pending_in_scope', 0)}")
+            print(f"  Model: {rep.get('model')}  provider: {rep.get('provider')}")
+            print(
+                f"  Batch size: {rep.get('batch_size')}  "
+                f"LLM calls (est): {rep.get('llm_calls_est')}"
+            )
+            print(
+                f"  Input tokens (est): total~{rep.get('input_tokens_total_est', 0)}  "
+                f"per batch~{rep.get('input_tokens_per_batch_est', 0)}"
+            )
+            print(
+                f"  Output tokens (est): total~{rep.get('output_tokens_est_total', 0)}  "
+                f"per batch~{rep.get('output_tokens_est_per_batch', 0)}"
+            )
+            print(f"  Total USD (est, typical): ${rep.get('total_usd_typical', 0):.4f}")
+            print(f"  Scope: {rep.get('scope_filter')}")
+            print(
+                f"  Prompt size (sample batch): system {rep.get('system_chars', 0)} chars, "
+                f"user {rep.get('user_chars', 0)} chars, total {rep.get('total_chars', 0)} chars"
+            )
+            print(f"  Full sample prompts written to: {out_path.resolve()}")
+            if rep.get("note") and not rep.get("skipped"):
+                print(f"  {rep['note']}")
+            return
+
+        out = run_news_universe_preprocess(cfg_u, con, limit=args.limit, **common_kw)
+        con.close()
+        print(json.dumps(out, indent=2))
+        return
+
+    if args.cmd == "clear-universe-preprocess":
+        db = Path(cfg.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
+        con = connect(db)
+        init_db(con)
+        n_link, n_m = clear_universe_preprocess(con)
+        con.close()
+        print(
+            f"Cleared {n_link} symbol_news_linkage row(s), {n_m} universe_preprocess mention row(s); "
+            "preprocess timestamps reset on news_items."
+        )
         return
 
     if args.cmd == "clear-extract":
@@ -411,6 +633,9 @@ def main() -> None:
         if args.model:
             cfg = dict(cfg)
             cfg["agent_research_model"] = str(args.model).strip()
+        if getattr(args, "research_max_priority", None) is not None:
+            cfg = dict(cfg)
+            cfg["agent_research_max_priority"] = int(args.research_max_priority)
         if getattr(args, "min_confidence", None) is not None:
             cfg = dict(cfg)
             cfg["agent_research_min_confidence"] = float(args.min_confidence)
@@ -520,7 +745,13 @@ def main() -> None:
         if args.summary:
             print_tester_summary(cfg)
         else:
-            n = run_suggestion_tests(cfg)
+            asof = None
+            if getattr(args, "asof", None):
+                try:
+                    asof = datetime.fromisoformat(str(args.asof).replace("Z", "+00:00"))
+                except Exception:
+                    asof = None
+            n = run_suggestion_tests(cfg, asof_utc=asof, concluded_only=bool(args.concluded_only))
             logger.info("test-suggestions done: %s row(s) updated", n)
             if args.show_aggregate:
                 print_strategy_aggregate(cfg)
@@ -546,6 +777,15 @@ def main() -> None:
             )
         )
         run_extract(cfg)
+        from telegram_agent.news_universe_preprocess import run_news_universe_preprocess
+
+        dbp = Path(cfg.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
+        conp = connect(dbp)
+        init_db(conp)
+        run_news_universe_preprocess(
+            cfg, conp, max_ts_utc_inclusive=datetime.now(timezone.utc)
+        )
+        conp.close()
         if args.mode == "backfill":
             backfill_all_mentioned(cfg, days=args.days or int(cfg.get("agent_backfill_days", 365)) + 30)
         else:
@@ -555,6 +795,40 @@ def main() -> None:
         if not args.skip_research:
             run_research(cfg)
         logger.info("run-all finished")
+        return
+
+    if args.cmd == "orchestrate":
+        from telegram_agent.orchestrator import run_orchestration_backfill, run_orchestration_live
+        from telegram_agent.orchestrator_logging import (
+            append_orchestrator_stdout_summary,
+            attach_orchestrator_file_logging,
+        )
+
+        orch_log_path = attach_orchestrator_file_logging()
+
+        if args.backfill_from:
+            start_d = date.fromisoformat(args.backfill_from)
+            end_d = date.fromisoformat(args.backfill_to) if args.backfill_to else start_d
+            cadence = int(args.cadence)
+            if cadence < 1:
+                logger.error("--cadence must be >= 1")
+                sys.exit(1)
+            if end_d < start_d:
+                logger.error("--backfill-to must be >= --backfill-from")
+                sys.exit(1)
+            out = run_orchestration_backfill(
+                cfg, start=start_d, end=end_d, cadence=cadence
+            )
+            append_orchestrator_stdout_summary(orch_log_path, out)
+            print(json.dumps(out, indent=2, default=str))
+            return
+        if args.backfill_to:
+            logger.error("--backfill-to requires --backfill-from")
+            sys.exit(1)
+        out = asyncio.run(run_orchestration_live(cfg))
+        append_orchestrator_stdout_summary(orch_log_path, out.__dict__)
+        print(json.dumps(out.__dict__, indent=2, default=str))
+        return
 
 
 if __name__ == "__main__":

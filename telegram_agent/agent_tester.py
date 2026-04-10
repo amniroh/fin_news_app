@@ -75,8 +75,13 @@ def _realized_from_plan(
     symbol: str,
     entry: datetime,
     exit_: datetime,
+    *,
+    asof: Optional[datetime] = None,
 ) -> Optional[Dict[str, Any]]:
-    now = datetime.now(timezone.utc)
+    now = asof or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    now = now.astimezone(timezone.utc)
     end = exit_ if exit_ < now else now
     if end <= entry:
         return {
@@ -128,7 +133,12 @@ def load_strategy_test_aggregate(con) -> Optional[Dict[str, Any]]:
         return None
 
 
-def run_suggestion_tests(cfg: dict) -> int:
+def run_suggestion_tests(
+    cfg: dict,
+    *,
+    asof_utc: Optional[datetime] = None,
+    concluded_only: bool = False,
+) -> int:
     """
     For each recommendation (strategy leg), backtest from entry to min(now, execute_review).
     Updates meta_json.tester per row and stores aggregate metrics + optimization scalar in kv_state.
@@ -137,6 +147,10 @@ def run_suggestion_tests(cfg: dict) -> int:
     db = Path(cfg.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
     con = connect(db)
     init_db(con)
+    asof = asof_utc or datetime.now(timezone.utc)
+    if asof.tzinfo is None:
+        asof = asof.replace(tzinfo=timezone.utc)
+    asof = asof.astimezone(timezone.utc)
     recs = list_recommendations(con)
     n = 0
     legs: List[TradeLeg] = []
@@ -158,10 +172,14 @@ def run_suggestion_tests(cfg: dict) -> int:
         planned_exit = _exit_ts_for_rec(r)
         if not planned_exit:
             planned_exit = entry + timedelta(days=90)
+        if concluded_only and planned_exit >= asof:
+            # Avoid future data leakage in backfills: only evaluate legs whose review window
+            # has fully elapsed as-of the simulated runtime.
+            continue
 
-        realized = _realized_from_plan(con, sym, entry, planned_exit)
+        realized = _realized_from_plan(con, sym, entry, planned_exit, asof=asof)
         block = {
-            "evaluated_at": datetime.now(timezone.utc).isoformat(),
+            "evaluated_at": asof.isoformat(),
             "entry_ts": entry.isoformat(),
             "planned_execute_review_ts": planned_exit.isoformat(),
         }
@@ -201,7 +219,7 @@ def run_suggestion_tests(cfg: dict) -> int:
     opt_val = pick_optimization_value(agg, opt_key)
     agg["optimization_metric"] = opt_key
     agg["optimization_value"] = opt_val
-    agg["evaluated_at"] = datetime.now(timezone.utc).isoformat()
+    agg["evaluated_at"] = asof.isoformat()
     kv_set(con, STRATEGY_TEST_KV_KEY, json.dumps(agg, default=str))
 
     con.close()

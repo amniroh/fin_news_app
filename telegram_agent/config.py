@@ -145,6 +145,12 @@ def load_config() -> dict:
         # Universe priority filter: only use investments with priority <= this value (0..3).
         # CLI flags across commands may override this at runtime.
         "max_priority": int(os.getenv("MAX_PRIORITY", "3")),
+        # Research-only override for universe priority (if set, research uses this instead of max_priority).
+        "agent_research_max_priority": (
+            int(os.getenv("AGENT_RESEARCH_MAX_PRIORITY", "").strip())
+            if os.getenv("AGENT_RESEARCH_MAX_PRIORITY", "").strip()
+            else None
+        ),
         "agent_research_publish": os.getenv("AGENT_RESEARCH_PUBLISH", "true").lower() == "true",
         "agent_research_backfill_publish": os.getenv("AGENT_RESEARCH_BACKFILL_PUBLISH", "true").lower()
         == "true",
@@ -183,6 +189,20 @@ def load_config() -> dict:
         "extract_llm_batch_size": int(os.getenv("EXTRACT_LLM_BATCH_SIZE", "12")),
         "extract_max_chars_per_item": int(os.getenv("EXTRACT_MAX_CHARS_PER_ITEM", "2200")),
         "extract_regex_fallback": os.getenv("EXTRACT_REGEX_FALLBACK", "true").lower() == "true",
+        # Cheap LLM: tag each news row with allowlist tickers; fills symbol_news_linkage + news_mentions (universe_preprocess).
+        "news_universe_preprocess_model": os.getenv("NEWS_UNIVERSE_PREPROCESS_MODEL", "").strip()
+        or os.getenv("MICRO_MODEL_OPENROUTER", "anthropic/claude-3-haiku"),
+        "news_universe_preprocess_batch_size": int(os.getenv("NEWS_UNIVERSE_PREPROCESS_BATCH_SIZE", "16")),
+        "news_universe_preprocess_max_rows_per_run": int(
+            os.getenv("NEWS_UNIVERSE_PREPROCESS_MAX_ROWS", "100000")
+        ),
+        # Research: filter prompt news to items linked via preprocessor (symbol universe mode).
+        "agent_research_universe_news_linkage": os.getenv("AGENT_RESEARCH_UNIVERSE_NEWS_LINKAGE", "true").lower()
+        == "true",
+        "agent_research_run_universe_preprocess_before_research": os.getenv(
+            "AGENT_RESEARCH_RUN_UNIVERSE_PREPROCESS", "true"
+        ).lower()
+        == "true",
         # Fixed symbol universe mode (avoid broad extraction; constrain pipeline)
         # Provide either SYMBOL_UNIVERSE_ENV (comma-separated) or SYMBOL_UNIVERSE_PATH (JSON file).
         # If PATH or ENV list is set, universe is on unless SYMBOL_UNIVERSE_ENABLED=false.

@@ -7,7 +7,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from .models import NewsItem
 
@@ -70,7 +70,8 @@ CREATE TABLE IF NOT EXISTS news_items (
   content TEXT NOT NULL,
   url TEXT,
   ts_utc TEXT NOT NULL,
-  condensed TEXT
+  condensed TEXT,
+  universe_preprocess_ts_utc TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_news_ts ON news_items(ts_utc);
 CREATE INDEX IF NOT EXISTS idx_news_source ON news_items(source_type, source_name);
@@ -95,6 +96,17 @@ CREATE TABLE IF NOT EXISTS news_mentions (
   FOREIGN KEY(symbol) REFERENCES instruments(symbol) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_mentions_symbol ON news_mentions(symbol);
+
+-- Reverse index: which news items mention each symbol (universe preprocessor + research filter).
+CREATE TABLE IF NOT EXISTS symbol_news_linkage (
+  symbol TEXT NOT NULL,
+  news_id TEXT NOT NULL,
+  linked_ts_utc TEXT NOT NULL,
+  PRIMARY KEY (symbol, news_id),
+  FOREIGN KEY(news_id) REFERENCES news_items(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_symbol_news_linkage_symbol ON symbol_news_linkage(symbol);
+CREATE INDEX IF NOT EXISTS idx_symbol_news_linkage_news ON symbol_news_linkage(news_id);
 
 -- Price series (daily by default; can store intraday later with interval column).
 CREATE TABLE IF NOT EXISTS prices (
@@ -181,6 +193,7 @@ def init_db(con: sqlite3.Connection) -> None:
     con.executescript(SCHEMA_SQL)
     con.commit()
     _migrate_recommendations_extra_columns(con)
+    _migrate_news_universe_preprocess_schema(con)
 
 
 def _migrate_recommendations_extra_columns(con: sqlite3.Connection) -> None:
@@ -197,6 +210,34 @@ def _migrate_recommendations_extra_columns(con: sqlite3.Connection) -> None:
         except sqlite3.OperationalError as e:
             if "duplicate column" not in str(e).lower():
                 logger.debug("ALTER recommendations %s: %s", col, e)
+
+
+def _migrate_news_universe_preprocess_schema(con: sqlite3.Connection) -> None:
+    """Add universe preprocess column, symbol_news_linkage table (existing DBs)."""
+    try:
+        con.execute("ALTER TABLE news_items ADD COLUMN universe_preprocess_ts_utc TEXT")
+        con.commit()
+    except sqlite3.OperationalError as e:
+        if "duplicate column" not in str(e).lower():
+            logger.debug("ALTER news_items universe_preprocess_ts_utc: %s", e)
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS symbol_news_linkage (
+          symbol TEXT NOT NULL,
+          news_id TEXT NOT NULL,
+          linked_ts_utc TEXT NOT NULL,
+          PRIMARY KEY (symbol, news_id),
+          FOREIGN KEY(news_id) REFERENCES news_items(id) ON DELETE CASCADE
+        )
+        """
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_symbol_news_linkage_symbol ON symbol_news_linkage(symbol)"
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_symbol_news_linkage_news ON symbol_news_linkage(news_id)"
+    )
+    con.commit()
 
 
 def kv_get(con: sqlite3.Connection, key: str) -> Optional[str]:
@@ -530,7 +571,9 @@ def clear_ingest_kv_cursors(con: sqlite3.Connection) -> int:
 
 
 def clear_news_mentions(con: sqlite3.Connection) -> int:
-    """Delete all rows in news_mentions (extracted tickers per news item)."""
+    """Delete all rows in news_mentions (extracted tickers per news item). Also clears symbol_news_linkage."""
+    con.execute("DELETE FROM symbol_news_linkage")
+    con.execute("UPDATE news_items SET universe_preprocess_ts_utc = NULL")
     cur = con.execute("DELETE FROM news_mentions")
     con.commit()
     return int(cur.rowcount or 0)
@@ -610,6 +653,137 @@ def add_mentions(
     return len(mentions)
 
 
+def replace_universe_preprocess_for_news(
+    con: sqlite3.Connection,
+    news_id: str,
+    symbols: Sequence[str],
+    *,
+    linked_ts_utc: datetime,
+) -> None:
+    """
+    Store universe-preprocessor output: linkage table + news_mentions (type universe_preprocess).
+    Replaces any prior universe_preprocess rows for this news_id. Empty symbols still marks the row processed.
+    """
+    ts_iso = _utc_iso(linked_ts_utc)
+    con.execute(
+        "DELETE FROM news_mentions WHERE news_id = ? AND mention_type = ?",
+        (news_id, "universe_preprocess"),
+    )
+    con.execute("DELETE FROM symbol_news_linkage WHERE news_id = ?", (news_id,))
+    symset = sorted({s.strip().upper() for s in symbols if s and str(s).strip()})
+    if symset:
+        ensure_instruments(con, symset)
+        con.executemany(
+            """
+            INSERT OR REPLACE INTO news_mentions(news_id, symbol, mention_type, confidence)
+            VALUES(?, ?, ?, ?)
+            """,
+            [(news_id, s, "universe_preprocess", 0.9) for s in symset],
+        )
+        con.executemany(
+            """
+            INSERT OR REPLACE INTO symbol_news_linkage(symbol, news_id, linked_ts_utc)
+            VALUES(?, ?, ?)
+            """,
+            [(s, news_id, ts_iso) for s in symset],
+        )
+    con.execute(
+        "UPDATE news_items SET universe_preprocess_ts_utc = ? WHERE id = ?",
+        (ts_iso, news_id),
+    )
+    con.commit()
+
+
+def _news_pending_where_params(
+    *,
+    min_ts_utc_inclusive: Optional[datetime] = None,
+    max_ts_utc_exclusive: Optional[datetime] = None,
+    max_ts_utc_inclusive: Optional[datetime] = None,
+) -> Tuple[str, List[Any]]:
+    """Shared WHERE for pending preprocess rows. Upper bound: exclusive wins over inclusive."""
+    conditions = ["universe_preprocess_ts_utc IS NULL"]
+    params: List[Any] = []
+
+    if min_ts_utc_inclusive is not None:
+        t = min_ts_utc_inclusive
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        t = t.astimezone(timezone.utc)
+        conditions.append("ts_utc >= ?")
+        params.append(_utc_iso(t))
+
+    if max_ts_utc_exclusive is not None:
+        t = max_ts_utc_exclusive
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        t = t.astimezone(timezone.utc)
+        conditions.append("ts_utc < ?")
+        params.append(_utc_iso(t))
+    elif max_ts_utc_inclusive is not None:
+        t = max_ts_utc_inclusive
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        t = t.astimezone(timezone.utc)
+        conditions.append("ts_utc <= ?")
+        params.append(_utc_iso(t))
+
+    return " AND ".join(conditions), params
+
+
+def count_news_pending_universe_preprocess(
+    con: sqlite3.Connection,
+    *,
+    min_ts_utc_inclusive: Optional[datetime] = None,
+    max_ts_utc_exclusive: Optional[datetime] = None,
+    max_ts_utc_inclusive: Optional[datetime] = None,
+) -> int:
+    """Count news rows not yet tagged by the universe preprocessor (same filters as fetch)."""
+    where, params = _news_pending_where_params(
+        min_ts_utc_inclusive=min_ts_utc_inclusive,
+        max_ts_utc_exclusive=max_ts_utc_exclusive,
+        max_ts_utc_inclusive=max_ts_utc_inclusive,
+    )
+    cur = con.execute(
+        f"SELECT COUNT(*) AS c FROM news_items WHERE {where}",
+        params,
+    )
+    row = cur.fetchone()
+    return int(row["c"]) if row else 0
+
+
+def fetch_news_pending_universe_preprocess(
+    con: sqlite3.Connection,
+    *,
+    limit: int = 500,
+    min_ts_utc_inclusive: Optional[datetime] = None,
+    max_ts_utc_exclusive: Optional[datetime] = None,
+    max_ts_utc_inclusive: Optional[datetime] = None,
+) -> List[sqlite3.Row]:
+    """
+    Pending = universe_preprocess_ts_utc IS NULL.
+
+    Filters (optional):
+    - min_ts_utc_inclusive: only ts_utc >= this (UTC calendar / range start).
+    - max_ts_utc_exclusive: only ts_utc < this (half-open range end).
+    - max_ts_utc_inclusive: only ts_utc <= this (e.g. research simulated \"now\"); ignored if max_ts_utc_exclusive is set.
+    """
+    where, params = _news_pending_where_params(
+        min_ts_utc_inclusive=min_ts_utc_inclusive,
+        max_ts_utc_exclusive=max_ts_utc_exclusive,
+        max_ts_utc_inclusive=max_ts_utc_inclusive,
+    )
+    sql = f"""
+        SELECT id, source_type, source_name, title, content, ts_utc, condensed
+        FROM news_items
+        WHERE {where}
+        ORDER BY ts_utc ASC
+        LIMIT ?
+    """
+    params.append(int(limit))
+    cur = con.execute(sql, params)
+    return list(cur.fetchall())
+
+
 def upsert_memory(
     con: sqlite3.Connection,
     *,
@@ -665,6 +839,120 @@ def fetch_news_rows_calendar_day_utc(
         (_utc_iso(day_start_utc), _utc_iso(end_excl), int(limit)),
     )
     return list(cur.fetchall())
+
+
+def _ensure_research_universe_temp_table(con: sqlite3.Connection, allowed_syms: Set[str]) -> None:
+    con.execute("DROP TABLE IF EXISTS _research_universe_filter")
+    con.execute("CREATE TEMP TABLE _research_universe_filter (s TEXT PRIMARY KEY)")
+    if allowed_syms:
+        con.executemany(
+            "INSERT OR IGNORE INTO _research_universe_filter VALUES (?)",
+            [(s,) for s in sorted(allowed_syms)],
+        )
+
+
+def fetch_news_rows_between_universe_linked(
+    con: sqlite3.Connection,
+    start_utc: datetime,
+    end_utc: datetime,
+    allowed_syms: Set[str],
+    *,
+    limit: int = 500,
+) -> List[sqlite3.Row]:
+    """
+    News rows in [start_utc, end_utc] (inclusive) that have >=1 symbol_news_linkage symbol in allowed_syms.
+    """
+    if not allowed_syms:
+        return []
+    _ensure_research_universe_temp_table(con, allowed_syms)
+    cur = con.execute(
+        """
+        SELECT DISTINCT n.id, n.source_type, n.source_name, n.title, n.content, n.ts_utc, n.condensed
+        FROM news_items n
+        INNER JOIN symbol_news_linkage l ON l.news_id = n.id
+        INNER JOIN _research_universe_filter u ON u.s = l.symbol
+        WHERE n.ts_utc >= ? AND n.ts_utc <= ?
+        ORDER BY n.ts_utc DESC
+        LIMIT ?
+        """,
+        (_utc_iso(start_utc), _utc_iso(end_utc), int(limit)),
+    )
+    return list(cur.fetchall())
+
+
+def fetch_news_rows_calendar_day_universe_linked(
+    con: sqlite3.Connection, day_start_utc: datetime, allowed_syms: Set[str], *, limit: int = 500
+) -> List[sqlite3.Row]:
+    """Same UTC calendar window as fetch_news_rows_calendar_day_utc, but linkage-filtered."""
+    if day_start_utc.tzinfo is None:
+        day_start_utc = day_start_utc.replace(tzinfo=timezone.utc)
+    day_start_utc = day_start_utc.astimezone(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    end_excl = day_start_utc + timedelta(days=1)
+    if not allowed_syms:
+        return []
+    _ensure_research_universe_temp_table(con, allowed_syms)
+    cur = con.execute(
+        """
+        SELECT DISTINCT n.id, n.source_type, n.source_name, n.title, n.content, n.ts_utc, n.condensed
+        FROM news_items n
+        INNER JOIN symbol_news_linkage l ON l.news_id = n.id
+        INNER JOIN _research_universe_filter u ON u.s = l.symbol
+        WHERE n.ts_utc >= ? AND n.ts_utc < ?
+        ORDER BY n.ts_utc DESC
+        LIMIT ?
+        """,
+        (_utc_iso(day_start_utc), _utc_iso(end_excl), int(limit)),
+    )
+    return list(cur.fetchall())
+
+
+def top_mentioned_symbols_linkage_range(
+    con: sqlite3.Connection,
+    start_utc: datetime,
+    end_utc: datetime,
+    allowed_syms: Set[str],
+    *,
+    inclusive_end: bool,
+    limit: int = 80,
+) -> List[Tuple[str, int]]:
+    """Mention counts from symbol_news_linkage restricted to allowed_syms and a time window."""
+    if not allowed_syms:
+        return []
+    _ensure_research_universe_temp_table(con, allowed_syms)
+    if inclusive_end:
+        wc = "n.ts_utc >= ? AND n.ts_utc <= ?"
+        params = (_utc_iso(start_utc), _utc_iso(end_utc))
+    else:
+        wc = "n.ts_utc >= ? AND n.ts_utc < ?"
+        params = (_utc_iso(start_utc), _utc_iso(end_utc))
+    cur = con.execute(
+        f"""
+        SELECT l.symbol, COUNT(*) AS c
+        FROM symbol_news_linkage l
+        INNER JOIN news_items n ON n.id = l.news_id
+        INNER JOIN _research_universe_filter u ON u.s = l.symbol
+        WHERE {wc}
+        GROUP BY l.symbol
+        ORDER BY c DESC
+        LIMIT ?
+        """,
+        (*params, int(limit)),
+    )
+    return [(r["symbol"], int(r["c"])) for r in cur.fetchall()]
+
+
+def clear_universe_preprocess(con: sqlite3.Connection) -> Tuple[int, int]:
+    """Remove preprocessor outputs (linkage + universe_preprocess mentions + timestamps)."""
+    cur0 = con.execute("SELECT COUNT(*) AS c FROM symbol_news_linkage")
+    n_link = int(cur0.fetchone()["c"])
+    con.execute("DELETE FROM symbol_news_linkage")
+    cur1 = con.execute("DELETE FROM news_mentions WHERE mention_type = ?", ("universe_preprocess",))
+    n_m = int(cur1.rowcount or 0)
+    con.execute("UPDATE news_items SET universe_preprocess_ts_utc = NULL")
+    con.commit()
+    return (n_link, n_m)
 
 
 def list_mentioned_symbols(con: sqlite3.Connection) -> List[str]:
