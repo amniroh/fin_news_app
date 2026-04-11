@@ -181,6 +181,26 @@ def load_config() -> dict:
             os.getenv("AGENT_RESEARCH_ASSUMED_OUTPUT_TOKENS", "4000")
         ),
         "agent_research_tester_prompt_limit": int(os.getenv("AGENT_RESEARCH_TESTER_PROMPT_LIMIT", "50")),
+        # Competitive systematic bots (priority-filtered universe; same tester as research legs)
+        "competitive_bots_max_priority": int(os.getenv("COMPETITIVE_BOTS_MAX_PRIORITY", "1")),
+        "competitive_bots_max_picks": int(os.getenv("COMPETITIVE_BOTS_MAX_PICKS", "3")),
+        "competitive_bots_min_bars": int(os.getenv("COMPETITIVE_BOTS_MIN_BARS", "25")),
+        "competitive_bots_review_horizon_days": int(
+            os.getenv("COMPETITIVE_BOTS_REVIEW_HORIZON_DAYS", "12")
+        ),
+        "competitive_bots_entry_span_days": int(os.getenv("COMPETITIVE_BOTS_ENTRY_SPAN_DAYS", "3")),
+        "competitive_bots_publish": os.getenv("COMPETITIVE_BOTS_PUBLISH", "true").lower() == "true",
+        # Walk-forward backtest (competitive-bots --backtest)
+        "competitive_backtest_max_symbols": int(os.getenv("COMPETITIVE_BACKTEST_MAX_SYMBOLS", "50")),
+        "competitive_backtest_max_eval_points": int(
+            os.getenv("COMPETITIVE_BACKTEST_MAX_EVAL_POINTS", "2000")
+        ),
+        "competitive_backtest_max_total_rows": int(
+            os.getenv("COMPETITIVE_BACKTEST_MAX_TOTAL_ROWS", "3000000")
+        ),
+        "competitive_backtest_horizon_overrides": os.getenv(
+            "COMPETITIVE_BACKTEST_HORIZON_OVERRIDES", ""
+        ).strip(),
         # Strategy test agent: per-leg backtests + aggregate metrics (see strategy_metrics.py, agent_tester.py)
         "test_metrics_enabled": [
             x.strip().lower()

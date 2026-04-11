@@ -121,9 +121,18 @@ def _metrics_enabled_set(cfg: dict) -> Set[str]:
     }
 
 
-def load_strategy_test_aggregate(con) -> Optional[Dict[str, Any]]:
-    """Latest aggregate metrics from the last `test-suggestions` run (JSON)."""
-    raw = kv_get(con, STRATEGY_TEST_KV_KEY)
+def strategy_test_kv_key(competitive_bot_id: Optional[str] = None) -> str:
+    """kv_state key for aggregate metrics (global research tester vs per competitive bot)."""
+    if competitive_bot_id:
+        return f"{STRATEGY_TEST_KV_KEY}:bot:{competitive_bot_id}"
+    return STRATEGY_TEST_KV_KEY
+
+
+def load_strategy_test_aggregate(
+    con, *, competitive_bot_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Latest aggregate metrics from the last test run (JSON)."""
+    raw = kv_get(con, strategy_test_kv_key(competitive_bot_id))
     if not raw:
         return None
     try:
@@ -138,10 +147,14 @@ def run_suggestion_tests(
     *,
     asof_utc: Optional[datetime] = None,
     concluded_only: bool = False,
+    competitive_bot_id: Optional[str] = None,
 ) -> int:
     """
     For each recommendation (strategy leg), backtest from entry to min(now, execute_review).
     Updates meta_json.tester per row and stores aggregate metrics + optimization scalar in kv_state.
+
+    If ``competitive_bot_id`` is set, only rows with ``meta_json.competitive_bot_id`` matching
+    are evaluated; aggregate metrics are stored under a bot-specific kv key (not the global key).
     """
     cfg = {**cfg}
     db = Path(cfg.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
@@ -163,6 +176,8 @@ def run_suggestion_tests(
             meta = json.loads(r["meta_json"] or "{}")
         except json.JSONDecodeError:
             meta = {}
+        if competitive_bot_id and meta.get("competitive_bot_id") != competitive_bot_id:
+            continue
         if meta.get("tester", {}).get("skipped"):
             continue
 
@@ -220,15 +235,18 @@ def run_suggestion_tests(
     agg["optimization_metric"] = opt_key
     agg["optimization_value"] = opt_val
     agg["evaluated_at"] = asof.isoformat()
-    kv_set(con, STRATEGY_TEST_KV_KEY, json.dumps(agg, default=str))
+    if competitive_bot_id:
+        agg["competitive_bot_id"] = competitive_bot_id
+    kv_set(con, strategy_test_kv_key(competitive_bot_id), json.dumps(agg, default=str))
 
     con.close()
     logger.info(
-        "Tester evaluated %s leg(s); aggregate n_legs=%s optimization=%s=%s",
+        "Tester evaluated %s leg(s); aggregate n_legs=%s optimization=%s=%s%s",
         n,
         agg.get("n_legs"),
         opt_key,
         opt_val,
+        f" bot={competitive_bot_id}" if competitive_bot_id else "",
     )
     return n
 

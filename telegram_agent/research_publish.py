@@ -86,3 +86,82 @@ def publish_research_to_target(cfg: dict, text: str) -> bool:
             logger.error("Cannot publish research from inside running event loop: %s", e)
             return False
         raise
+
+
+def publish_plain_to_target(cfg: dict, text: str) -> bool:
+    """Publish arbitrary text to TARGET_CHANNEL (ignores AGENT_RESEARCH_PUBLISH). Used by competitive bots."""
+    try:
+        return asyncio.run(_publish_text(cfg, text))
+    except RuntimeError as e:
+        if "asyncio.run() cannot be called from a running event loop" in str(e):
+            logger.error("Cannot publish from inside running event loop: %s", e)
+            return False
+        raise
+
+
+def format_competitive_telegram_message(payload: Dict[str, Any]) -> str:
+    """Human-readable summary for Telegram from ``run_competitive_cycle`` JSON."""
+    lines: List[str] = []
+    ts = payload.get("run_ts_utc") or ""
+    lines.append(f"🤖 Competitive bots — {ts}")
+    lines.append(f"Cadence label: {payload.get('cadence_label', '')}  batch: {payload.get('batch_tag', '')}")
+    lines.append(f"Universe symbols: {payload.get('universe_size', '?')}")
+    lines.append("")
+    for b in payload.get("bots") or []:
+        bid = b.get("bot_id", "?")
+        agg = b.get("aggregate") or {}
+        opt_k = agg.get("optimization_metric", "")
+        opt_v = agg.get("optimization_value")
+        n_legs = agg.get("n_legs")
+        lines.append(f"— {bid}")
+        lines.append(f"   optimization {opt_k}={opt_v}  n_legs={n_legs}")
+        for p in b.get("picks") or []:
+            sym = p.get("symbol", "?")
+            sc = p.get("score")
+            lines.append(f"   • {sym} score={sc}")
+        lines.append("")
+    lines.append("(Systematic rules; not investment advice.)")
+    return "\n".join(lines).strip()
+
+
+def format_competitive_backtest_telegram_message(payload: Dict[str, Any]) -> str:
+    """Summary of walk-forward backtests per price interval + bot."""
+    lines: List[str] = []
+    ts = payload.get("run_ts_utc") or ""
+    lines.append(f"📉 Competitive backtest (walk-forward) — {ts}")
+    ivs = payload.get("intervals_found") or []
+    lines.append(f"Intervals in DB: {', '.join(ivs) if ivs else '(none)'}")
+    for sk in payload.get("skipped") or []:
+        lines.append(f"⚠ {sk}")
+    lines.append("")
+    res = (payload.get("results") or {}).get("by_interval") or {}
+    if not res:
+        lines.append("No interval had enough overlapping price history.")
+    for interval, block in sorted(res.items()):
+        lines.append(f"━━ {interval} ━━")
+        lines.append(
+            f"ref={block.get('reference_symbol')}  symbols={block.get('symbol_count')}  "
+            f"bars_loaded≈{block.get('total_bar_rows_loaded')}"
+        )
+        bots = block.get("bots") or {}
+        for bid, row in bots.items():
+            if not isinstance(row, dict):
+                continue
+            desc = row.get("description", "")
+            lines.append(f"  • {bid}")
+            if desc:
+                lines.append(f"    {desc[:120]}")
+            if row.get("error"):
+                lines.append(f"    error: {row.get('error')}")
+                continue
+            lines.append(
+                f"    periods={row.get('n_periods')}  mean%={row.get('mean_ret_pct')}  "
+                f"std%={row.get('std_ret_pct')}  win%={row.get('win_rate')}  "
+                f"sharpe~={row.get('sharpe_like')}  horizon_bars={row.get('horizon_bars')}"
+            )
+        lines.append("")
+    lines.append("(Historical simulation; not investment advice.)")
+    text = "\n".join(lines).strip()
+    if len(text) > 3900:
+        return text[:3890] + "\n…(truncated)"
+    return text

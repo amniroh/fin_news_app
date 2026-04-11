@@ -5,6 +5,7 @@ Requires TELEGRAM_BOT_TOKEN. Add bot to channel as admin (can post messages).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import sys
 from datetime import timedelta
@@ -98,7 +99,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/digest — Run now: summarize unseen news and post Trend + Market in this chat.\n"
         "/schedule <hours> — Auto-repeat every N hours (e.g. /schedule 6).\n"
         "/schedule off — Stop auto digests for this chat.\n"
-        "/status — Show the saved schedule.\n\n"
+        "/status — Show the saved schedule.\n"
+        "/competitive — Run competitive systematic bots (P0/P1), test, store, publish summary.\n"
+        "/competitive_backtest — Walk-forward backtest on all price intervals in DB; publish summary.\n\n"
         "In channels: post commands as a new channel message, usually "
         "/digest@BotName (replace with this bot's username from @BotFather).\n"
         "The bot must be an admin with Post messages."
@@ -204,6 +207,108 @@ async def cmd_schedule_with_args(
     )
 
 
+async def cmd_competitive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Run competitive bot cycle (sync pipeline in executor)."""
+    cfg = load_config()
+    cid = update.effective_chat.id
+    if not chat_allowed(cfg, cid):
+        await update.effective_message.reply_text("This bot is not enabled for this chat.")
+        return
+    from telegram_agent.competitive_bots import run_competitive_cycle
+    from telegram_agent.research_publish import (
+        format_competitive_telegram_message,
+        publish_plain_to_target,
+    )
+
+    status = await update.effective_message.reply_text("Running competitive bots…")
+    loop = asyncio.get_running_loop()
+
+    def _run() -> dict:
+        return run_competitive_cycle(cfg, cadence_label="telegram")
+
+    try:
+        out = await loop.run_in_executor(None, _run)
+    except Exception as e:
+        logger.exception("competitive bots failed")
+        await context.bot.send_message(chat_id=cid, text=f"Competitive bots error: {e}")
+        try:
+            await status.delete()
+        except Exception:
+            pass
+        return
+    try:
+        await status.delete()
+    except Exception:
+        pass
+    if not out.get("ok"):
+        await context.bot.send_message(
+            chat_id=cid,
+            text=f"Competitive bots: {out.get('error', 'failed')}",
+        )
+        return
+    txt = format_competitive_telegram_message(out)
+    if cfg.get("competitive_bots_publish", True):
+        try:
+            publish_plain_to_target(cfg, txt)
+        except Exception as e:
+            logger.warning("Publish competitive summary failed: %s", e)
+    # Telegram message limit ~4096
+    chunk = txt[:4000]
+    if len(txt) > 4000:
+        chunk += "\n…(truncated)"
+    await context.bot.send_message(chat_id=cid, text=chunk)
+
+
+async def cmd_competitive_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    cfg = load_config()
+    cid = update.effective_chat.id
+    if not chat_allowed(cfg, cid):
+        await update.effective_message.reply_text("This bot is not enabled for this chat.")
+        return
+    from telegram_agent.competitive_backtest import run_competitive_backtest_all_intervals
+    from telegram_agent.research_publish import (
+        format_competitive_backtest_telegram_message,
+        publish_plain_to_target,
+    )
+
+    status = await update.effective_message.reply_text("Running competitive backtest (may take a while)…")
+    loop = asyncio.get_running_loop()
+
+    def _run() -> dict:
+        return run_competitive_backtest_all_intervals(cfg)
+
+    try:
+        out = await loop.run_in_executor(None, _run)
+    except Exception as e:
+        logger.exception("competitive backtest failed")
+        await context.bot.send_message(chat_id=cid, text=f"Backtest error: {e}")
+        try:
+            await status.delete()
+        except Exception:
+            pass
+        return
+    try:
+        await status.delete()
+    except Exception:
+        pass
+    if not out.get("ok"):
+        await context.bot.send_message(
+            chat_id=cid,
+            text=f"Backtest: {out.get('error', 'failed')}",
+        )
+        return
+    txt = format_competitive_backtest_telegram_message(out)
+    if cfg.get("competitive_bots_publish", True):
+        try:
+            publish_plain_to_target(cfg, txt)
+        except Exception as e:
+            logger.warning("Publish backtest summary failed: %s", e)
+    chunk = txt[:4000]
+    if len(txt) > 4000:
+        chunk += "\n…(truncated)"
+    await context.bot.send_message(chat_id=cid, text=chunk)
+
+
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     cfg = load_config()
     cid = update.effective_chat.id
@@ -248,6 +353,10 @@ async def channel_post_command(update: Update, context: ContextTypes.DEFAULT_TYP
         await cmd_schedule_with_args(update, context, args)
     elif cmd == "status":
         await cmd_status(update, context)
+    elif cmd == "competitive":
+        await cmd_competitive(update, context)
+    elif cmd == "competitive_backtest":
+        await cmd_competitive_backtest(update, context)
 
 
 async def post_init(application: Application) -> None:
@@ -302,6 +411,8 @@ def main() -> None:
     application.add_handler(CommandHandler("digest", cmd_digest))
     application.add_handler(CommandHandler("schedule", cmd_schedule))
     application.add_handler(CommandHandler("status", cmd_status))
+    application.add_handler(CommandHandler("competitive", cmd_competitive))
+    application.add_handler(CommandHandler("competitive_backtest", cmd_competitive_backtest))
 
     # Channels send commands as channel_post; CommandHandler ignores them (messages only).
     application.add_handler(

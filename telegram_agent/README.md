@@ -104,6 +104,31 @@ telegram_agent/
 4. The channel username is like `@my_digest_channel`, or use the channel ID.
 5. Set `TARGET_CHANNEL=@my_digest_channel` (or the ID) in `.env`.
 
+## Competitive systematic bots (short-term, universe P0/P1)
+
+Three rule-based strategies (5d momentum, RSI mean-reversion tilt, 20d breakout) run on symbols with **priority ≤ `COMPETITIVE_BOTS_MAX_PRIORITY`** (default **1** = P0 and P1; set **`0`** for P0-only). Each run inserts `recommendations` tagged with `meta_json.competitive_bot_id`, evaluates them with the **same `test-suggestions` logic** as research (per-bot aggregate metrics in `kv_state`), stores rows in **`competitive_bot_runs`**, and optionally posts a summary to **`TARGET_CHANNEL`** (Telethon).
+
+```bash
+python -m telegram_agent.agent competitive-bots --cadence daily
+```
+
+Schedule with **cron** or **systemd** on the server; use a distinct `--cadence` label per schedule. In the Telegram **digest bot** (`bot_app.py`), use **`/competitive`** to run once from chat or channel.
+
+**Price coverage / gaps (P0/P1):**
+
+```bash
+python -m telegram_agent.analyze_price_coverage --max-priority 1
+python -m telegram_agent.analyze_price_coverage --json
+```
+
+**Historical walk-forward backtest** (same three scorers), on **every distinct `prices.interval`** in your database (often only `1d` unless you have ingested intraday bars):
+
+```bash
+python -m telegram_agent.agent competitive-bots --backtest
+```
+
+Results are stored in `kv_state` under `competitive_backtest:last_v1` and the summary is posted to **`TARGET_CHANNEL`** (unless `--no-publish`). Telegram: **`/competitive_backtest`**.
+
 ## Tips
 
 - **Telegram channels**: You must be a **member** of each channel; the script uses your account (user client) to read them.

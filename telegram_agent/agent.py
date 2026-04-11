@@ -27,6 +27,8 @@ Examples:
   python -m telegram_agent.agent run-all --mode incremental
   python -m telegram_agent.agent narrative --horizon daily
   python -m telegram_agent.agent narrative --horizon all
+  python -m telegram_agent.agent competitive-bots --cadence daily
+  python -m telegram_agent.agent competitive-bots --backtest
 """
 from __future__ import annotations
 
@@ -419,6 +421,28 @@ def main() -> None:
         help="Only use universe investments with priority <= this value (0..3). Default MAX_PRIORITY.",
     )
 
+    pc = sub.add_parser(
+        "competitive-bots",
+        help="Three systematic strategies on P0/P1 universe; evaluate with test-suggestions; store + optional Telegram",
+    )
+    pc.add_argument(
+        "--cadence",
+        type=str,
+        default="manual",
+        metavar="LABEL",
+        help="Run label stored in DB (e.g. hourly, daily). Use the same string in cron/systemd.",
+    )
+    pc.add_argument(
+        "--no-publish",
+        action="store_true",
+        help="Skip Telegram publish to TARGET_CHANNEL",
+    )
+    pc.add_argument(
+        "--backtest",
+        action="store_true",
+        help="Walk-forward backtest all 3 bots on each price interval present in the DB (1d/1h/1m/…); publish summary",
+    )
+
     args = p.parse_args()
     cfg = load_config()
     if getattr(args, "max_priority", None) is not None:
@@ -795,6 +819,42 @@ def main() -> None:
         if not args.skip_research:
             run_research(cfg)
         logger.info("run-all finished")
+        return
+
+    if args.cmd == "competitive-bots":
+        from telegram_agent.research_publish import (
+            format_competitive_backtest_telegram_message,
+            format_competitive_telegram_message,
+            publish_plain_to_target,
+        )
+
+        if getattr(args, "backtest", False):
+            from telegram_agent.competitive_backtest import (
+                run_competitive_backtest_all_intervals,
+            )
+
+            out = run_competitive_backtest_all_intervals(cfg)
+            print(json.dumps(out, indent=2, default=str))
+            if (
+                out.get("ok")
+                and not args.no_publish
+                and cfg.get("competitive_bots_publish", True)
+            ):
+                msg = format_competitive_backtest_telegram_message(out)
+                publish_plain_to_target(cfg, msg)
+            return
+
+        from telegram_agent.competitive_bots import run_competitive_cycle
+
+        out = run_competitive_cycle(cfg, cadence_label=str(args.cadence or "manual"))
+        print(json.dumps(out, indent=2, default=str))
+        if (
+            out.get("ok")
+            and not args.no_publish
+            and cfg.get("competitive_bots_publish", True)
+        ):
+            msg = format_competitive_telegram_message(out)
+            publish_plain_to_target(cfg, msg)
         return
 
     if args.cmd == "orchestrate":

@@ -194,6 +194,7 @@ def init_db(con: sqlite3.Connection) -> None:
     con.commit()
     _migrate_recommendations_extra_columns(con)
     _migrate_news_universe_preprocess_schema(con)
+    _migrate_competitive_bot_runs_schema(con)
 
 
 def _migrate_recommendations_extra_columns(con: sqlite3.Connection) -> None:
@@ -236,6 +237,32 @@ def _migrate_news_universe_preprocess_schema(con: sqlite3.Connection) -> None:
     )
     con.execute(
         "CREATE INDEX IF NOT EXISTS idx_symbol_news_linkage_news ON symbol_news_linkage(news_id)"
+    )
+    con.commit()
+
+
+def _migrate_competitive_bot_runs_schema(con: sqlite3.Connection) -> None:
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS competitive_bot_runs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          bot_id TEXT NOT NULL,
+          cadence_label TEXT NOT NULL,
+          run_ts_utc TEXT NOT NULL,
+          n_recommendations INTEGER NOT NULL,
+          n_tester_legs INTEGER NOT NULL,
+          optimization_metric TEXT,
+          optimization_value REAL,
+          aggregate_json TEXT NOT NULL,
+          picks_json TEXT
+        )
+        """
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_competitive_bot_runs_ts ON competitive_bot_runs(run_ts_utc)"
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_competitive_bot_runs_bot ON competitive_bot_runs(bot_id)"
     )
     con.commit()
 
@@ -1047,6 +1074,84 @@ def get_close_at_or_before(
     return float(row["adj_close"] if row["adj_close"] is not None else row["close"])
 
 
+def get_adj_closes_series(
+    con: sqlite3.Connection,
+    symbol: str,
+    end_ts: datetime,
+    *,
+    interval: str = "1d",
+    limit: int = 80,
+) -> List[Tuple[datetime, float]]:
+    """Up to ``limit`` daily adjusted closes at or before ``end_ts``, oldest first."""
+    if end_ts.tzinfo is None:
+        end_ts = end_ts.replace(tzinfo=timezone.utc)
+    end_ts = end_ts.astimezone(timezone.utc)
+    cur = con.execute(
+        """
+        SELECT ts_utc, close, adj_close FROM prices
+        WHERE symbol = ? AND interval = ? AND ts_utc <= ?
+        ORDER BY ts_utc DESC
+        LIMIT ?
+        """,
+        (symbol.upper(), interval, _utc_iso(end_ts), int(limit)),
+    )
+    rows = list(cur.fetchall())
+    rows.reverse()
+    out: List[Tuple[datetime, float]] = []
+    for row in rows:
+        ts = _parse_dt(row["ts_utc"])
+        if not ts:
+            continue
+        adj = row["adj_close"]
+        cl = row["close"]
+        px = float(adj if adj is not None else cl)
+        out.append((ts, px))
+    return out
+
+
+def list_distinct_price_intervals(con: sqlite3.Connection) -> List[str]:
+    """All interval strings present in ``prices`` (e.g. 1d, 1h, 1m)."""
+    cur = con.execute("SELECT DISTINCT interval FROM prices ORDER BY interval")
+    return [str(r[0]) for r in cur.fetchall() if r[0]]
+
+
+def count_prices_for_symbol_interval(
+    con: sqlite3.Connection, symbol: str, interval: str
+) -> int:
+    cur = con.execute(
+        "SELECT COUNT(*) AS n FROM prices WHERE symbol = ? AND interval = ?",
+        (symbol.upper(), interval),
+    )
+    row = cur.fetchone()
+    return int(row["n"]) if row and row["n"] is not None else 0
+
+
+def get_full_adj_close_series_asc(
+    con: sqlite3.Connection,
+    symbol: str,
+    interval: str,
+) -> List[Tuple[datetime, float]]:
+    """Full adjusted close history for (symbol, interval), oldest first."""
+    cur = con.execute(
+        """
+        SELECT ts_utc, close, adj_close FROM prices
+        WHERE symbol = ? AND interval = ?
+        ORDER BY ts_utc ASC
+        """,
+        (symbol.upper(), interval),
+    )
+    out: List[Tuple[datetime, float]] = []
+    for row in cur.fetchall():
+        ts = _parse_dt(row["ts_utc"])
+        if not ts:
+            continue
+        adj = row["adj_close"]
+        cl = row["close"]
+        px = float(adj if adj is not None else cl)
+        out.append((ts, px))
+    return out
+
+
 def insert_recommendation(
     con: sqlite3.Connection,
     *,
@@ -1102,6 +1207,60 @@ def update_recommendation_meta(con: sqlite3.Connection, rec_id: int, meta: Dict[
         (json.dumps(meta), int(rec_id)),
     )
     con.commit()
+
+
+def insert_competitive_bot_run(
+    con: sqlite3.Connection,
+    *,
+    bot_id: str,
+    cadence_label: str,
+    run_ts_utc: datetime,
+    n_recommendations: int,
+    n_tester_legs: int,
+    optimization_metric: Optional[str],
+    optimization_value: Optional[float],
+    aggregate: Dict[str, Any],
+    picks: Optional[List[Dict[str, Any]]] = None,
+) -> int:
+    if run_ts_utc.tzinfo is None:
+        run_ts_utc = run_ts_utc.replace(tzinfo=timezone.utc)
+    run_ts_utc = run_ts_utc.astimezone(timezone.utc)
+    con.execute(
+        """
+        INSERT INTO competitive_bot_runs(
+          bot_id, cadence_label, run_ts_utc, n_recommendations, n_tester_legs,
+          optimization_metric, optimization_value, aggregate_json, picks_json
+        )
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            bot_id,
+            cadence_label,
+            _utc_iso(run_ts_utc),
+            int(n_recommendations),
+            int(n_tester_legs),
+            optimization_metric,
+            optimization_value,
+            json.dumps(aggregate, default=str),
+            json.dumps(picks or [], default=str),
+        ),
+    )
+    con.commit()
+    return int(con.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+
+def list_recent_competitive_bot_runs(
+    con: sqlite3.Connection, *, limit: int = 40
+) -> List[sqlite3.Row]:
+    cur = con.execute(
+        """
+        SELECT * FROM competitive_bot_runs
+        ORDER BY run_ts_utc DESC, id DESC
+        LIMIT ?
+        """,
+        (int(limit),),
+    )
+    return list(cur.fetchall())
 
 
 def list_recommendations(con: sqlite3.Connection, *, since_utc: Optional[datetime] = None) -> List[sqlite3.Row]:
