@@ -1,10 +1,16 @@
 """
 Walk-forward backtests for the three competitive bot scorers on stored OHLCV.
 
-Uses every distinct ``prices.interval`` present in the DB (typically only ``1d`` unless
-you have ingested intraday). Cross-section: reference timeline = densest symbol’s bars;
+Uses distinct intervals from ``prices`` plus ``1h``/``1m`` when ``prices_hourly`` /
+``prices_minute`` have data (intraday is stored there, not in ``prices``).
+Cross-section: reference timeline = densest symbol’s bars;
 at each evaluation time, rank the universe, equal-weight top-K picks, measure forward
 return over a horizon in **bars** (short horizon, cadence-appropriate).
+
+Evaluation times are **subsampled** with stride so the grid size stays near
+``COMPETITIVE_BACKTEST_MAX_EVAL_POINTS`` (default 2000). More 1m bars increase
+stride, not ``n_periods``; raise ``COMPETITIVE_BACKTEST_MAX_EVAL_POINTS`` if you
+need more minute-step evaluations.
 """
 
 from __future__ import annotations
@@ -12,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -34,6 +41,33 @@ from telegram_agent.competitive_bots import (
 logger = logging.getLogger(__name__)
 
 COMPETITIVE_BACKTEST_KV_KEY = "competitive_backtest:last_v1"
+
+
+def resolve_backtest_symbols(cfg: dict, con) -> Tuple[List[str], Optional[str]]:
+    """
+    Symbol universe for walk-forward backtest.
+    Modes: ``universe`` (default), ``env`` (COMPETITIVE_BACKTEST_SYMBOLS), ``p0-full-coverage``.
+    Returns (symbols, error_message).
+    """
+    mode = (cfg.get("competitive_backtest_symbol_mode") or "universe").strip().lower()
+    if mode in ("env", "from_env", "symbols_env"):
+        raw = (cfg.get("competitive_backtest_symbols") or "").strip()
+        if not raw:
+            return [], "competitive_backtest_symbols_empty:set COMPETITIVE_BACKTEST_SYMBOLS or use another --backtest-symbols mode"
+        syms = [x.strip().upper() for x in raw.split(",") if x.strip()]
+        if not syms:
+            return [], "competitive_backtest_symbols_empty"
+        return syms, None
+    if mode in ("p0-full-coverage", "p0_full_coverage", "full-coverage-p0"):
+        from telegram_agent.competitive_coverage import list_p0_full_coverage_symbols
+
+        syms = list_p0_full_coverage_symbols(cfg, con)
+        if not syms:
+            return [], "p0_full_coverage:no_symbols_meet_thresholds"
+        return syms, None
+    # default: same as competitive bot live run (priority-filtered universe)
+    symbols_u = _symbols_for_competition(cfg)
+    return symbols_u, None if symbols_u else "no_symbols_in_universe"
 
 # Forward horizon in bars (short-term); tuned per cadence when data exists.
 HORIZON_BARS_DEFAULT: Dict[str, int] = {
@@ -110,6 +144,30 @@ def _rank_at_time(
     return out
 
 
+def _summarize_leg_returns(rets: List[float]) -> Dict[str, Any]:
+    """Aggregate stats for a list of forward-return legs (one symbol)."""
+    if not rets:
+        return {
+            "n_legs": 0,
+            "mean_ret_pct": None,
+            "std_ret_pct": None,
+            "win_rate": None,
+            "sharpe_like": None,
+        }
+    m = sum(rets) / len(rets)
+    var = sum((x - m) ** 2 for x in rets) / max(1, (len(rets) - 1))
+    sd = math.sqrt(var) if var > 0 else 0.0
+    wins = sum(1 for x in rets if x > 0)
+    sharpe_like = (m / sd) if sd > 1e-12 else 0.0
+    return {
+        "n_legs": len(rets),
+        "mean_ret_pct": round(m, 6),
+        "std_ret_pct": round(sd, 6),
+        "win_rate": round(wins / len(rets), 6),
+        "sharpe_like": round(sharpe_like, 6),
+    }
+
+
 def _forward_pct(
     cache: Dict[str, List[Tuple[datetime, float]]],
     sym: str,
@@ -139,14 +197,22 @@ def _walk_forward_one_bot(
     horizon = _horizon_bars(interval, cfg)
     max_picks = max(1, int(cfg.get("competitive_bots_max_picks", 3)))
     max_eval = max(50, int(cfg.get("competitive_backtest_max_eval_points", 2000)))
+    per_ticker = bool(cfg.get("competitive_backtest_per_ticker", False))
+    ticker_legs: Dict[str, List[float]] = defaultdict(list) if per_ticker else {}
 
     if len(ref_series) < min_bars + horizon + 2:
-        return {"error": "insufficient_reference_bars", "n_periods": 0}
+        err: Dict[str, Any] = {"error": "insufficient_reference_bars", "n_periods": 0}
+        if per_ticker:
+            err["by_ticker"] = {sym: _summarize_leg_returns([]) for sym in symbols}
+        return err
 
     start_i = min_bars
     last_i = len(ref_series) - horizon - 1
     n_span = max(0, last_i - start_i + 1)
+    # Cap how many evaluation times we visit (default ~2000). More bars (e.g. 1m vs 1h)
+    # increases stride; n_periods stays ~max_eval, it does not scale with bar count.
     stride = max(1, n_span // max_eval) if n_span else 1
+    eval_grid_points = len(range(start_i, last_i + 1, stride)) if n_span else 0
 
     rets: List[float] = []
     for i in range(start_i, last_i + 1, stride):
@@ -161,12 +227,28 @@ def _walk_forward_one_bot(
             r = _forward_pct(cache, p.symbol, t0, t1)
             if r is not None:
                 leg.append(r)
+                if per_ticker:
+                    ticker_legs[p.symbol].append(float(r))
         if not leg:
             continue
         rets.append(float(sum(leg) / len(leg)))
 
+    wf_meta = {
+        "reference_bars": len(ref_series),
+        "walk_forward_span_bars": n_span,
+        "max_eval_budget": max_eval,
+        "eval_grid_points": eval_grid_points,
+        "stride": stride,
+        "horizon_bars": horizon,
+        "subsampling": stride > 1,
+        "subsampling_note": (
+            "n_periods is capped by COMPETITIVE_BACKTEST_MAX_EVAL_POINTS via stride; "
+            "minute data uses a larger stride than hourly, so period counts stay similar."
+        ),
+    }
+
     if not rets:
-        return {
+        out: Dict[str, Any] = {
             "n_periods": 0,
             "mean_ret_pct": None,
             "std_ret_pct": None,
@@ -174,21 +256,29 @@ def _walk_forward_one_bot(
             "sharpe_like": None,
             "note": "no_valid_periods",
         }
+        out.update(wf_meta)
+        if per_ticker:
+            out["by_ticker"] = {sym: _summarize_leg_returns(list(ticker_legs.get(sym, []))) for sym in symbols}
+        return out
 
     m = sum(rets) / len(rets)
     var = sum((x - m) ** 2 for x in rets) / max(1, (len(rets) - 1))
     sd = math.sqrt(var) if var > 0 else 0.0
     wins = sum(1 for x in rets if x > 0)
     sharpe_like = (m / sd) if sd > 1e-12 else 0.0
-    return {
+    out_ok: Dict[str, Any] = {
         "n_periods": len(rets),
         "mean_ret_pct": round(m, 6),
         "std_ret_pct": round(sd, 6),
         "win_rate": round(wins / len(rets), 6),
         "sharpe_like": round(sharpe_like, 6),
-        "horizon_bars": horizon,
-        "stride": stride,
     }
+    out_ok.update(wf_meta)
+    if per_ticker:
+        out_ok["by_ticker"] = {
+            sym: _summarize_leg_returns(list(ticker_legs.get(sym, []))) for sym in symbols
+        }
+    return out_ok
 
 
 def run_competitive_backtest_all_intervals(cfg: dict) -> Dict[str, Any]:
@@ -204,12 +294,13 @@ def run_competitive_backtest_all_intervals(cfg: dict) -> Dict[str, Any]:
     con = connect(db)
     init_db(con)
     intervals = list_distinct_price_intervals(con)
-    symbols_u = _symbols_for_competition(cfg)
+    symbols_u, sym_err = resolve_backtest_symbols(cfg, con)
     if not symbols_u:
         con.close()
         return {
             "ok": False,
-            "error": "no_symbols",
+            "error": sym_err or "no_symbols",
+            "symbol_mode": cfg.get("competitive_backtest_symbol_mode", "universe"),
             "intervals": intervals,
             "results": {},
         }
@@ -278,6 +369,9 @@ def run_competitive_backtest_all_intervals(cfg: dict) -> Dict[str, Any]:
     payload = {
         "ok": True,
         "run_ts_utc": now.isoformat(),
+        "symbol_mode": cfg.get("competitive_backtest_symbol_mode", "universe"),
+        "symbol_pool_size": len(symbols_u),
+        "per_ticker_enabled": bool(cfg.get("competitive_backtest_per_ticker", False)),
         "intervals_found": intervals,
         "skipped": skipped,
         "results": out_results,

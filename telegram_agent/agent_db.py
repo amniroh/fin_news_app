@@ -195,6 +195,52 @@ def init_db(con: sqlite3.Connection) -> None:
     _migrate_recommendations_extra_columns(con)
     _migrate_news_universe_preprocess_schema(con)
     _migrate_competitive_bot_runs_schema(con)
+    _migrate_intraday_price_tables(con)
+
+
+def _migrate_intraday_price_tables(con: sqlite3.Connection) -> None:
+    """Dedicated tables for intraday OHLCV (daily stays in ``prices``)."""
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS prices_hourly (
+          symbol TEXT NOT NULL,
+          ts_utc TEXT NOT NULL,
+          open REAL,
+          high REAL,
+          low REAL,
+          close REAL,
+          adj_close REAL,
+          volume REAL,
+          source TEXT NOT NULL DEFAULT 'yfinance',
+          PRIMARY KEY(symbol, ts_utc),
+          FOREIGN KEY(symbol) REFERENCES instruments(symbol) ON DELETE CASCADE
+        )
+        """
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_prices_hourly_symbol_ts ON prices_hourly(symbol, ts_utc)"
+    )
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS prices_minute (
+          symbol TEXT NOT NULL,
+          ts_utc TEXT NOT NULL,
+          open REAL,
+          high REAL,
+          low REAL,
+          close REAL,
+          adj_close REAL,
+          volume REAL,
+          source TEXT NOT NULL DEFAULT 'yfinance',
+          PRIMARY KEY(symbol, ts_utc),
+          FOREIGN KEY(symbol) REFERENCES instruments(symbol) ON DELETE CASCADE
+        )
+        """
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_prices_minute_symbol_ts ON prices_minute(symbol, ts_utc)"
+    )
+    con.commit()
 
 
 def _migrate_recommendations_extra_columns(con: sqlite3.Connection) -> None:
@@ -1048,6 +1094,65 @@ def upsert_price_rows(
     return len(data)
 
 
+INTRADAY_TABLE_BY_YF_INTERVAL = {"1h": "prices_hourly", "1m": "prices_minute"}
+
+
+def upsert_intraday_rows(
+    con: sqlite3.Connection,
+    table: str,
+    symbol: str,
+    rows: Sequence[Tuple[str, float, float, float, float, Optional[float], Optional[float]]],
+    *,
+    source: str = "yfinance",
+    commit: bool = True,
+) -> int:
+    """
+    Insert/update OHLCV rows into ``prices_hourly`` or ``prices_minute`` only.
+    rows: (ts_utc_iso, open, high, low, close, adj_close, volume)
+    """
+    if table not in ("prices_hourly", "prices_minute"):
+        raise ValueError("table must be prices_hourly or prices_minute")
+    if not rows:
+        return 0
+    ensure_instruments(con, [symbol])
+    sym = symbol.strip().upper()
+    data = [(sym, ts, o, h, l, c, adj, vol, source) for (ts, o, h, l, c, adj, vol) in rows]
+    con.executemany(
+        f"""
+        INSERT INTO {table}(symbol, ts_utc, open, high, low, close, adj_close, volume, source)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(symbol, ts_utc) DO UPDATE SET
+          open=excluded.open, high=excluded.high, low=excluded.low, close=excluded.close,
+          adj_close=excluded.adj_close, volume=excluded.volume, source=excluded.source
+        """,
+        data,
+    )
+    if commit:
+        con.commit()
+    return len(data)
+
+
+def get_latest_intraday_ts(
+    con: sqlite3.Connection, symbol: str, *, table: str
+) -> Optional[datetime]:
+    if table not in ("prices_hourly", "prices_minute"):
+        raise ValueError("table must be prices_hourly or prices_minute")
+    cur = con.execute(
+        f"SELECT ts_utc FROM {table} WHERE symbol = ? ORDER BY ts_utc DESC LIMIT 1",
+        (symbol.upper(),),
+    )
+    row = cur.fetchone()
+    return _parse_dt(row["ts_utc"]) if row else None
+
+
+def count_intraday_rows(con: sqlite3.Connection, *, table: str) -> int:
+    if table not in ("prices_hourly", "prices_minute"):
+        raise ValueError("table must be prices_hourly or prices_minute")
+    cur = con.execute(f"SELECT COUNT(*) AS n FROM {table}")
+    row = cur.fetchone()
+    return int(row["n"] or 0) if row else 0
+
+
 def get_latest_price_ts(con: sqlite3.Connection, symbol: str, *, interval: str = "1d") -> Optional[datetime]:
     cur = con.execute(
         "SELECT ts_utc FROM prices WHERE symbol = ? AND interval = ? ORDER BY ts_utc DESC LIMIT 1",
@@ -1109,18 +1214,67 @@ def get_adj_closes_series(
     return out
 
 
+def _normalize_price_interval(interval: str) -> str:
+    """Map Yahoo/DB aliases to canonical 1d / 1h / 1m for routing."""
+    i = (interval or "").strip()
+    if i in ("60m", "60Min"):
+        return "1h"
+    if i in ("1Min",):
+        return "1m"
+    return i
+
+
 def list_distinct_price_intervals(con: sqlite3.Connection) -> List[str]:
-    """All interval strings present in ``prices`` (e.g. 1d, 1h, 1m)."""
+    """Intervals from ``prices`` plus ``1h``/``1m`` when intraday tables have any rows."""
     cur = con.execute("SELECT DISTINCT interval FROM prices ORDER BY interval")
-    return [str(r[0]) for r in cur.fetchall() if r[0]]
+    out = {str(r[0]) for r in cur.fetchall() if r[0]}
+    cur = con.execute("SELECT 1 FROM prices_hourly LIMIT 1")
+    if cur.fetchone():
+        out.add("1h")
+    cur = con.execute("SELECT 1 FROM prices_minute LIMIT 1")
+    if cur.fetchone():
+        out.add("1m")
+    return sorted(out)
 
 
 def count_prices_for_symbol_interval(
     con: sqlite3.Connection, symbol: str, interval: str
 ) -> int:
+    sym = symbol.upper()
+    ni = _normalize_price_interval(interval)
+    if ni == "1h":
+        cur = con.execute(
+            "SELECT COUNT(*) AS n FROM prices_hourly WHERE symbol = ?",
+            (sym,),
+        )
+        row = cur.fetchone()
+        n = int(row["n"]) if row and row["n"] is not None else 0
+        if n > 0:
+            return n
+        cur = con.execute(
+            "SELECT COUNT(*) AS n FROM prices WHERE symbol = ? AND interval IN ('1h','60m','60Min')",
+            (sym,),
+        )
+        row = cur.fetchone()
+        return int(row["n"]) if row and row["n"] is not None else 0
+    if ni == "1m":
+        cur = con.execute(
+            "SELECT COUNT(*) AS n FROM prices_minute WHERE symbol = ?",
+            (sym,),
+        )
+        row = cur.fetchone()
+        n = int(row["n"]) if row and row["n"] is not None else 0
+        if n > 0:
+            return n
+        cur = con.execute(
+            "SELECT COUNT(*) AS n FROM prices WHERE symbol = ? AND interval IN ('1m','1Min')",
+            (sym,),
+        )
+        row = cur.fetchone()
+        return int(row["n"]) if row and row["n"] is not None else 0
     cur = con.execute(
         "SELECT COUNT(*) AS n FROM prices WHERE symbol = ? AND interval = ?",
-        (symbol.upper(), interval),
+        (sym, interval),
     )
     row = cur.fetchone()
     return int(row["n"]) if row and row["n"] is not None else 0
@@ -1132,13 +1286,67 @@ def get_full_adj_close_series_asc(
     interval: str,
 ) -> List[Tuple[datetime, float]]:
     """Full adjusted close history for (symbol, interval), oldest first."""
+    sym = symbol.upper()
+    ni = _normalize_price_interval(interval)
+
+    def _rows_from_sql(sql: str, params: Tuple) -> List[Tuple[datetime, float]]:
+        cur = con.execute(sql, params)
+        out: List[Tuple[datetime, float]] = []
+        for row in cur.fetchall():
+            ts = _parse_dt(row["ts_utc"])
+            if not ts:
+                continue
+            adj = row["adj_close"]
+            cl = row["close"]
+            px = float(adj if adj is not None else cl)
+            out.append((ts, px))
+        return out
+
+    if ni == "1h":
+        ser = _rows_from_sql(
+            """
+            SELECT ts_utc, close, adj_close FROM prices_hourly
+            WHERE symbol = ?
+            ORDER BY ts_utc ASC
+            """,
+            (sym,),
+        )
+        if ser:
+            return ser
+        return _rows_from_sql(
+            """
+            SELECT ts_utc, close, adj_close FROM prices
+            WHERE symbol = ? AND interval IN ('1h','60m','60Min')
+            ORDER BY ts_utc ASC
+            """,
+            (sym,),
+        )
+    if ni == "1m":
+        ser = _rows_from_sql(
+            """
+            SELECT ts_utc, close, adj_close FROM prices_minute
+            WHERE symbol = ?
+            ORDER BY ts_utc ASC
+            """,
+            (sym,),
+        )
+        if ser:
+            return ser
+        return _rows_from_sql(
+            """
+            SELECT ts_utc, close, adj_close FROM prices
+            WHERE symbol = ? AND interval IN ('1m','1Min')
+            ORDER BY ts_utc ASC
+            """,
+            (sym,),
+        )
     cur = con.execute(
         """
         SELECT ts_utc, close, adj_close FROM prices
         WHERE symbol = ? AND interval = ?
         ORDER BY ts_utc ASC
         """,
-        (symbol.upper(), interval),
+        (sym, interval),
     )
     out: List[Tuple[datetime, float]] = []
     for row in cur.fetchall():

@@ -172,6 +172,19 @@ def load_config() -> dict:
         # Prices (yfinance) batching knobs
         "prices_yf_batch_size": int(os.getenv("PRICES_YF_BATCH_SIZE", "80")),
         "prices_yf_sleep_seconds": float(os.getenv("PRICES_YF_SLEEP_SECONDS", "0.5")),
+        # Intraday (1h/1m) → prices_hourly / prices_minute (see agent prices --intervals)
+        "prices_intraday_1h_max_backfill_days": int(os.getenv("PRICES_INTRADAY_1H_MAX_BACKFILL_DAYS", "730")),
+        "prices_intraday_1m_max_backfill_days": int(os.getenv("PRICES_INTRADAY_1M_MAX_BACKFILL_DAYS", "30")),
+        "prices_intraday_chunk_days_1h": float(os.getenv("PRICES_INTRADAY_CHUNK_DAYS_1H", "120")),
+        "prices_intraday_chunk_days_1m": float(os.getenv("PRICES_INTRADAY_CHUNK_DAYS_1M", "7")),
+        "prices_intraday_prepost": os.getenv("PRICES_INTRADAY_PREPOST", "true").lower() == "true",
+        "prices_intraday_auto_adjust": os.getenv("PRICES_INTRADAY_AUTO_ADJUST", "true").lower() == "true",
+        "prices_intraday_1h_incremental_lookback_days": int(
+            os.getenv("PRICES_INTRADAY_1H_INCREMENTAL_LOOKBACK_DAYS", "14")
+        ),
+        "prices_intraday_1m_incremental_lookback_days": int(
+            os.getenv("PRICES_INTRADAY_1M_INCREMENTAL_LOOKBACK_DAYS", "7")
+        ),
         # Structured memory caps (merge in memory_structured.merge_memory_state)
         "agent_memory_cap_strongest": int(os.getenv("AGENT_MEMORY_CAP_STRONGEST", "20")),
         "agent_memory_cap_recent": int(os.getenv("AGENT_MEMORY_CAP_RECENT", "20")),
@@ -201,6 +214,18 @@ def load_config() -> dict:
         "competitive_backtest_horizon_overrides": os.getenv(
             "COMPETITIVE_BACKTEST_HORIZON_OVERRIDES", ""
         ).strip(),
+        # Restrict walk-forward backtest universe (see competitive-bots --backtest --backtest-symbols)
+        "competitive_backtest_symbols": os.getenv("COMPETITIVE_BACKTEST_SYMBOLS", "").strip(),
+        "competitive_backtest_symbol_mode": os.getenv(
+            "COMPETITIVE_BACKTEST_SYMBOL_MODE", "universe"
+        ).strip().lower(),
+        "full_coverage_min_bars_1d": int(os.getenv("FULL_COVERAGE_MIN_BARS_1D", "200")),
+        "full_coverage_min_bars_1h": int(os.getenv("FULL_COVERAGE_MIN_BARS_1H", "400")),
+        "full_coverage_min_bars_1m": int(os.getenv("FULL_COVERAGE_MIN_BARS_1M", "800")),
+        "competitive_backtest_per_ticker": os.getenv(
+            "COMPETITIVE_BACKTEST_PER_TICKER", "false"
+        ).lower()
+        == "true",
         # Strategy test agent: per-leg backtests + aggregate metrics (see strategy_metrics.py, agent_tester.py)
         "test_metrics_enabled": [
             x.strip().lower()
@@ -243,6 +268,15 @@ def load_config() -> dict:
         "symbol_universe_path": _symbol_path_env or str(DATA_DIR / "symbol_universe_top1000.json"),
         "memory_use_universe_news_only": os.getenv("MEMORY_USE_UNIVERSE_NEWS_ONLY", "true").lower()
         == "true",
+        # Alpaca: RSI live runner (python -m telegram_agent.rsi_alpaca_live). Prefer APCA_* key names (Alpaca dashboard).
+        "alpaca_api_key_id": os.getenv("APCA_API_KEY_ID", "").strip()
+        or os.getenv("ALPACA_API_KEY_ID", "").strip(),
+        "alpaca_api_secret_key": os.getenv("APCA_API_SECRET_KEY", "").strip()
+        or os.getenv("ALPACA_API_SECRET_KEY", "").strip(),
+        "alpaca_paper": os.getenv("ALPACA_PAPER", "true").strip().lower() == "true",
+        "alpaca_data_feed": os.getenv("ALPACA_DATA_FEED", "iex").strip().lower(),
+        "rsi_alpaca_state_path": os.getenv("RSI_ALPACA_STATE_PATH", "").strip()
+        or str(DATA_DIR / "rsi_alpaca_state.json"),
     }
 
     if CONFIG_JSON.exists():

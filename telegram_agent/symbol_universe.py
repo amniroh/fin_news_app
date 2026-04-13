@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -146,4 +146,35 @@ def symbol_universe_set(cfg: dict) -> Optional[Set[str]]:
     except Exception as e:
         logger.warning("Failed to load symbol universe; running without it: %s", e)
         return None
+
+
+def universe_priority_map(cfg: dict) -> Optional[Dict[str, Optional[int]]]:
+    """
+    Map canonical symbol -> priority from the JSON universe file, if available.
+    Returns None when priority metadata cannot be loaded (universe off, env-only list, missing file).
+    """
+    if not cfg.get("symbol_universe_enabled"):
+        return None
+    if (cfg.get("symbol_universe_env") or "").strip():
+        return None
+    path_raw = cfg.get("symbol_universe_path")
+    if not path_raw:
+        return None
+    path = Path(path_raw).expanduser()
+    if not path.exists():
+        return None
+    try:
+        pairs = _load_json_symbols_with_priority(path)
+    except Exception as e:
+        logger.warning("Could not load universe priorities from %s: %s", path, e)
+        return None
+    return {s: pr for s, pr in pairs}
+
+
+def symbols_with_exact_priority(cfg: dict, priority: int) -> List[str]:
+    """Symbols whose universe JSON lists ``priority`` exactly (excludes missing/null priority)."""
+    pmap = universe_priority_map(cfg)
+    if pmap is None:
+        return []
+    return sorted(s for s, pr in pmap.items() if pr == priority)
 

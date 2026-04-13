@@ -15,6 +15,7 @@ Examples:
   python -m telegram_agent.agent clear-ingest
   python -m telegram_agent.agent clear-research
   python -m telegram_agent.agent prices --mode backfill
+  python -m telegram_agent.agent prices --mode backfill --intervals 1d,1h,1m
   python -m telegram_agent.agent memory
   python -m telegram_agent.agent research
   python -m telegram_agent.agent research --dry-run
@@ -29,6 +30,9 @@ Examples:
   python -m telegram_agent.agent narrative --horizon all
   python -m telegram_agent.agent competitive-bots --cadence daily
   python -m telegram_agent.agent competitive-bots --backtest
+  python -m telegram_agent.agent competitive-bots --backtest --backtest-symbols env
+  python -m telegram_agent.agent competitive-bots --backtest --backtest-per-ticker
+  python -m telegram_agent.competitive_coverage
 """
 from __future__ import annotations
 
@@ -69,7 +73,7 @@ def main() -> None:
         clear_research_outputs,
         clear_universe_preprocess,
     )
-    from telegram_agent.prices import backfill_all_mentioned, incremental_prices
+    from telegram_agent.prices import run_prices
     from telegram_agent.agent_memory import run_memory_update
     from telegram_agent.agent_research import (
         run_research,
@@ -254,6 +258,22 @@ def main() -> None:
         type=int,
         default=None,
         help="Only fetch prices for universe investments with priority <= this value (0..3). Default from env MAX_PRIORITY.",
+    )
+    pp.add_argument(
+        "--priority",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Only fetch prices for symbols with this exact universe priority (0..3). Requires JSON universe with "
+        "per-symbol priority fields. Applied after --max-priority.",
+    )
+    pp.add_argument(
+        "--intervals",
+        type=str,
+        default="1d",
+        metavar="LIST",
+        help="Comma-separated yfinance intervals: 1d (daily → prices table), 1h (→ prices_hourly), 1m (→ prices_minute). "
+        "Example: 1d,1h,1m",
     )
 
     sub.add_parser("memory", help="Update rolling macro/micro memory (LLM)")
@@ -441,6 +461,19 @@ def main() -> None:
         "--backtest",
         action="store_true",
         help="Walk-forward backtest all 3 bots on each price interval present in the DB (1d/1h/1m/…); publish summary",
+    )
+    pc.add_argument(
+        "--backtest-symbols",
+        type=str,
+        choices=["universe", "env", "p0-full-coverage"],
+        default="universe",
+        help="With --backtest: universe=default priority-filtered list; env=COMPETITIVE_BACKTEST_SYMBOLS only; "
+        "p0-full-coverage=priority-0 symbols meeting FULL_COVERAGE_MIN_BARS_* for 1d+1h+1m.",
+    )
+    pc.add_argument(
+        "--backtest-per-ticker",
+        action="store_true",
+        help="With --backtest: add by_ticker stats (each of 3 bots) for every symbol in the interval's cross-section.",
     )
 
     args = p.parse_args()
@@ -643,10 +676,22 @@ def main() -> None:
         cfg2 = dict(cfg)
         cfg2["prices_force"] = bool(args.force)
         cfg2["prices_backfill_reverse"] = bool(getattr(args, "reverse", False))
-        if args.mode == "backfill":
-            backfill_all_mentioned(cfg2, days=args.days)
-        else:
-            incremental_prices(cfg2)
+        if getattr(args, "priority", None) is not None:
+            p = int(args.priority)
+            if p < 0 or p > 3:
+                logger.error("--priority must be between 0 and 3")
+                sys.exit(1)
+            cfg2["prices_priority"] = p
+        try:
+            run_prices(
+                cfg2,
+                mode=args.mode,
+                days=int(args.days),
+                intervals=str(args.intervals or "1d"),
+            )
+        except ValueError as e:
+            logger.error("%s", e)
+            sys.exit(1)
         return
 
     if args.cmd == "memory":
@@ -810,10 +855,8 @@ def main() -> None:
             cfg, conp, max_ts_utc_inclusive=datetime.now(timezone.utc)
         )
         conp.close()
-        if args.mode == "backfill":
-            backfill_all_mentioned(cfg, days=args.days or int(cfg.get("agent_backfill_days", 365)) + 30)
-        else:
-            incremental_prices(cfg)
+        bd = int(args.days or int(cfg.get("agent_backfill_days", 365)) + 30)
+        run_prices(cfg, mode=args.mode, days=bd, intervals="1d")
         if not args.skip_memory:
             run_memory_update(cfg)
         if not args.skip_research:
@@ -833,7 +876,13 @@ def main() -> None:
                 run_competitive_backtest_all_intervals,
             )
 
-            out = run_competitive_backtest_all_intervals(cfg)
+            cfg_bt = dict(cfg)
+            cfg_bt["competitive_backtest_symbol_mode"] = str(
+                getattr(args, "backtest_symbols", "universe") or "universe"
+            )
+            if getattr(args, "backtest_per_ticker", False):
+                cfg_bt["competitive_backtest_per_ticker"] = True
+            out = run_competitive_backtest_all_intervals(cfg_bt)
             print(json.dumps(out, indent=2, default=str))
             if (
                 out.get("ok")

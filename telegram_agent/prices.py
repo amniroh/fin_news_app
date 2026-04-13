@@ -5,16 +5,19 @@ import logging
 from datetime import datetime, timezone, timedelta
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from telegram_agent.agent_db import (
+    INTRADAY_TABLE_BY_YF_INTERVAL,
     connect,
-    init_db,
+    get_latest_intraday_ts,
     get_latest_price_ts,
-    upsert_price_rows,
+    init_db,
     list_mentioned_symbols,
+    upsert_intraday_rows,
+    upsert_price_rows,
 )
-from telegram_agent.symbol_universe import symbol_universe_set
+from telegram_agent.symbol_universe import symbol_universe_set, universe_priority_map
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +77,66 @@ def _price_fetch_symbol(canonical: str, typ: str) -> str:
         if not c.endswith("-USD") and not c.startswith("^") and "=X" not in c:
             c = f"{c}-USD"
     return _yf_symbol(c)
+
+
+def price_job_symbols(cfg: dict, con) -> Tuple[List[str], Dict[str, str]]:
+    """
+    Canonical symbols and optional type map (same resolution as daily backfill).
+    Typed universe file is loaded whenever ``symbol_universe_path`` is set so
+    crypto tickers map to ``…-USD`` even in mention-only mode when symbols overlap.
+    """
+    uni = symbol_universe_set(cfg)
+    use_universe = uni is not None
+    typed_universe: Optional[List[Tuple[str, str]]] = None
+    path_raw = cfg.get("symbol_universe_path")
+    if path_raw:
+        typed_universe = _load_typed_universe_from_path(Path(path_raw).expanduser())
+    if use_universe and typed_universe:
+        max_pr = cfg.get("max_priority")
+        try:
+            max_pr_i = int(max_pr) if max_pr is not None else None
+        except Exception:
+            max_pr_i = None
+        if max_pr_i is not None:
+            allowed = symbol_universe_set(cfg) or set()
+            canon_syms = sorted(
+                {
+                    s.strip().upper()
+                    for s, _t in typed_universe
+                    if s and str(s).strip() and s.strip().upper() in allowed
+                }
+            )
+        else:
+            canon_syms = sorted({s.strip().upper() for s, _t in typed_universe if s and str(s).strip()})
+    else:
+        canon_syms = sorted(uni) if use_universe else list_mentioned_symbols(con)
+    typed_map: Dict[str, str] = {}
+    if typed_universe:
+        typed_map = {s.strip().upper(): t for s, t in typed_universe if s and str(s).strip()}
+
+    pr_exact = cfg.get("prices_priority")
+    if pr_exact is not None:
+        try:
+            want = int(pr_exact)
+        except Exception:
+            want = None
+        if want is not None:
+            pmap = universe_priority_map(cfg)
+            if pmap is None:
+                logger.warning(
+                    "prices: --priority ignored (need a JSON symbol universe with per-symbol priority, "
+                    "not SYMBOL_UNIVERSE_ENV-only list)"
+                )
+            else:
+                before = len(canon_syms)
+                canon_syms = [s for s in canon_syms if pmap.get(s) == want]
+                logger.info(
+                    "prices: exact priority %s: %s -> %s symbol(s)",
+                    want,
+                    before,
+                    len(canon_syms),
+                )
+    return canon_syms, typed_map
 
 
 def _weekend_fetch_ok_by_type(fetch_sym: str, typ: str) -> bool:
@@ -197,6 +260,102 @@ def _download_day_bars(
     return int(up_total)
 
 
+def _intraday_dataframe_to_rows(df) -> List[Tuple[str, float, float, float, float, Optional[float], Optional[float]]]:
+    import pandas as pd
+
+    rows: List[Tuple[str, float, float, float, float, Optional[float], Optional[float]]] = []
+    if df is None or getattr(df, "empty", True):
+        return rows
+    for idx, row in df.iterrows():
+        ts = pd.Timestamp(idx)
+        if ts.tz is None:
+            ts = ts.tz_localize("UTC")
+        else:
+            ts = ts.tz_convert("UTC")
+        dt = ts.to_pydatetime().replace(microsecond=0, tzinfo=timezone.utc)
+        ts_iso = dt.isoformat()
+        c = row.get("Close")
+        if c is None or pd.isna(c):
+            continue
+        c = float(c)
+        o = row.get("Open")
+        h = row.get("High")
+        l = row.get("Low")
+        o = float(o) if o is not None and not pd.isna(o) else None
+        h = float(h) if h is not None and not pd.isna(h) else None
+        l = float(l) if l is not None and not pd.isna(l) else None
+        adj = row.get("Adj Close")
+        if adj is None or pd.isna(adj):
+            adj = c
+        else:
+            adj = float(adj)
+        vol = row.get("Volume")
+        vol = float(vol) if vol is not None and not pd.isna(vol) else None
+        rows.append((ts_iso, o or c, h or c, l or c, c, adj, vol))
+    return rows
+
+
+def fetch_and_store_intraday_history(
+    con,
+    canonical_symbol: str,
+    fetch_sym: str,
+    table: str,
+    *,
+    yf_interval: str,
+    start: datetime,
+    end: datetime,
+    chunk_days: float,
+    auto_adjust: bool,
+    prepost: bool,
+    sleep_seconds: float,
+) -> int:
+    import time
+
+    import yfinance as yf
+
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    start = start.astimezone(timezone.utc)
+    end = end.astimezone(timezone.utc)
+    if start >= end:
+        return 0
+    total = 0
+    cur = start
+    t = yf.Ticker(fetch_sym)
+    while cur < end:
+        nxt = min(end, cur + timedelta(days=chunk_days))
+        try:
+            df = t.history(
+                start=cur,
+                end=nxt,
+                interval=yf_interval,
+                auto_adjust=auto_adjust,
+                prepost=prepost,
+            )
+        except Exception as e:
+            logger.warning(
+                "yfinance intraday %s %s %s-%s: %s",
+                canonical_symbol,
+                yf_interval,
+                cur.isoformat(),
+                nxt.isoformat(),
+                e,
+            )
+            cur = nxt
+            if sleep_seconds > 0 and cur < end:
+                time.sleep(sleep_seconds)
+            continue
+        rows = _intraday_dataframe_to_rows(df)
+        if rows:
+            total += upsert_intraday_rows(con, table, canonical_symbol, rows, source="yfinance")
+        cur = nxt
+        if sleep_seconds > 0 and cur < end:
+            time.sleep(sleep_seconds)
+    return total
+
+
 def fetch_and_store_history(
     con,
     symbol: str,
@@ -204,6 +363,7 @@ def fetch_and_store_history(
     start: datetime,
     end: Optional[datetime] = None,
     interval: str = "1d",
+    fetch_symbol: Optional[str] = None,
 ) -> int:
     import yfinance as yf
 
@@ -213,7 +373,7 @@ def fetch_and_store_history(
     if end.tzinfo is None:
         end = end.replace(tzinfo=timezone.utc)
 
-    sym = _yf_symbol(symbol)
+    sym = fetch_symbol.strip() if fetch_symbol else _yf_symbol(symbol)
     try:
         t = yf.Ticker(sym)
         df = t.history(start=start.date(), end=(end + timedelta(days=1)).date(), interval="1d", auto_adjust=False)
@@ -256,30 +416,7 @@ def backfill_all_mentioned(cfg: dict, *, days: int = 400) -> None:
     init_db(con)
     uni = symbol_universe_set(cfg)
     use_universe = uni is not None
-    typed_universe: Optional[List[Tuple[str, str]]] = None
-    # Even outside universe mode, the typed universe file can help us map
-    # common crypto tickers (ADA -> ADA-USD) for yfinance fetches.
-    path_raw = cfg.get("symbol_universe_path")
-    if path_raw:
-        typed_universe = _load_typed_universe_from_path(Path(path_raw).expanduser())
-    if use_universe and typed_universe:
-        max_pr = cfg.get("max_priority")
-        try:
-            max_pr_i = int(max_pr) if max_pr is not None else None
-        except Exception:
-            max_pr_i = None
-        # If universe file contains a priority field (it now does), filter here too.
-        # typed_universe loader only returns (ticker,type), so we fall back to symbol_universe_set()
-        # for priority filtering.
-        if max_pr_i is not None:
-            # symbol_universe_set() uses the priority-aware loader in symbol_universe.py
-            allowed = symbol_universe_set(cfg) or set()
-            canon_syms = sorted({s.strip().upper() for s, _t in typed_universe if s and str(s).strip() and s.strip().upper() in allowed})
-        else:
-            canon_syms = sorted({s.strip().upper() for s, _t in typed_universe if s and str(s).strip()})
-    else:
-        canon_syms = sorted(uni) if use_universe else list_mentioned_symbols(con)
-    syms = canon_syms
+    syms, typed_map = price_job_symbols(cfg, con)
     if not syms:
         if use_universe:
             logger.info(
@@ -306,10 +443,6 @@ def backfill_all_mentioned(cfg: dict, *, days: int = 400) -> None:
     d = dayN if reverse else day0
     def _advance(dt: datetime) -> datetime:
         return dt - timedelta(days=1) if reverse else dt + timedelta(days=1)
-
-    typed_map: dict[str, str] = {}
-    if typed_universe:
-        typed_map = {s.strip().upper(): t for s, t in typed_universe if s and str(s).strip()}
 
     while (d >= day0) if reverse else (d <= dayN):
         is_weekend = d.weekday() >= 5
@@ -390,7 +523,7 @@ def incremental_prices(cfg: dict) -> None:
     end = datetime.now(timezone.utc)
     uni = symbol_universe_set(cfg)
     use_universe = uni is not None
-    syms = sorted(uni) if use_universe else list_mentioned_symbols(con)
+    syms, typed_map = price_job_symbols(cfg, con)
     if not syms:
         if use_universe:
             logger.info(
@@ -404,12 +537,174 @@ def incremental_prices(cfg: dict) -> None:
         logger.info("Incremental prices for %s universe symbols", len(syms))
     force = bool(cfg.get("prices_force", False))
     for sym in syms:
+        fetch_sym = _price_fetch_symbol(sym, typed_map.get(sym, ""))
         latest = get_latest_price_ts(con, sym)
         start = (latest - timedelta(days=2)) if latest else end - timedelta(days=400)
         if not force and latest and latest >= (end - timedelta(days=1)):
             # Already have very recent bars.
             continue
-        n = fetch_and_store_history(con, sym, start=start, end=end)
+        n = fetch_and_store_history(con, sym, start=start, end=end, fetch_symbol=fetch_sym)
         if n:
             logger.info("Incremental %s: %s rows", sym, n)
     con.close()
+
+
+def backfill_intraday_all_mentioned(cfg: dict, *, yf_interval: str, days: int) -> None:
+    """Fetch 1h or 1m OHLCV into ``prices_hourly`` / ``prices_minute`` (not ``prices``)."""
+    table = INTRADAY_TABLE_BY_YF_INTERVAL[yf_interval]
+    db = Path(cfg.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
+    con = connect(db)
+    init_db(con)
+    uni = symbol_universe_set(cfg)
+    use_universe = uni is not None
+    syms, typed_map = price_job_symbols(cfg, con)
+    if not syms:
+        if use_universe:
+            logger.info(
+                "No symbols for intraday prices (universe empty or failed to load). Check SYMBOL_UNIVERSE_PATH / JSON."
+            )
+        else:
+            logger.info("No symbols in news_mentions; set SYMBOL_UNIVERSE_PATH or run extract after ingest.")
+        con.close()
+        return
+    cap_1h = int(cfg.get("prices_intraday_1h_max_backfill_days", 730))
+    cap_1m = int(cfg.get("prices_intraday_1m_max_backfill_days", 30))
+    if yf_interval == "1h":
+        lookback_days = min(int(days), cap_1h)
+        chunk_days = float(cfg.get("prices_intraday_chunk_days_1h", 120))
+    elif yf_interval == "1m":
+        lookback_days = min(int(days), cap_1m)
+        chunk_days = float(cfg.get("prices_intraday_chunk_days_1m", 7))
+    else:
+        con.close()
+        raise ValueError("yf_interval must be 1h or 1m")
+    auto_adjust = bool(cfg.get("prices_intraday_auto_adjust", True))
+    prepost = bool(cfg.get("prices_intraday_prepost", True))
+    sleep_s = float(cfg.get("prices_yf_sleep_seconds", 0.5))
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=lookback_days)
+    logger.info(
+        "Intraday backfill interval=%s table=%s symbols=%s lookback_days=%s chunk_days=%s",
+        yf_interval,
+        table,
+        len(syms),
+        lookback_days,
+        chunk_days,
+    )
+    for sym in syms:
+        fetch_sym = _price_fetch_symbol(sym, typed_map.get(sym, ""))
+        n = fetch_and_store_intraday_history(
+            con,
+            sym,
+            fetch_sym,
+            table,
+            yf_interval=yf_interval,
+            start=start,
+            end=end,
+            chunk_days=chunk_days,
+            auto_adjust=auto_adjust,
+            prepost=prepost,
+            sleep_seconds=0.0,
+        )
+        if n:
+            logger.info("Intraday backfill %s %s: %s rows", yf_interval, sym, n)
+        if sleep_s > 0:
+            import time
+
+            time.sleep(sleep_s)
+    con.close()
+
+
+def incremental_intraday_prices(cfg: dict, *, yf_interval: str) -> None:
+    table = INTRADAY_TABLE_BY_YF_INTERVAL[yf_interval]
+    db = Path(cfg.get("agent_db_path", "telegram_agent/data/agent.sqlite"))
+    con = connect(db)
+    init_db(con)
+    uni = symbol_universe_set(cfg)
+    use_universe = uni is not None
+    syms, typed_map = price_job_symbols(cfg, con)
+    if not syms:
+        if use_universe:
+            logger.info(
+                "No symbols for intraday prices (universe empty or failed to load). Check SYMBOL_UNIVERSE_PATH / JSON."
+            )
+        else:
+            logger.info("No symbols in news_mentions; set SYMBOL_UNIVERSE_PATH or run extract after ingest.")
+        con.close()
+        return
+    auto_adjust = bool(cfg.get("prices_intraday_auto_adjust", True))
+    prepost = bool(cfg.get("prices_intraday_prepost", True))
+    sleep_s = float(cfg.get("prices_yf_sleep_seconds", 0.5))
+    force = bool(cfg.get("prices_force", False))
+    end = datetime.now(timezone.utc)
+    if yf_interval == "1h":
+        chunk_days = float(cfg.get("prices_intraday_chunk_days_1h", 120))
+        default_lookback = int(cfg.get("prices_intraday_1h_incremental_lookback_days", 14))
+        stale_after = timedelta(hours=2)
+    else:
+        chunk_days = float(cfg.get("prices_intraday_chunk_days_1m", 7))
+        default_lookback = int(cfg.get("prices_intraday_1m_incremental_lookback_days", 7))
+        stale_after = timedelta(minutes=45)
+    for sym in syms:
+        fetch_sym = _price_fetch_symbol(sym, typed_map.get(sym, ""))
+        latest = get_latest_intraday_ts(con, sym, table=table)
+        if not force and latest and (end - latest) <= stale_after:
+            continue
+        if latest:
+            start = latest - (timedelta(hours=4) if yf_interval == "1h" else timedelta(hours=2))
+        else:
+            start = end - timedelta(days=default_lookback)
+        # Avoid huge catch-up windows (Yahoo limits + noise); widen with explicit backfill.
+        start = max(start, end - timedelta(days=default_lookback * 4))
+        n = fetch_and_store_intraday_history(
+            con,
+            sym,
+            fetch_sym,
+            table,
+            yf_interval=yf_interval,
+            start=start,
+            end=end,
+            chunk_days=chunk_days,
+            auto_adjust=auto_adjust,
+            prepost=prepost,
+            sleep_seconds=0.0,
+        )
+        if n:
+            logger.info("Incremental intraday %s %s: %s rows", yf_interval, sym, n)
+        if sleep_s > 0:
+            import time
+
+            time.sleep(sleep_s)
+    con.close()
+
+
+def run_prices(cfg: dict, *, mode: str, days: int, intervals: str) -> None:
+    """
+    Run daily and/or intraday price jobs. ``intervals`` is comma-separated: 1d, 1h, 1m.
+    Intraday data is stored in ``prices_hourly`` / ``prices_minute`` only.
+    """
+    parts: Set[str] = {p.strip().lower() for p in intervals.split(",") if p.strip()}
+    valid = {"1d", "1h", "1m"}
+    unknown = parts - valid
+    if unknown:
+        raise ValueError(f"Unknown interval(s): {sorted(unknown)}; allowed: 1d, 1h, 1m")
+    if not parts:
+        parts = {"1d"}
+    for iv in ("1d", "1h", "1m"):
+        if iv not in parts:
+            continue
+        if iv == "1d":
+            if mode == "backfill":
+                backfill_all_mentioned(cfg, days=days)
+            else:
+                incremental_prices(cfg)
+        elif iv == "1h":
+            if mode == "backfill":
+                backfill_intraday_all_mentioned(cfg, yf_interval="1h", days=days)
+            else:
+                incremental_intraday_prices(cfg, yf_interval="1h")
+        else:
+            if mode == "backfill":
+                backfill_intraday_all_mentioned(cfg, yf_interval="1m", days=days)
+            else:
+                incremental_intraday_prices(cfg, yf_interval="1m")

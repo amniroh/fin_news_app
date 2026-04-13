@@ -129,6 +129,8 @@ def format_competitive_backtest_telegram_message(payload: Dict[str, Any]) -> str
     lines: List[str] = []
     ts = payload.get("run_ts_utc") or ""
     lines.append(f"📉 Competitive backtest (walk-forward) — {ts}")
+    if payload.get("per_ticker_enabled"):
+        lines.append("Per-ticker leg stats: included in full JSON / kv_state (by_ticker under each bot).")
     ivs = payload.get("intervals_found") or []
     lines.append(f"Intervals in DB: {', '.join(ivs) if ivs else '(none)'}")
     for sk in payload.get("skipped") or []:
