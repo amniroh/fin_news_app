@@ -323,10 +323,12 @@ def fetch_and_store_intraday_history(
         return 0
     total = 0
     cur = start
-    t = yf.Ticker(fetch_sym)
     while cur < end:
         nxt = min(end, cur + timedelta(days=chunk_days))
         try:
+            # Creating a fresh Ticker per chunk avoids some yfinance internal state bugs
+            # (observed as sporadic "'NoneType' object is not subscriptable" errors).
+            t = yf.Ticker(fetch_sym)
             df = t.history(
                 start=cur,
                 end=nxt,
@@ -335,6 +337,21 @@ def fetch_and_store_intraday_history(
                 prepost=prepost,
             )
         except Exception as e:
+            # Fallback: yfinance sometimes fails inside Ticker.history; try download().
+            df = None
+            try:
+                df = yf.download(
+                    fetch_sym,
+                    start=cur,
+                    end=nxt,
+                    interval=yf_interval,
+                    auto_adjust=auto_adjust,
+                    prepost=prepost,
+                    progress=False,
+                    threads=False,
+                )
+            except Exception:
+                df = None
             logger.warning(
                 "yfinance intraday %s %s %s-%s: %s",
                 canonical_symbol,
@@ -343,6 +360,15 @@ def fetch_and_store_intraday_history(
                 nxt.isoformat(),
                 e,
             )
+            # If fallback produced data, continue without sleeping/advancing early.
+            if df is not None and not getattr(df, "empty", True):
+                rows = _intraday_dataframe_to_rows(df)
+                if rows:
+                    total += upsert_intraday_rows(con, table, canonical_symbol, rows, source="yfinance")
+                cur = nxt
+                if sleep_seconds > 0 and cur < end:
+                    time.sleep(sleep_seconds)
+                continue
             cur = nxt
             if sleep_seconds > 0 and cur < end:
                 time.sleep(sleep_seconds)

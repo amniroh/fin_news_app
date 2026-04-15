@@ -8,7 +8,8 @@ Dataset format (one file per calendar day of snapshots)::
 
 Only a single ``price`` column is present; it is stored as ``open`` = ``high`` = ``low`` =
 ``close`` = ``adj_close`` = ``price``, ``volume`` = NULL. Rows are tagged with
-``source='historical_csv'`` (ON CONFLICT updates overlap with yfinance rows for the same key).
+``source='historical_csv'``. By default we **do not overwrite** existing (symbol, ts_utc)
+rows in ``prices_hourly`` (use ``--overwrite-existing`` to overwrite).
 
 Naive ``timestamp`` values are interpreted in ``--tz`` (default ``America/New_York`` for
 US equity session hours) and stored as UTC ISO strings in ``ts_utc``.
@@ -31,7 +32,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 from zoneinfo import ZoneInfo
 
-from telegram_agent.agent_db import connect, ensure_instruments, init_db, upsert_intraday_rows
+from telegram_agent.agent_db import connect, ensure_instruments, init_db
 from telegram_agent.config import DATA_DIR, load_config
 from telegram_agent.symbol_universe import normalize_symbol
 
@@ -135,6 +136,7 @@ def import_files(
     tz_name: str,
     dry_run: bool,
     symbol_allowlist: Optional[Set[str]] = None,
+    overwrite_existing: bool = False,
 ) -> Dict[str, int]:
     cfg = load_config()
     db_path = Path(cfg.get("agent_db_path") or (DATA_DIR / "agent.sqlite"))
@@ -160,16 +162,26 @@ def import_files(
         syms = list(by_sym.keys())
         ensure_instruments(con, syms)
         try:
+            sql = """
+            INSERT INTO prices_hourly(symbol, ts_utc, open, high, low, close, adj_close, volume, source)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(symbol, ts_utc) DO UPDATE SET
+              open=excluded.open, high=excluded.high, low=excluded.low, close=excluded.close,
+              adj_close=excluded.adj_close, volume=excluded.volume, source=excluded.source
+            """
+            if not overwrite_existing:
+                sql = """
+                INSERT INTO prices_hourly(symbol, ts_utc, open, high, low, close, adj_close, volume, source)
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(symbol, ts_utc) DO NOTHING
+                """
+            data: List[Tuple[str, str, float, float, float, float, Optional[float], Optional[float], str]] = []
             for sym, rows in by_sym.items():
-                n = upsert_intraday_rows(
-                    con,
-                    "prices_hourly",
-                    sym,
-                    rows,
-                    source=SOURCE_TAG,
-                    commit=False,
-                )
-                total_upsert += n
+                s = sym.strip().upper()
+                for (ts, o, h, l, c, adj, vol) in rows:
+                    data.append((s, ts, o, h, l, c, adj, vol, SOURCE_TAG))
+            con.executemany(sql, data)
+            total_upsert += len(data)
             con.commit()
         except Exception:
             con.rollback()
@@ -202,6 +214,11 @@ def main() -> None:
     )
     p.add_argument("--dry-run", action="store_true", help="Parse files and count rows only")
     p.add_argument("--limit-files", type=int, default=0, help="Process only first N files (sorted)")
+    p.add_argument(
+        "--overwrite-existing",
+        action="store_true",
+        help="Overwrite existing prices_hourly rows on (symbol, ts_utc) conflict (default: keep existing)",
+    )
     p.add_argument(
         "--universe-only",
         action="store_true",
@@ -238,7 +255,13 @@ def main() -> None:
             raise SystemExit("--universe-only requires a configured symbol universe")
         allow = {normalize_symbol(s) for s in uni}
 
-    stats = import_files(files, tz_name=args.tz, dry_run=bool(args.dry_run), symbol_allowlist=allow)
+    stats = import_files(
+        files,
+        tz_name=args.tz,
+        dry_run=bool(args.dry_run),
+        symbol_allowlist=allow,
+        overwrite_existing=bool(args.overwrite_existing),
+    )
     print(stats)
 
 

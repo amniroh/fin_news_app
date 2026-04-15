@@ -136,6 +136,32 @@ def _parse_competitive_backtest_symbols(cfg: dict) -> List[str]:
     syms = [normalize_symbol(x) for x in raw.split(",") if x.strip()]
     return sorted({s for s in syms if s})
 
+def _parse_start_end_arg(s: Optional[str], *, is_end: bool) -> Optional[datetime]:
+    """
+    Parse CLI --start/--end.
+    Accepts:
+    - YYYY-MM-DD (interpreted as 00:00:00Z for start, 23:59:59Z for end)
+    - ISO datetime parseable by datetime.fromisoformat (supports offsets). A trailing 'Z' is allowed.
+    """
+    if not s:
+        return None
+    raw = str(s).strip()
+    if not raw:
+        return None
+    # Date-only
+    if len(raw) == 10 and raw[4] == "-" and raw[7] == "-":
+        d = date.fromisoformat(raw)
+        if is_end:
+            return datetime.combine(d, time.max, tzinfo=timezone.utc)
+        return datetime.combine(d, time.min, tzinfo=timezone.utc)
+    # Datetime
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    dt = datetime.fromisoformat(raw)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
 
 def run_rsi_p0_hourly_simulation(
     cfg: dict,
@@ -437,8 +463,18 @@ def _write_outputs(
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     p = argparse.ArgumentParser(description="RSI mean-reversion P0 hourly portfolio simulator")
-    p.add_argument("--start", type=str, default="2025-03-10", help="UTC date YYYY-MM-DD")
-    p.add_argument("--end", type=str, default=None, help="Optional UTC end date (default: last bar in DB)")
+    p.add_argument(
+        "--start",
+        type=str,
+        default="2025-03-10",
+        help="UTC start (YYYY-MM-DD or ISO datetime like 2025-03-10T14:00:00Z)",
+    )
+    p.add_argument(
+        "--end",
+        type=str,
+        default=None,
+        help="Optional UTC end (YYYY-MM-DD or ISO datetime; default: last bar in DB)",
+    )
     p.add_argument("--capital", type=float, default=50_000.0, help="Starting cash USD")
     p.add_argument("--per-leg", type=float, default=1_000.0, help="Notional per purchase USD")
     p.add_argument(
@@ -489,10 +525,10 @@ def main() -> None:
         pass
 
     cfg = load_config()
-    start = datetime.combine(date.fromisoformat(args.start), time.min, tzinfo=timezone.utc)
-    end: Optional[datetime] = None
-    if args.end:
-        end = datetime.combine(date.fromisoformat(args.end), time.max, tzinfo=timezone.utc)
+    start = _parse_start_end_arg(args.start, is_end=False)
+    if start is None:
+        raise SystemExit("--start is required")
+    end = _parse_start_end_arg(args.end, is_end=True)
 
     universe_override: Optional[List[str]] = None
     if bool(args.competitive_backtest_symbols_only):
