@@ -23,6 +23,7 @@ import json
 import logging
 import math
 import os
+import random
 import time
 import uuid
 from dataclasses import dataclass
@@ -41,6 +42,16 @@ logger = logging.getLogger(__name__)
 TRADING_PAPER = "https://paper-api.alpaca.markets"
 TRADING_LIVE = "https://api.alpaca.markets"
 DATA_V2 = "https://data.alpaca.markets"
+
+
+def _retry_after_seconds(resp: httpx.Response) -> Optional[float]:
+    raw = (resp.headers.get("Retry-After") or "").strip()
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
 
 
 def _load_env_file(path: Path) -> None:
@@ -115,8 +126,14 @@ class AlpacaRest:
         timeframe: str = "1Hour",
         feed: str = "iex",
         adjustment: str = "split",
+        page_delay_sec: float = 0.0,
+        max_retries: int = 12,
     ) -> Dict[str, List[Dict[str, Any]]]:
-        """Return ``symbol -> list of bar dicts`` (each bar has t, o, h, l, c, v)."""
+        """Return ``symbol -> list of bar dicts`` (each bar has t, o, h, l, c, v).
+
+        Retries 429/502/503 with exponential backoff (honors ``Retry-After`` when present).
+        Optional ``page_delay_sec`` sleep between successful paginated page fetches (default 0).
+        """
         if not symbols:
             return {}
         out: Dict[str, List[Dict[str, Any]]] = {s: [] for s in symbols}
@@ -137,10 +154,40 @@ class AlpacaRest:
                 params = dict(params_base)
                 if next_token:
                     params["page_token"] = next_token
-                r = c.get(url, headers=self._headers, params=params)
-                if r.status_code >= 400:
-                    logger.warning("Bars request failed %s: %s", r.status_code, r.text[:500])
-                r.raise_for_status()
+                attempt = 0
+                while True:
+                    r = c.get(url, headers=self._headers, params=params)
+                    if r.status_code in (429, 502, 503):
+                        attempt += 1
+                        if attempt > max_retries:
+                            logger.warning(
+                                "Bars request failed %s after %s retries: %s",
+                                r.status_code,
+                                max_retries,
+                                r.text[:500],
+                            )
+                            r.raise_for_status()
+                        ra = _retry_after_seconds(r)
+                        if ra is not None and ra > 0:
+                            sleep_s = min(120.0, ra + random.uniform(0, 0.35))
+                        else:
+                            sleep_s = min(
+                                120.0,
+                                0.6 * (2 ** (attempt - 1)) + random.uniform(0, 0.5),
+                            )
+                        logger.warning(
+                            "Bars request %s; backing off %.1fs (attempt %s/%s)",
+                            r.status_code,
+                            sleep_s,
+                            attempt,
+                            max_retries,
+                        )
+                        time.sleep(sleep_s)
+                        continue
+                    if r.status_code >= 400:
+                        logger.warning("Bars request failed %s: %s", r.status_code, r.text[:500])
+                    r.raise_for_status()
+                    break
                 data = r.json()
                 bars_map = data.get("bars") or {}
                 for sym, bars in bars_map.items():
@@ -149,6 +196,8 @@ class AlpacaRest:
                 next_token = data.get("next_page_token")
                 if not next_token:
                     break
+                if page_delay_sec > 0:
+                    time.sleep(float(page_delay_sec))
         for sym in list(out.keys()):
             out[sym].sort(key=lambda b: b.get("t") or "")
         return out

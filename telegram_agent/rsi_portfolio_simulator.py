@@ -27,6 +27,49 @@ from telegram_agent.symbol_universe import normalize_symbol, symbols_with_exact_
 logger = logging.getLogger(__name__)
 
 
+def _floor_to_hour_utc(t: datetime) -> datetime:
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    t = t.astimezone(timezone.utc)
+    return t.replace(minute=0, second=0, microsecond=0)
+
+
+def _resample_to_hourly_close(series: Sequence[Tuple[datetime, float]]) -> List[Tuple[datetime, float]]:
+    """Derive hourly closes by taking the last price in each UTC hour."""
+    if not series:
+        return []
+    out: List[Tuple[datetime, float]] = []
+    cur_hour: Optional[datetime] = None
+    last_px: Optional[float] = None
+    for ts, px in series:
+        h = _floor_to_hour_utc(ts)
+        if cur_hour is None:
+            cur_hour = h
+        if h != cur_hour:
+            if last_px is not None:
+                out.append((cur_hour, float(last_px)))
+            cur_hour = h
+            last_px = None
+        if px is not None and float(px) > 0:
+            last_px = float(px)
+    if cur_hour is not None and last_px is not None:
+        out.append((cur_hour, float(last_px)))
+    return out
+
+
+def _merge_hourly_series(
+    base_hourly: Sequence[Tuple[datetime, float]],
+    derived_hourly: Sequence[Tuple[datetime, float]],
+) -> List[Tuple[datetime, float]]:
+    """Merge hourly series, preferring base_hourly on timestamp conflicts."""
+    by_ts: Dict[datetime, float] = {}
+    for ts, px in derived_hourly:
+        by_ts[_floor_to_hour_utc(ts)] = float(px)
+    for ts, px in base_hourly:
+        by_ts[_floor_to_hour_utc(ts)] = float(px)
+    return sorted(by_ts.items(), key=lambda x: x[0])
+
+
 def _load_env_file(path: Path) -> None:
     if not path.is_file():
         return
@@ -209,7 +252,10 @@ def run_rsi_p0_hourly_simulation(
 
     cache: Dict[str, List[Tuple[datetime, float]]] = {}
     for sym in symbols:
-        ser = get_full_adj_close_series_asc(con, sym, "1h")
+        ser_1h = get_full_adj_close_series_asc(con, sym, "1h")
+        ser_5m = get_full_adj_close_series_asc(con, sym, "5m")
+        ser_derived = _resample_to_hourly_close(ser_5m) if ser_5m else []
+        ser = _merge_hourly_series(ser_1h, ser_derived) if (ser_1h or ser_derived) else []
         if ser:
             cache[sym] = ser
 
@@ -218,11 +264,28 @@ def run_rsi_p0_hourly_simulation(
     if not cache:
         raise RuntimeError("No hourly price series found for any requested symbol (prices_hourly).")
 
+    def _in_window(ts: datetime) -> bool:
+        if ts < start:
+            return False
+        if end is not None and ts > end:
+            return False
+        return True
+
     # Reference timeline: densest symbol after start
-    ref_sym = max(cache.keys(), key=lambda s: len([x for x in cache[s] if x[0] >= start]))
-    ref_series = [(t, p) for t, p in cache[ref_sym] if t >= start]
-    if end is not None:
-        ref_series = [(t, p) for t, p in ref_series if t <= end]
+    densest = [(s, len([x for x in cache[s] if _in_window(x[0])])) for s in cache.keys()]
+    densest.sort(key=lambda x: x[1], reverse=True)
+    if not densest or densest[0][1] <= 0:
+        ranges: List[str] = []
+        for s, ser in sorted(cache.items()):
+            if ser:
+                ranges.append(f"{s}:[{ser[0][0].date()}..{ser[-1][0].date()}]")
+        hint = ", ".join(ranges[:12]) + (" ..." if len(ranges) > 12 else "")
+        raise RuntimeError(
+            f"No hourly bars in requested window [{start.date()}..{end.date() if end else 'now'}] "
+            f"for requested symbols. Available ranges (UTC): {hint}"
+        )
+    ref_sym = densest[0][0]
+    ref_series = [(t, p) for t, p in cache[ref_sym] if _in_window(t)]
     if len(ref_series) < min_bars + horizon_bars + 2:
         raise RuntimeError(
             f"Insufficient hourly bars after {start.date()} for reference {ref_sym}: len={len(ref_series)}"

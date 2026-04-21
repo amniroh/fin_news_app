@@ -1,0 +1,33 @@
+---
+description: Default meaning of “optimize strategy” (rolling-horizon consistency + <=10% drawdown)
+alwaysApply: true
+---
+
+# Strategy optimization defaults
+
+When the user asks to **optimize** an investment strategy/model (or “maximize returns with consistency”),
+interpret the goal as:
+
+- **Rolling horizon**: configurable via `OPTIMIZE_ROLLING_WINDOW` (default **`1y`**). Examples: `1d`, `7d`, `90d`, `3m`, `1y`. This sets the equity-curve span used for rolling total returns and the **metric key suffix** (e.g. `median_rolling_90d_return` when the window is `90d`).
+- **Primary objective**: maximize **median rolling return** at that horizon (default objective key: `median_rolling_{suffix}_return`, e.g. `median_rolling_1y_return` when `OPTIMIZE_ROLLING_WINDOW=1y`).
+- **Objective floor**: require median rolling return at that horizon >= **3.0** (i.e. +300% total return per user definition)
+- **Consistency constraint**: rolling **hit rate** \(P(R>0)\) over that horizon >= **0.75**
+- **Tail floor constraint**: rolling return **pth percentile** (default 5th) >= **-10%**
+- **Risk constraint**: **max drawdown <= 10%**
+- **Secondary metrics (tie-break/reporting)**: `calmar`, `oos_sharpe`
+
+Unless explicitly overridden, these defaults should be used in:
+- backtest metric selection
+- optimization objective selection
+- reporting (show objective + constraints first)
+
+Environment variables defining these defaults (source of truth):
+
+- `OPTIMIZE_ROLLING_WINDOW` — horizon for rolling returns (default `1y`)
+- `OPTIMIZE_OBJECTIVE` — optional; if unset, defaults to `median_rolling_{suffix}_return` derived from `OPTIMIZE_ROLLING_WINDOW`
+- `OPTIMIZE_MEDIAN_ROLLING_RETURN_MIN`
+- `OPTIMIZE_CONSISTENCY_HIT_RATE_MIN`
+- `OPTIMIZE_ROLLING_FLOOR_PCTL`
+- `OPTIMIZE_ROLLING_FLOOR_RETURN_MIN`
+- `OPTIMIZE_MAX_DRAWDOWN_MAX`
+- `OPTIMIZE_SECONDARY_METRICS`

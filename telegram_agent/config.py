@@ -5,6 +5,12 @@ import logging
 from pathlib import Path
 from typing import List
 
+from .rolling_window_metrics import (
+    default_median_return_objective_key,
+    metric_suffix_from_rolling_spec,
+    normalize_rolling_window_spec,
+)
+
 from .default_sources import (
     DEFAULT_RSS_FEEDS,
     DEFAULT_TELEGRAM_CHANNELS,
@@ -63,6 +69,15 @@ def _resolve_repo_relative(path_str: str) -> str:
 def load_config() -> dict:
     """Load config: env vars override config.json."""
     _symbol_path_env = os.getenv("SYMBOL_UNIVERSE_PATH", "").strip()
+    _ow = normalize_rolling_window_spec(os.getenv("OPTIMIZE_ROLLING_WINDOW", "1y"))
+    _rmsuf = metric_suffix_from_rolling_spec(_ow)
+    _default_obj = default_median_return_objective_key(_ow)
+    _obj_env = os.getenv("OPTIMIZE_OBJECTIVE", "").strip().lower()
+    _opt_obj = _obj_env if _obj_env else _default_obj
+    _med_min_raw = os.getenv("OPTIMIZE_MEDIAN_ROLLING_RETURN_MIN", "3.0")
+    _floor_min_raw = os.getenv("OPTIMIZE_ROLLING_FLOOR_RETURN_MIN", "-0.10")
+    _floor_pctl_raw = os.getenv("OPTIMIZE_ROLLING_FLOOR_PCTL", "0.05")
+
     config = {
         "telegram_api_id": os.getenv("TELEGRAM_API_ID", "").strip(),
         "telegram_api_hash": os.getenv("TELEGRAM_API_HASH", "").strip(),
@@ -239,6 +254,39 @@ def load_config() -> dict:
         "test_benchmark_symbol": os.getenv("TEST_BENCHMARK_SYMBOL", "SPY").strip().upper(),
         "test_risk_free_annual": float(os.getenv("TEST_RISK_FREE_ANNUAL", "0.04")),
         "test_oos_split": float(os.getenv("TEST_OOS_SPLIT", "0.5")),
+        # Strategy optimization defaults (used as the project's “optimize” goal unless overridden).
+        # See .cursor/rules/strategy-optimization-defaults.mdc
+        # OPTIMIZE_ROLLING_WINDOW: e.g. 1y, 90d, 3m, 7d (drives rolling return horizon + metric key suffix).
+        "optimize_rolling_window": _ow,
+        "optimize_rolling_metric_suffix": _rmsuf,
+        "optimize_objective": _opt_obj,
+        "optimize_median_rolling_return_min": float(_med_min_raw),
+        "optimize_consistency_hit_rate_min": float(os.getenv("OPTIMIZE_CONSISTENCY_HIT_RATE_MIN", "0.75")),
+        "optimize_rolling_floor_pctl": float(_floor_pctl_raw),
+        "optimize_rolling_floor_return_min": float(_floor_min_raw),
+        "optimize_max_drawdown_max": float(os.getenv("OPTIMIZE_MAX_DRAWDOWN_MAX", "0.10")),
+        "optimize_secondary_metrics": [
+            x.strip().lower()
+            for x in os.getenv("OPTIMIZE_SECONDARY_METRICS", "calmar,oos_sharpe").split(",")
+            if x.strip()
+        ],
+        # Training pipeline knobs (telegram_agent/training_pipeline.py)
+        "pipeline_min_coverage_frac": float(os.getenv("PIPELINE_MIN_COVERAGE_FRAC", "0.85")),
+        "pipeline_tune_trials": int(os.getenv("PIPELINE_TUNE_TRIALS", "250")),
+        "pipeline_wfo_retune_days": int(os.getenv("PIPELINE_WFO_RETUNE_DAYS", "30")),
+        "pipeline_wfo_tune_trials": int(os.getenv("PIPELINE_WFO_TUNE_TRIALS", "0")) or None,
+        # Training pipeline only: align RSI tuning simulation vs pipeline evaluation windows.
+        # These DO NOT change standalone optimizer entrypoints unless the pipeline maps them into cfg.
+        "pipeline_optimize_dense_hourly_simulation": os.getenv(
+            "PIPELINE_OPTIMIZE_DENSE_HOURLY_SIMULATION", "true"
+        ).lower()
+        == "true",
+        "pipeline_optimize_deterministic_simulation": os.getenv(
+            "PIPELINE_OPTIMIZE_DETERMINISTIC_SIMULATION", "true"
+        ).lower()
+        == "true",
+        # Optional JSON for `signal_pe_ratio`: { "AAPL": {"pe": 28.5}, ... } or { "AAPL": 28.5 }
+        "pipeline_value_metrics_path": os.getenv("PIPELINE_VALUE_METRICS_PATH", "").strip(),
         # Extract: LLM ticker/symbol extraction (cheap model; batched)
         "extract_use_llm": os.getenv("EXTRACT_USE_LLM", "true").lower() == "true",
         "extract_llm_model": os.getenv("EXTRACT_LLM_MODEL", "").strip()

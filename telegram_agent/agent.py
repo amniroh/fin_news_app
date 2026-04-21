@@ -15,7 +15,7 @@ Examples:
   python -m telegram_agent.agent clear-ingest
   python -m telegram_agent.agent clear-research
   python -m telegram_agent.agent prices --mode backfill
-  python -m telegram_agent.agent prices --mode backfill --intervals 1d,1h,1m
+  python -m telegram_agent.agent prices --mode backfill --intervals 1d
   python -m telegram_agent.agent memory
   python -m telegram_agent.agent research
   python -m telegram_agent.agent research --dry-run
@@ -270,10 +270,20 @@ def main() -> None:
     pp.add_argument(
         "--intervals",
         type=str,
-        default="1d",
+        default="1d,1h,1m",
         metavar="LIST",
-        help="Comma-separated yfinance intervals: 1d (daily → prices table), 1h (→ prices_hourly), 1m (→ prices_minute). "
-        "Example: 1d,1h,1m",
+        help="Comma-separated yfinance intervals: 1d (daily → prices), 1h (→ prices_hourly), 1m (→ prices_minute). "
+        "Default: all three. Example: --intervals 1d for daily only.",
+    )
+    pp.add_argument(
+        "--symbols",
+        type=str,
+        default=None,
+        metavar="LIST",
+        help=(
+            "Optional comma-separated canonical symbols to fetch prices for (overrides universe/news_mentions for this run). "
+            "Example: --symbols TSLA,AAPL,BTC"
+        ),
     )
 
     sub.add_parser("memory", help="Update rolling macro/micro memory (LLM)")
@@ -676,6 +686,22 @@ def main() -> None:
         cfg2 = dict(cfg)
         cfg2["prices_force"] = bool(args.force)
         cfg2["prices_backfill_reverse"] = bool(getattr(args, "reverse", False))
+        if getattr(args, "symbols", None):
+            syms = []
+            for raw in str(args.symbols).split(","):
+                s = str(raw or "").strip().upper()
+                while s.startswith("$") or s.startswith("#"):
+                    s = s[1:]
+                if s:
+                    syms.append(s)
+            # De-dupe preserving order
+            out = []
+            seen = set()
+            for s in syms:
+                if s and s not in seen:
+                    out.append(s)
+                    seen.add(s)
+            cfg2["prices_symbols"] = out
         if getattr(args, "priority", None) is not None:
             p = int(args.priority)
             if p < 0 or p > 3:
@@ -687,7 +713,7 @@ def main() -> None:
                 cfg2,
                 mode=args.mode,
                 days=int(args.days),
-                intervals=str(args.intervals or "1d"),
+                intervals=str(args.intervals or "1d,1h,1m"),
             )
         except ValueError as e:
             logger.error("%s", e)
@@ -856,7 +882,7 @@ def main() -> None:
         )
         conp.close()
         bd = int(args.days or int(cfg.get("agent_backfill_days", 365)) + 30)
-        run_prices(cfg, mode=args.mode, days=bd, intervals="1d")
+        run_prices(cfg, mode=args.mode, days=bd, intervals="1d,1h,1m")
         if not args.skip_memory:
             run_memory_update(cfg)
         if not args.skip_research:

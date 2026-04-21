@@ -196,6 +196,30 @@ def init_db(con: sqlite3.Connection) -> None:
     _migrate_news_universe_preprocess_schema(con)
     _migrate_competitive_bot_runs_schema(con)
     _migrate_intraday_price_tables(con)
+    _migrate_stock_splits_table(con)
+
+
+def _migrate_stock_splits_table(con: sqlite3.Connection) -> None:
+    """Corporate stock splits (for aligning mixed-source OHLC to post-split nominal)."""
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS stock_splits (
+          symbol TEXT NOT NULL,
+          effective_ts_utc TEXT NOT NULL,
+          ex_date_ny TEXT NOT NULL,
+          share_multiplier REAL NOT NULL,
+          source TEXT NOT NULL DEFAULT 'yfinance',
+          fetched_ts_utc TEXT NOT NULL,
+          PRIMARY KEY(symbol, effective_ts_utc),
+          FOREIGN KEY(symbol) REFERENCES instruments(symbol) ON DELETE CASCADE
+        )
+        """
+    )
+    con.execute("CREATE INDEX IF NOT EXISTS idx_stock_splits_symbol ON stock_splits(symbol)")
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_stock_splits_ex_date_ny ON stock_splits(symbol, ex_date_ny)"
+    )
+    con.commit()
 
 
 def _migrate_intraday_price_tables(con: sqlite3.Connection) -> None:
@@ -240,6 +264,10 @@ def _migrate_intraday_price_tables(con: sqlite3.Connection) -> None:
     con.execute(
         "CREATE INDEX IF NOT EXISTS idx_prices_minute_symbol_ts ON prices_minute(symbol, ts_utc)"
     )
+    # Speed filters on source (e.g. parquet import stats, audits).
+    con.execute("CREATE INDEX IF NOT EXISTS idx_prices_hourly_source ON prices_hourly(source)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_prices_minute_source ON prices_minute(source)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_prices_source ON prices(source)")
     con.commit()
 
 
@@ -692,6 +720,75 @@ def clear_orphan_instruments(con: sqlite3.Connection) -> Tuple[int, int]:
     return n_inst, n_liq
 
 
+def list_symbols_with_any_price_rows(con: sqlite3.Connection) -> List[str]:
+    """Distinct symbols appearing in ``prices``, ``prices_hourly``, or ``prices_minute``."""
+    cur = con.execute(
+        """
+        SELECT DISTINCT symbol FROM (
+            SELECT symbol FROM prices
+            UNION
+            SELECT symbol FROM prices_hourly
+            UNION
+            SELECT symbol FROM prices_minute
+        )
+        ORDER BY symbol
+        """
+    )
+    return [str(r[0]) for r in cur.fetchall() if r[0]]
+
+
+def upsert_stock_split_rows(
+    con: sqlite3.Connection,
+    rows: Sequence[Tuple[str, str, str, float, str, str]],
+    *,
+    commit: bool = True,
+) -> int:
+    """
+    Insert/update split events.
+
+    rows: (symbol, effective_ts_utc, ex_date_ny, share_multiplier, source, fetched_ts_utc)
+    ``share_multiplier`` is Yahoo's value (e.g. 4 for a 4-for-1 split); pre-split prices
+    are divided by this to match post-split nominal.
+    """
+    if not rows:
+        return 0
+    ensure_instruments(con, [r[0] for r in rows])
+    sym_rows = [(r[0].strip().upper(), r[1], r[2], float(r[3]), r[4], r[5]) for r in rows]
+    con.executemany(
+        """
+        INSERT INTO stock_splits(
+            symbol, effective_ts_utc, ex_date_ny, share_multiplier, source, fetched_ts_utc
+        )
+        VALUES(?, ?, ?, ?, ?, ?)
+        ON CONFLICT(symbol, effective_ts_utc) DO UPDATE SET
+            ex_date_ny=excluded.ex_date_ny,
+            share_multiplier=excluded.share_multiplier,
+            source=excluded.source,
+            fetched_ts_utc=excluded.fetched_ts_utc
+        """,
+        sym_rows,
+    )
+    if commit:
+        con.commit()
+    return len(sym_rows)
+
+
+def get_stock_splits_chronological(
+    con: sqlite3.Connection, symbol: str
+) -> List[Tuple[str, str, float]]:
+    """Return (effective_ts_utc, ex_date_ny, share_multiplier) oldest first."""
+    cur = con.execute(
+        """
+        SELECT effective_ts_utc, ex_date_ny, share_multiplier
+        FROM stock_splits
+        WHERE symbol = ?
+        ORDER BY effective_ts_utc ASC
+        """,
+        (symbol.strip().upper(),),
+    )
+    return [(str(r[0]), str(r[1]), float(r[2])) for r in cur.fetchall()]
+
+
 def ensure_instruments(con: sqlite3.Connection, symbols: Iterable[str], *, kind: str = "unknown") -> int:
     syms = [s.strip().upper() for s in symbols if s and str(s).strip()]
     if not syms:
@@ -1068,9 +1165,14 @@ def upsert_price_rows(
     *,
     interval: str = "1d",
     source: str = "yfinance",
+    commit: bool = True,
+    on_conflict: str = "update",
 ) -> int:
     """
     rows: (ts_utc_iso, open, high, low, close, adj_close, volume)
+
+    ``commit=False`` batches writes; caller must ``commit()``.
+    ``on_conflict='ignore'`` keeps existing rows (e.g. yfinance) on PK conflict.
     """
     if not rows:
         return 0
@@ -1080,17 +1182,26 @@ def upsert_price_rows(
         (sym, ts, interval, o, h, l, c, adj, vol, source)
         for (ts, o, h, l, c, adj, vol) in rows
     ]
-    con.executemany(
+    mode = (on_conflict or "update").strip().lower()
+    if mode not in ("update", "ignore"):
+        raise ValueError("on_conflict must be 'update' or 'ignore'")
+    if mode == "ignore":
+        sql = """
+        INSERT INTO prices(symbol, ts_utc, interval, open, high, low, close, adj_close, volume, source)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(symbol, ts_utc, interval) DO NOTHING
         """
+    else:
+        sql = """
         INSERT INTO prices(symbol, ts_utc, interval, open, high, low, close, adj_close, volume, source)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(symbol, ts_utc, interval) DO UPDATE SET
           open=excluded.open, high=excluded.high, low=excluded.low, close=excluded.close,
           adj_close=excluded.adj_close, volume=excluded.volume, source=excluded.source
-        """,
-        data,
-    )
-    con.commit()
+        """
+    con.executemany(sql, data)
+    if commit:
+        con.commit()
     return len(data)
 
 
@@ -1105,10 +1216,13 @@ def upsert_intraday_rows(
     *,
     source: str = "yfinance",
     commit: bool = True,
+    on_conflict: str = "update",
 ) -> int:
     """
     Insert/update OHLCV rows into ``prices_hourly`` or ``prices_minute`` only.
     rows: (ts_utc_iso, open, high, low, close, adj_close, volume)
+
+    ``on_conflict='ignore'`` keeps existing rows on (symbol, ts_utc) conflict.
     """
     if table not in ("prices_hourly", "prices_minute"):
         raise ValueError("table must be prices_hourly or prices_minute")
@@ -1117,16 +1231,24 @@ def upsert_intraday_rows(
     ensure_instruments(con, [symbol])
     sym = symbol.strip().upper()
     data = [(sym, ts, o, h, l, c, adj, vol, source) for (ts, o, h, l, c, adj, vol) in rows]
-    con.executemany(
-        f"""
+    mode = (on_conflict or "update").strip().lower()
+    if mode not in ("update", "ignore"):
+        raise ValueError("on_conflict must be 'update' or 'ignore'")
+    if mode == "ignore":
+        sql = f"""
+        INSERT INTO {table}(symbol, ts_utc, open, high, low, close, adj_close, volume, source)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(symbol, ts_utc) DO NOTHING
+        """
+    else:
+        sql = f"""
         INSERT INTO {table}(symbol, ts_utc, open, high, low, close, adj_close, volume, source)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(symbol, ts_utc) DO UPDATE SET
           open=excluded.open, high=excluded.high, low=excluded.low, close=excluded.close,
           adj_close=excluded.adj_close, volume=excluded.volume, source=excluded.source
-        """,
-        data,
-    )
+        """
+    con.executemany(sql, data)
     if commit:
         con.commit()
     return len(data)
@@ -1215,12 +1337,14 @@ def get_adj_closes_series(
 
 
 def _normalize_price_interval(interval: str) -> str:
-    """Map Yahoo/DB aliases to canonical 1d / 1h / 1m for routing."""
+    """Map Yahoo/DB aliases to canonical 1d / 1h / 1m / 5m for routing."""
     i = (interval or "").strip()
     if i in ("60m", "60Min"):
         return "1h"
     if i in ("1Min",):
         return "1m"
+    if i in ("5Min", "5min", "5T", "300s", "300S"):
+        return "5m"
     return i
 
 
@@ -1280,14 +1404,32 @@ def count_prices_for_symbol_interval(
     return int(row["n"]) if row and row["n"] is not None else 0
 
 
+def _price_source_sql_clause(sources: Optional[Sequence[str]]) -> Tuple[str, Tuple]:
+    """``AND source IN (...)`` fragment and bound values; empty when ``sources`` is unset or empty."""
+    if not sources:
+        return "", ()
+    vals = sorted({str(s).strip() for s in sources if str(s).strip()})
+    if not vals:
+        return "", ()
+    ph = ",".join("?" * len(vals))
+    return f" AND source IN ({ph})", tuple(vals)
+
+
 def get_full_adj_close_series_asc(
     con: sqlite3.Connection,
     symbol: str,
     interval: str,
+    *,
+    sources: Optional[Sequence[str]] = None,
 ) -> List[Tuple[datetime, float]]:
-    """Full adjusted close history for (symbol, interval), oldest first."""
+    """Full adjusted close history for (symbol, interval), oldest first.
+
+    If ``sources`` is set (e.g. ``("yfinance", "alpaca")``), only rows whose ``source``
+    column matches one of those names are included.
+    """
     sym = symbol.upper()
     ni = _normalize_price_interval(interval)
+    src_clause, src_params = _price_source_sql_clause(sources)
 
     def _rows_from_sql(sql: str, params: Tuple) -> List[Tuple[datetime, float]]:
         cur = con.execute(sql, params)
@@ -1304,49 +1446,49 @@ def get_full_adj_close_series_asc(
 
     if ni == "1h":
         ser = _rows_from_sql(
-            """
+            f"""
             SELECT ts_utc, close, adj_close FROM prices_hourly
-            WHERE symbol = ?
+            WHERE symbol = ?{src_clause}
             ORDER BY ts_utc ASC
             """,
-            (sym,),
+            (sym,) + src_params,
         )
         if ser:
             return ser
         return _rows_from_sql(
-            """
+            f"""
             SELECT ts_utc, close, adj_close FROM prices
-            WHERE symbol = ? AND interval IN ('1h','60m','60Min')
+            WHERE symbol = ? AND interval IN ('1h','60m','60Min'){src_clause}
             ORDER BY ts_utc ASC
             """,
-            (sym,),
+            (sym,) + src_params,
         )
     if ni == "1m":
         ser = _rows_from_sql(
-            """
+            f"""
             SELECT ts_utc, close, adj_close FROM prices_minute
-            WHERE symbol = ?
+            WHERE symbol = ?{src_clause}
             ORDER BY ts_utc ASC
             """,
-            (sym,),
+            (sym,) + src_params,
         )
         if ser:
             return ser
         return _rows_from_sql(
-            """
+            f"""
             SELECT ts_utc, close, adj_close FROM prices
-            WHERE symbol = ? AND interval IN ('1m','1Min')
+            WHERE symbol = ? AND interval IN ('1m','1Min'){src_clause}
             ORDER BY ts_utc ASC
             """,
-            (sym,),
+            (sym,) + src_params,
         )
     cur = con.execute(
-        """
+        f"""
         SELECT ts_utc, close, adj_close FROM prices
-        WHERE symbol = ? AND interval = ?
+        WHERE symbol = ? AND interval = ?{src_clause}
         ORDER BY ts_utc ASC
         """,
-        (sym, interval),
+        (sym, ni) + src_params,
     )
     out: List[Tuple[datetime, float]] = []
     for row in cur.fetchall():
