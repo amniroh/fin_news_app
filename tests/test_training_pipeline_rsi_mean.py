@@ -202,6 +202,13 @@ class TrainingPipelineRsiMeanTest(unittest.TestCase):
         self.assertEqual(agg.get("n_legs"), 0)
         self.assertIn("note", agg)
 
+        val = report["validation_with_final_params"]
+        self.assertEqual(val["adapter"], "rsi_mean")
+        self.assertIn("validation_window", val)
+        self.assertEqual(val["validation_window"]["start"], va0)
+        self.assertEqual(val["validation_window"]["end"], va1)
+        self.assertEqual(val.get("n_legs"), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
