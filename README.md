@@ -77,6 +77,18 @@ An investment education app designed to help users with limited financial knowle
 
 ## Quick Start
 
+### Option 0: Value metrics website (React + FastAPI)
+
+From the repo root:
+
+```bash
+./start_value_web.sh
+```
+
+Starts:
+- **Backend**: `http://localhost:8000`
+- **Frontend**: `http://localhost:5173`
+
 ### Option 1: Sandbox Mode (No AWS Setup Required) ⭐ Recommended for Testing
 
 Perfect for testing and demos without AWS setup:

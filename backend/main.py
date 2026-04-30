@@ -49,6 +49,10 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 
+# Value-metrics web app API
+from pathlib import Path as _Path
+from value_metrics_api import build_value_router
+
 # Import unified LLM service
 from llm_service import llm_service
 
@@ -62,6 +66,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount value-metrics router (watchlists, metrics, alerts).
+_vm_db = _Path(os.getenv("VALUE_METRICS_DB_PATH", "backend/data/value_metrics.sqlite")).expanduser()
+_vm_cache_ttl = int(os.getenv("VALUE_METRICS_CACHE_TTL_SECONDS", "1800"))
+value_router = build_value_router(db_path=_vm_db, cache_ttl_seconds=_vm_cache_ttl)
+app.include_router(value_router)
+
+
+@app.on_event("startup")
+async def _vm_startup() -> None:
+    # Start the alert monitor loop (threshold-crossing detection).
+    try:
+        stop_evt = getattr(value_router.state, "_stop_evt", None)
+        loop_fn = getattr(value_router.state, "_alert_loop", None)
+        if stop_evt is not None and loop_fn is not None:
+            value_router.state._task = asyncio.create_task(loop_fn(stop_evt))
+    except Exception:
+        pass
+
+
+@app.on_event("shutdown")
+async def _vm_shutdown() -> None:
+    try:
+        stop_evt = getattr(value_router.state, "_stop_evt", None)
+        task = getattr(value_router.state, "_task", None)
+        if stop_evt is not None:
+            stop_evt.set()
+        if task is not None:
+            try:
+                await asyncio.wait_for(task, timeout=5)
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 # Health check endpoint
 @app.get("/health")

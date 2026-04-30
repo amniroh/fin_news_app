@@ -38,7 +38,7 @@ from telegram_agent.agent_db import _utc_iso, connect, init_db, upsert_intraday_
 from telegram_agent.config import load_config
 from telegram_agent.derive_hourly_daily_from_5m import _load_symbols_by_max_priority
 from telegram_agent.rsi_alpaca_live import AlpacaRest
-from telegram_agent.symbol_universe import normalize_symbol
+from telegram_agent.symbol_universe import normalize_symbol, sp500_symbols_from_env
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +238,8 @@ def _load_symbol_list(
 ) -> List[str]:
     if args.symbols.strip():
         return sorted({normalize_symbol(x) for x in args.symbols.split(",") if x.strip()})
+    if bool(getattr(args, "spy_symbols", False)):
+        return sp500_symbols_from_env()
     if args.symbols_min_daily_after.strip():
         syms = symbols_min_daily_after(con, args.symbols_min_daily_after.strip())
         logger.info("symbols_min_daily_after=%s -> %s tickers", args.symbols_min_daily_after, len(syms))
@@ -250,7 +252,7 @@ def _load_symbol_list(
     if syms:
         return syms
     print(
-        "No symbols: pass --symbols, --symbols-min-daily-after, or set SYMBOL_UNIVERSE_PATH "
+        "No symbols: pass --symbols, --spy_symbols, --symbols-min-daily-after, or set SYMBOL_UNIVERSE_PATH "
         "(universe file works even if SYMBOL_UNIVERSE_ENABLED=false).",
         file=sys.stderr,
     )
@@ -261,6 +263,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     p = argparse.ArgumentParser(description="Backfill hourly/daily prices from Alpaca Data API v2.")
     p.add_argument("--symbols", type=str, default="", help="Comma-separated tickers")
+    p.add_argument(
+        "--spy_symbols",
+        action="store_true",
+        help="Use SP500_SYMBOLS from repo .env as the symbol list (overrides universe/min-daily filters).",
+    )
     p.add_argument(
         "--symbols-min-daily-after",
         type=str,

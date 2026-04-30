@@ -17,6 +17,18 @@ def normalize_symbol(sym: str) -> str:
     return s
 
 
+def sp500_symbols_from_env(env_key: str = "SP500_SYMBOLS") -> List[str]:
+    """
+    Load S&P 500 constituent symbols from a comma-separated env var.
+    This is primarily for CLI flags like --spy_symbols to run jobs over SP500.
+    """
+    raw = (os.getenv(env_key) or "").strip()
+    if not raw:
+        raise RuntimeError(f"{env_key} is not set")
+    syms = [normalize_symbol(x) for x in raw.split(",") if str(x).strip()]
+    return sorted(set([s for s in syms if s]))
+
+
 def _symbols_from_mixed_list(items: Sequence[Any]) -> List[str]:
     """List of ticker strings and/or objects like {\"ticker\": \"AAPL\"}."""
     out: List[str] = []

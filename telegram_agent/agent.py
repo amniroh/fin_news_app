@@ -114,6 +114,11 @@ def main() -> None:
         action="store_true",
         help="Override duplication check and fetch even if DB already has coverage for the window",
     )
+    pi.add_argument(
+        "--spy_symbols",
+        action="store_true",
+        help="Use SP500_SYMBOLS from repo .env as the symbol universe (overrides API tickers/universe for this run).",
+    )
 
     pe = sub.add_parser("extract", help="Extract tickers from news into news_mentions")
     pe.add_argument(
@@ -284,6 +289,11 @@ def main() -> None:
             "Optional comma-separated canonical symbols to fetch prices for (overrides universe/news_mentions for this run). "
             "Example: --symbols TSLA,AAPL,BTC"
         ),
+    )
+    pp.add_argument(
+        "--spy_symbols",
+        action="store_true",
+        help="Use SP500_SYMBOLS from repo .env as the symbol universe for this run.",
     )
 
     sub.add_parser("memory", help="Update rolling macro/micro memory (LLM)")
@@ -491,7 +501,24 @@ def main() -> None:
     if getattr(args, "max_priority", None) is not None:
         cfg["max_priority"] = int(args.max_priority)
 
+    def _apply_sp500(cfg_in: dict) -> dict:
+        from telegram_agent.symbol_universe import sp500_symbols_from_env
+
+        sp = sp500_symbols_from_env()
+        out = dict(cfg_in)
+        out["symbol_universe_enabled"] = True
+        out["symbol_universe_env"] = ",".join(sp)
+        out["symbol_universe_path"] = ""  # env list takes precedence; make intent explicit
+        out["api_use_symbol_universe"] = True
+        # For API news providers that require explicit symbols, set them directly too.
+        out["finnhub_symbols"] = list(sp)
+        out["alphavantage_tickers"] = list(sp)
+        out["stocknewsapi_tickers"] = list(sp)
+        return out
+
     if args.cmd == "ingest":
+        if getattr(args, "spy_symbols", False):
+            cfg = _apply_sp500(cfg)
         n = asyncio.run(
             run_ingest(
                 cfg,
@@ -684,6 +711,8 @@ def main() -> None:
 
     if args.cmd == "prices":
         cfg2 = dict(cfg)
+        if getattr(args, "spy_symbols", False):
+            cfg2 = _apply_sp500(cfg2)
         cfg2["prices_force"] = bool(args.force)
         cfg2["prices_backfill_reverse"] = bool(getattr(args, "reverse", False))
         if getattr(args, "symbols", None):
