@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -26,7 +26,10 @@ from value_metrics_store import (
     list_all_watchlist_symbols,
     remove_from_watchlist,
     set_alert_rule_enabled,
+    query_fundamental_points,
+    query_latest_daily_metric_points,
     query_metric_points,
+    query_yearly_metric_coverage,
     upsert_metric_points,
     update_rule_state,
 )
@@ -136,6 +139,130 @@ def build_value_router(
         finally:
             con.close()
 
+    @router.get("/metrics/latest-daily")
+    async def get_latest_daily_metrics(symbols: str, provider: str = "yfinance") -> Dict[str, Any]:
+        """
+        Latest precomputed daily metric row per symbol from ``vm_metric_points`` (backfill pipeline).
+        This P/E matches the SEC/yfinance daily computation used in tests — unlike ``GET /metrics``,
+        which snapshots live Yahoo ``info`` (trailing P/E) into ``vm_standard_metrics``.
+        """
+        syms = [s.strip().upper() for s in (symbols or "").split(",") if s.strip()]
+        if not syms:
+            raise HTTPException(status_code=400, detail="symbols is required")
+        prov = (provider or "yfinance").strip().lower()
+        if prov not in ("yfinance", "sec"):
+            raise HTTPException(status_code=400, detail="provider must be yfinance or sec")
+        con = _con()
+        try:
+            raw_rows = query_latest_daily_metric_points(con, symbols=syms, provider=prov)
+            rows: List[Dict[str, Any]] = []
+            for r in raw_rows:
+                rows.append(
+                    {
+                        "symbol": r.get("symbol"),
+                        "metrics_asof_date": r.get("asof_date"),
+                        "data_source": "vm_metric_points_daily",
+                        "provider": prov,
+                        "pe": r.get("pe"),
+                        "pb": r.get("pb"),
+                        "peg": r.get("peg"),
+                        "dividend_yield": r.get("dividend_yield"),
+                        "free_cash_flow_yield": r.get("free_cash_flow_yield"),
+                        "debt_to_equity": r.get("debt_to_equity"),
+                        "roe": r.get("roe"),
+                        "current_ratio": r.get("current_ratio"),
+                        "operating_margin": r.get("operating_margin"),
+                        "ev_to_ebitda": r.get("ev_to_ebitda"),
+                        "fetched_ts_utc": r.get("fetched_ts_utc"),
+                    }
+                )
+            return {"ts_utc": _utcnow_iso(), "n": len(rows), "rows": rows}
+        finally:
+            con.close()
+
+    @router.get("/coverage/yearly")
+    async def get_coverage_yearly(
+        symbol: str,
+        provider: str = "yfinance",
+        years: float = 20.0,
+    ) -> Dict[str, Any]:
+        """
+        Per calendar year: fraction of trading days with price-derived daily metrics present (SQLite).
+        """
+        sym = str(symbol or "").strip().upper()
+        if not sym:
+            raise HTTPException(status_code=400, detail="symbol is required")
+        prov = (provider or "yfinance").strip().lower()
+        if prov not in ("yfinance", "sec"):
+            raise HTTPException(status_code=400, detail="provider must be yfinance or sec")
+        end = datetime.now(timezone.utc).date()
+        start = end - timedelta(days=int(float(years) * 365.25))
+        start_s = start.isoformat()
+        end_s = end.isoformat()
+        con = _con()
+        try:
+            agg = query_yearly_metric_coverage(con, symbol=sym, provider=prov, start_date=start_s, end_date=end_s)
+            enriched = []
+            for r in agg:
+                year = int(r.get("year") or 0)
+                n_days = int(r.get("n_days") or 0)
+                item = dict(r)
+                item["fraction_pe"] = (float(r.get("n_pe") or 0) / float(n_days)) if n_days else None
+                enriched.append(item)
+            return {
+                "symbol": sym,
+                "provider": prov,
+                "period": "daily",
+                "window": {"start": start_s, "end": end_s},
+                "years": enriched,
+            }
+        finally:
+            con.close()
+
+    @router.get("/fundamentals/quarterly")
+    async def get_quarterly_fundamentals(
+        symbol: str,
+        provider: str = "yfinance",
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Quarterly diluted EPS (and related fields) from ``vm_fundamental_points`` for yfinance or SEC backfill.
+        """
+        sym = str(symbol or "").strip().upper()
+        if not sym:
+            raise HTTPException(status_code=400, detail="symbol is required")
+        prov = (provider or "yfinance").strip().lower()
+        if prov not in ("yfinance", "sec"):
+            raise HTTPException(status_code=400, detail="provider must be yfinance or sec")
+        con = _con()
+        try:
+            raw = query_fundamental_points(
+                con,
+                symbols=[sym],
+                start_date=start,
+                end_date=end,
+                provider=prov,
+                period="quarter",
+            )
+        finally:
+            con.close()
+        rows: List[Dict[str, Any]] = []
+        for r in raw:
+            rows.append(
+                {
+                    "symbol": r.get("symbol"),
+                    "asof_date": r.get("asof_date"),
+                    "period": r.get("period"),
+                    "provider": r.get("provider"),
+                    "eps": r.get("eps"),
+                    "net_income": r.get("net_income"),
+                    "revenue": r.get("revenue"),
+                    "fetched_ts_utc": r.get("fetched_ts_utc"),
+                }
+            )
+        return {"ts_utc": _utcnow_iso(), "symbol": sym, "provider": prov, "n": len(rows), "rows": rows}
+
     @router.post("/metrics/history/fetch")
     async def fetch_metrics_history(
         symbols: str,
@@ -189,10 +316,11 @@ def build_value_router(
         start: Optional[str] = None,
         end: Optional[str] = None,
         period: str = "quarter",
-        provider: str = "fmp",
+        provider: str = "yfinance",
     ) -> Dict[str, Any]:
         """
-        Read stored historical metric points.
+        Read stored historical metric points (precomputed daily/quarterly rows in SQLite).
+        Default provider is yfinance (daily pipeline); use sec for SEC-backed fundamentals.
         """
         syms = [s.strip().upper() for s in (symbols or "").split(",") if s.strip()]
         if not syms:

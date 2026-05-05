@@ -285,6 +285,93 @@ def query_metric_points(
     return out
 
 
+def query_latest_daily_metric_points(
+    con: sqlite3.Connection,
+    *,
+    symbols: List[str],
+    provider: str,
+) -> List[Dict[str, Any]]:
+    """
+    Latest period=daily row per symbol for the given provider (most recent asof_date).
+    """
+    prov = str(provider).strip().lower()
+    syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
+    if not syms:
+        return []
+    ph = ",".join("?" * len(syms))
+    sql = f"""
+      SELECT m.symbol, m.asof_date, m.period, m.provider,
+             m.pe, m.pb, m.peg, m.dividend_yield, m.free_cash_flow_yield,
+             m.debt_to_equity, m.roe, m.current_ratio, m.operating_margin, m.ev_to_ebitda,
+             m.raw_json, m.fetched_ts_utc
+      FROM vm_metric_points m
+      JOIN (
+        SELECT symbol, MAX(asof_date) AS dmax
+        FROM vm_metric_points
+        WHERE period = 'daily'
+          AND provider = ?
+          AND symbol IN ({ph})
+        GROUP BY symbol
+      ) u ON m.symbol = u.symbol AND m.asof_date = u.dmax
+      WHERE m.period = 'daily' AND m.provider = ?
+    """
+    params: List[Any] = [prov] + list(syms) + [prov]
+    cur = con.execute(sql, params)
+    out: List[Dict[str, Any]] = []
+    for r in cur.fetchall():
+        d = dict(r)
+        try:
+            d["raw"] = json.loads(d.pop("raw_json") or "{}")
+        except Exception:
+            d["raw"] = {}
+        out.append(d)
+    return out
+
+
+def query_yearly_metric_coverage(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    provider: str,
+    start_date: str,
+    end_date: str,
+) -> List[Dict[str, Any]]:
+    """
+    Per calendar year: trading-day counts and non-null metric counts for daily vm_metric_points.
+    """
+    sym = str(symbol).strip().upper()
+    prov = str(provider).strip().lower()
+    metric_cols = (
+        "pe",
+        "pb",
+        "peg",
+        "dividend_yield",
+        "free_cash_flow_yield",
+        "debt_to_equity",
+        "roe",
+        "current_ratio",
+        "operating_margin",
+        "ev_to_ebitda",
+    )
+    agg_parts = ["COUNT(*) AS n_days"] + [
+        f"SUM(CASE WHEN {c} IS NOT NULL THEN 1 ELSE 0 END) AS n_{c}" for c in metric_cols
+    ]
+    sql = f"""
+      SELECT CAST(substr(asof_date, 1, 4) AS INTEGER) AS year,
+             {", ".join(agg_parts)}
+      FROM vm_metric_points
+      WHERE symbol = ?
+        AND provider = ?
+        AND period = 'daily'
+        AND asof_date >= ?
+        AND asof_date <= ?
+      GROUP BY substr(asof_date, 1, 4)
+      ORDER BY year ASC
+    """
+    cur = con.execute(sql, (sym, prov, start_date, end_date))
+    return [dict(r) for r in cur.fetchall()]
+
+
 def upsert_fundamental_points(
     con: sqlite3.Connection,
     *,

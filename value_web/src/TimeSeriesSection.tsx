@@ -110,7 +110,7 @@ export function TimeSeriesSection({ apiBase }: Props) {
   const [resolution, setResolution] = useState<Resolution>("daily");
   const [start, setStart] = useState(() => defaultRange("daily").start);
   const [end, setEnd] = useState(() => defaultRange("daily").end);
-  const [provider, setProvider] = useState("yfinance");
+  const [provider, setProvider] = useState<"yfinance" | "sec">("yfinance");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
@@ -195,8 +195,11 @@ export function TimeSeriesSection({ apiBase }: Props) {
           </select>
         </div>
         <div>
-          <label style={{ display: "block", fontSize: 12 }}>Metrics provider</label>
-          <input value={provider} onChange={(e) => setProvider(e.target.value)} style={{ width: 100, padding: 6 }} />
+          <label style={{ display: "block", fontSize: 12 }}>Fundamentals provider</label>
+          <select value={provider} onChange={(e) => setProvider(e.target.value as "yfinance" | "sec")} style={{ padding: 6, minWidth: 140 }}>
+            <option value="yfinance">yfinance (pipeline)</option>
+            <option value="sec">SEC</option>
+          </select>
         </div>
         <div>
           <label style={{ display: "block", fontSize: 12 }}>Start</label>

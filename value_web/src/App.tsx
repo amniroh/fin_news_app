@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import { CoverageYearlySection } from "./CoverageYearlySection";
+import { QuarterlyEarningsSection } from "./QuarterlyEarningsSection";
 import { TimeSeriesSection } from "./TimeSeriesSection";
 
 function App() {
   const [userId, setUserId] = useState("demo");
   const [symbolsText, setSymbolsText] = useState("AAPL,MSFT,NVDA,AMZN");
+  /** Precomputed daily pipeline (SQLite) vs live Yahoo snapshot — different P/E definitions. */
+  const [tableSource, setTableSource] = useState<"pipeline" | "live">("pipeline");
+  const [pipelineProvider, setPipelineProvider] = useState<"yfinance" | "sec">("yfinance");
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +30,12 @@ function App() {
         .split(",")
         .map((s) => s.trim().toUpperCase())
         .filter(Boolean);
-      const url = `${apiBase}/value/metrics?symbols=${encodeURIComponent(syms.join(","))}`;
+      let url: string;
+      if (tableSource === "pipeline") {
+        url = `${apiBase}/value/metrics/latest-daily?symbols=${encodeURIComponent(syms.join(","))}&provider=${encodeURIComponent(pipelineProvider)}`;
+      } else {
+        url = `${apiBase}/value/metrics?symbols=${encodeURIComponent(syms.join(","))}`;
+      }
       const r = await fetch(url);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j = await r.json();
@@ -40,10 +50,15 @@ function App() {
   useEffect(() => {
     fetchMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tableSource, pipelineProvider]);
 
   const columns: { key: string; label: string; fmt?: (v: any) => string }[] = [
     { key: "symbol", label: "Symbol" },
+    {
+      key: "metrics_asof_date",
+      label: "Daily metrics as of",
+      fmt: (v) => (v == null || v === "" ? "—" : String(v)),
+    },
     { key: "pe", label: "P/E", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
     { key: "pb", label: "P/B", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
     { key: "peg", label: "PEG", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
@@ -114,6 +129,11 @@ function App() {
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 16 }}>
       <h2 style={{ margin: "12px 0" }}>Value Metrics Tracker</h2>
+      <p style={{ margin: "0 0 12px", fontSize: 13, color: "#555" }}>
+        If the page looks outdated, hard-refresh the browser (
+        <kbd>Cmd+Shift+R</kbd> / <kbd>Ctrl+Shift+R</kbd>) or restart <code>./start_value_web.sh</code>.
+        {import.meta.env.DEV && <span> (dev server)</span>}
+      </p>
 
       <div style={{ display: "flex", gap: 12, alignItems: "end", flexWrap: "wrap" }}>
         <div>
@@ -131,6 +151,38 @@ function App() {
         <button onClick={fetchMetrics} disabled={loading}>
           {loading ? "Loading..." : "Refresh"}
         </button>
+      </div>
+
+      <div style={{ marginTop: 14, padding: 12, background: "#f7f7f9", borderRadius: 8, fontSize: 14 }}>
+        <strong>Main table source</strong>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 8, alignItems: "center" }}>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
+            <input
+              type="radio"
+              name="tsrc"
+              checked={tableSource === "pipeline"}
+              onChange={() => setTableSource("pipeline")}
+            />
+            Precomputed daily (SQLite) — same P/E pipeline as <code>apple_pe_expected.csv</code> after backfill
+          </label>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
+            <input type="radio" name="tsrc" checked={tableSource === "live"} onChange={() => setTableSource("live")} />
+            Live Yahoo snapshot (<code>trailingPE</code> / standard metrics — usually differs from the CSV)
+          </label>
+        </div>
+        {tableSource === "pipeline" && (
+          <div style={{ marginTop: 10 }}>
+            <label style={{ fontSize: 13 }}>Fundamentals provider for stored daily rows: </label>
+            <select
+              value={pipelineProvider}
+              onChange={(e) => setPipelineProvider(e.target.value as "yfinance" | "sec")}
+              style={{ marginLeft: 8, padding: 6 }}
+            >
+              <option value="yfinance">yfinance (pipeline + SEC when merged)</option>
+              <option value="sec">SEC</option>
+            </select>
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: 12 }}>
@@ -211,6 +263,8 @@ function App() {
       </div>
 
       <TimeSeriesSection apiBase={apiBase} />
+      <QuarterlyEarningsSection apiBase={apiBase} />
+      <CoverageYearlySection apiBase={apiBase} />
     </div>
   );
 }

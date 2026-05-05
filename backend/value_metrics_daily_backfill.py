@@ -12,6 +12,10 @@ Daily metrics are computed by:
 - dividend_yield uses trailing-365d dividend-per-share / close (per-share series from yfinance)
 
 PEG is left null (not estimated here).
+
+SEC quarterly EPS is derived in ``value_metrics_provider_sec_fundamentals`` as
+``net income / weighted average diluted shares`` when available; otherwise the diluted EPS tag is
+reconciled against yfinance split history using magnitude heuristics (no blanket divide-by-split).
 """
 
 from __future__ import annotations
@@ -34,12 +38,21 @@ if str(_REPO_ROOT / "backend") not in sys.path:
 
 from dotenv import load_dotenv
 
+from value_metrics_provider_sec_fundamentals import fetch_sec_fundamentals_history
 from value_metrics_provider_yfinance_fundamentals import fetch_yfinance_fundamentals_history
 from value_metrics_store import connect, init_db, query_fundamental_points, upsert_fundamental_points, upsert_metric_points
 
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _ttm_sum_last4(s: pd.Series) -> pd.Series:
+    """
+    Trailing-12-month sum for quarterly series.
+    Requires 4 quarters to emit a value (min_periods=4).
+    """
+    return pd.to_numeric(s, errors="coerce").rolling(4, min_periods=4).sum()
 
 
 def _load_env() -> None:
@@ -67,6 +80,20 @@ def _load_symbols_from_json(path: Path) -> List[str]:
 
 def _parse_symbols_arg(s: str) -> List[str]:
     return sorted({x.strip().upper() for x in (s or "").split(",") if x.strip()})
+
+
+def _load_sp500_symbols_from_env() -> List[str]:
+    """S&P 500 tickers from SP500_SYMBOLS (same convention as value_metrics_daily_coverage.py)."""
+    raw = (os.getenv("SP500_SYMBOLS") or "").strip()
+    if not raw:
+        raise RuntimeError("SP500_SYMBOLS env var is not set")
+    out: List[str] = []
+    for x in raw.split(","):
+        s = str(x).strip().upper()
+        if not s:
+            continue
+        out.append(s.replace(".", "-"))
+    return sorted(set(out))
 
 
 def _coerce_close_series(px: pd.DataFrame, sym: str) -> pd.Series:
@@ -114,22 +141,39 @@ def _ensure_fundamentals(
     start_s: str,
     end_s: str,
     provider: str = "yfinance",
+    refresh: bool = False,
+    sec_companyfacts_cache_dir: Optional[Path] = None,
+    reload_sec_from_cache: bool = False,
 ) -> None:
     # buffer earlier fundamentals for TTM construction
     buf_start = (pd.Timestamp(start_s) - pd.Timedelta(days=400)).strftime("%Y-%m-%d")
+    prov = str(provider).strip().lower()
     for per in ("quarter", "annual"):
         existing = query_fundamental_points(
             con,
             symbols=[symbol],
             start_date=buf_start,
             end_date=end_s,
-            provider=provider,
+            provider=prov,
             period=per,
         )
-        if existing:
+        if existing and not refresh and not (reload_sec_from_cache and prov == "sec"):
             continue
-        pts = fetch_yfinance_fundamentals_history(symbol=symbol, period=per, start_date=buf_start, end_date=end_s)
-        upsert_fundamental_points(con, provider=provider, period=per, points=pts)
+        if prov == "sec":
+            cache_mode = "only" if reload_sec_from_cache else ("refresh" if refresh else "use")
+            pts = fetch_sec_fundamentals_history(
+                symbol=symbol,
+                period=per,
+                start_date=buf_start,
+                end_date=end_s,
+                companyfacts_cache_dir=str(sec_companyfacts_cache_dir) if sec_companyfacts_cache_dir else None,
+                cache_mode=cache_mode,
+            )
+        elif prov == "yfinance":
+            pts = fetch_yfinance_fundamentals_history(symbol=symbol, period=per, start_date=buf_start, end_date=end_s)
+        else:
+            raise ValueError("provider must be yfinance or sec")
+        upsert_fundamental_points(con, provider=prov, period=per, points=pts)
 
 
 def _compute_daily_metrics_for_symbol(
@@ -161,7 +205,7 @@ def _compute_daily_metrics_for_symbol(
     if is_quarter:
         for col in ("revenue", "operating_income", "net_income", "free_cash_flow", "ebitda", "eps"):
             if col in f.columns:
-                f[f"{col}_ttm"] = pd.to_numeric(f[col], errors="coerce").rolling(4, min_periods=1).sum()
+                f[f"{col}_ttm"] = _ttm_sum_last4(f[col])
     else:
         for col in ("revenue", "operating_income", "net_income", "free_cash_flow", "ebitda", "eps"):
             if col in f.columns:
@@ -252,10 +296,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Backfill fundamentals then compute daily value metrics.")
     ap.add_argument("--years", type=float, default=2.0, help="Lookback window in years (default: 2)")
     ap.add_argument("--symbols-file", type=str, default="", help="JSON universe file (default: SYMBOL_UNIVERSE_PATH or telegram_agent/top1000_investments.json)")
-    ap.add_argument("--symbols", type=str, default="", help="Comma-separated tickers (overrides --symbols-file)")
+    ap.add_argument(
+        "--spy-symbols",
+        action="store_true",
+        help="Use S&P 500 tickers from SP500_SYMBOLS env (comma-separated). Overrides --symbols-file.",
+    )
+    ap.add_argument("--symbols", type=str, default="", help="Comma-separated tickers (overrides --spy-symbols and --symbols-file)")
     ap.add_argument("--db", type=str, default="", help="SQLite path (default: VALUE_METRICS_DB_PATH or backend/data/value_metrics.sqlite)")
     ap.add_argument("--sleep", type=float, default=0.25, help="Sleep seconds after each symbol (default: 0.25)")
     ap.add_argument("--max-symbols", type=int, default=0, help="If >0, only first N symbols (debug)")
+    ap.add_argument(
+        "--provider",
+        type=str,
+        default="yfinance",
+        choices=("yfinance", "sec"),
+        help="Fundamentals source: yfinance statements API or SEC Company Facts (correct quarterly EPS selection)",
+    )
+    ap.add_argument(
+        "--sec-companyfacts-cache-dir",
+        type=str,
+        default="",
+        help="Optional directory to cache raw SEC companyfacts JSON (default: backend/data/sec_companyfacts_cache)",
+    )
+    ap.add_argument(
+        "--reload-sec-cache",
+        action="store_true",
+        help="For provider=sec: rebuild fundamentals from cached companyfacts (no SEC fetch).",
+    )
+    ap.add_argument(
+        "--refresh-fundamentals",
+        action="store_true",
+        help="Re-fetch fundamentals even if rows already exist (fixes stale SEC/Yahoo data)",
+    )
     args = ap.parse_args(list(argv) if argv is not None else None)
 
     _load_env()
@@ -267,6 +339,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.symbols.strip():
         symbols = _parse_symbols_arg(args.symbols)
+    elif args.spy_symbols:
+        try:
+            symbols = _load_sp500_symbols_from_env()
+        except RuntimeError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        print(f"Loaded {len(symbols)} symbols from SP500_SYMBOLS")
     else:
         if args.symbols_file.strip():
             sym_path = Path(args.symbols_file).expanduser()
@@ -289,9 +368,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     con = connect(db_path)
     init_db(con)
 
+    sec_cache_dir = None
+    if str(args.provider).strip().lower() == "sec":
+        sec_cache_dir = Path(args.sec_companyfacts_cache_dir).expanduser() if str(args.sec_companyfacts_cache_dir).strip() else (
+            _REPO_ROOT / "backend" / "data" / "sec_companyfacts_cache"
+        )
+
     print(f"DB: {db_path}")
     print(f"Window: {start_s} .. {end_s} (UTC dates, inclusive)")
+    print(f"Fundamentals provider: {args.provider}")
     print(f"Symbols: {len(symbols)}")
+    if str(args.provider).strip().lower() == "sec":
+        print(f"SEC companyfacts cache: {sec_cache_dir} (reload={bool(args.reload_sec_cache)})")
 
     total_daily_upserts = 0
     ok = 0
@@ -299,8 +387,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     for i, sym in enumerate(symbols):
         try:
-            _ensure_fundamentals(con, symbol=sym, start_s=start_s, end_s=end_s, provider="yfinance")
-            n = _compute_daily_metrics_for_symbol(con, symbol=sym, start_s=start_s, end_s=end_s, provider="yfinance")
+            prov = str(args.provider).strip().lower()
+            _ensure_fundamentals(
+                con,
+                symbol=sym,
+                start_s=start_s,
+                end_s=end_s,
+                provider=prov,
+                refresh=bool(args.refresh_fundamentals),
+                sec_companyfacts_cache_dir=sec_cache_dir,
+                reload_sec_from_cache=bool(args.reload_sec_cache),
+            )
+            n = _compute_daily_metrics_for_symbol(con, symbol=sym, start_s=start_s, end_s=end_s, provider=prov)
             total_daily_upserts += int(n)
             ok += 1
         except Exception as e:
