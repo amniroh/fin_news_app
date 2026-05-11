@@ -1,14 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+
 import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  CHART_SERIES_COLORS,
+  CHART_STROKE_DASHARRAYS,
+  LegendSeriesGlyph,
+  sparseSeriesDot,
+} from "./chartSeriesStyles";
 
 type Resolution = "daily" | "hourly" | "minute";
 
@@ -103,6 +101,153 @@ function formatTick(ts: string, res: Resolution): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" });
 }
 
+type AxisFmtProps = { tickFormatter: (v: string) => string };
+
+const tsLegendBtn: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  font: "inherit",
+  color: "var(--text, #1e293b)",
+  background: "transparent",
+  border: "none",
+  borderRadius: 4,
+  padding: "2px 6px",
+  margin: 0,
+  cursor: "pointer",
+};
+
+function PriceSeriesBlock({
+  chartData,
+  axisProps,
+  strokePrice,
+}: {
+  chartData: ChartPoint[];
+  axisProps: AxisFmtProps;
+  strokePrice: string;
+}) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    setHidden(false);
+  }, [chartData]);
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <button
+          type="button"
+          onClick={() => setHidden((h) => !h)}
+          aria-pressed={!hidden}
+          title={hidden ? "Show series" : "Hide series"}
+          style={{
+            ...tsLegendBtn,
+            fontSize: 13,
+            fontWeight: 500,
+            opacity: hidden ? 0.42 : 1,
+            textDecoration: hidden ? "line-through" : undefined,
+          }}
+        >
+          <LegendSeriesGlyph color={strokePrice} shapeIndex={0} />
+          Close
+        </button>
+      </div>
+      <div style={{ width: "100%", height: 280 }}>
+        <ResponsiveContainer>
+          <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.35} />
+            <XAxis dataKey="ts" tickFormatter={axisProps.tickFormatter} minTickGap={24} fontSize={11} />
+            <YAxis domain={["auto", "auto"]} fontSize={11} width={56} />
+            <Tooltip
+              shared={false}
+              labelFormatter={(lab) => String(lab)}
+              formatter={(value: number | string) => [Number(value).toFixed(4), "Close"]}
+            />
+            <Line
+              type="monotone"
+              dataKey="close"
+              name="Close"
+              stroke={strokePrice}
+              hide={hidden}
+              dot={sparseSeriesDot({ fill: strokePrice, shapeIndex: 0, stride: 36 })}
+              strokeWidth={2.25}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function MetricSparkBlock({
+  m,
+  index,
+  chartData,
+  axisProps,
+}: {
+  m: (typeof METRICS)[number];
+  index: number;
+  chartData: ChartPoint[];
+  axisProps: AxisFmtProps;
+}) {
+  const stroke = CHART_SERIES_COLORS[index % CHART_SERIES_COLORS.length];
+  const dash = CHART_STROKE_DASHARRAYS[index % CHART_STROKE_DASHARRAYS.length];
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    setHidden(false);
+  }, [chartData]);
+
+  return (
+    <div style={{ minHeight: 200, border: "1px solid var(--border, #e5e4e7)", borderRadius: 8, padding: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <button
+          type="button"
+          onClick={() => setHidden((h) => !h)}
+          aria-pressed={!hidden}
+          title={hidden ? "Show series" : "Hide series"}
+          style={{
+            ...tsLegendBtn,
+            fontSize: 13,
+            fontWeight: 600,
+            opacity: hidden ? 0.42 : 1,
+            textDecoration: hidden ? "line-through" : undefined,
+          }}
+        >
+          <LegendSeriesGlyph color={stroke} shapeIndex={index} strokeDasharray={dash} />
+          {m.label}
+        </button>
+      </div>
+      <div style={{ width: "100%", height: 162 }}>
+        <ResponsiveContainer>
+          <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
+            <XAxis dataKey="ts" tickFormatter={axisProps.tickFormatter} hide={false} minTickGap={20} fontSize={10} />
+            <YAxis domain={["auto", "auto"]} fontSize={10} width={44} />
+            <Tooltip
+              shared={false}
+              formatter={(val: number | string) => {
+                const v = typeof val === "number" ? val : parseFloat(String(val));
+                if (m.pct) return [`${(v * 100).toFixed(2)}%`, m.label];
+                return [Number(v).toFixed(3), m.label];
+              }}
+            />
+            <Line
+              type="stepAfter"
+              dataKey={m.key}
+              name={m.label}
+              stroke={stroke}
+              strokeDasharray={dash}
+              hide={hidden}
+              dot={sparseSeriesDot({ fill: stroke, shapeIndex: index, stride: 24 })}
+              strokeWidth={1.75}
+              connectNulls
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 type Props = { apiBase: string };
 
 export function TimeSeriesSection({ apiBase }: Props) {
@@ -166,7 +311,6 @@ export function TimeSeriesSection({ apiBase }: Props) {
   );
 
   const strokePrice = "var(--accent, #aa3bff)";
-  const strokeMuted = "#8884d8";
 
   return (
     <section className="time-series-section" style={{ marginTop: 36, textAlign: "left" }}>
@@ -174,7 +318,8 @@ export function TimeSeriesSection({ apiBase }: Props) {
       <p style={{ margin: "0 0 16px", fontSize: 14, color: "var(--text, #666)", maxWidth: 720 }}>
         Daily value metrics come from precomputed storage (<code>period=daily</code>). Price uses the selected resolution
         (daily / hourly / minute). On intraday resolutions, metrics are forward-filled from the latest daily point (fundamentals
-        update at most daily). Minute bars are limited to about the last week by the data provider.
+        update at most daily). Minute bars are limited to about the last week by the data provider. Click a legend label to
+        hide or show that series.
       </p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end", marginBottom: 16 }}>
@@ -226,21 +371,7 @@ export function TimeSeriesSection({ apiBase }: Props) {
 
       {chartData.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ width: "100%", height: 280 }}>
-            <ResponsiveContainer>
-              <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.35} />
-                <XAxis dataKey="ts" tickFormatter={axisProps.tickFormatter} minTickGap={24} fontSize={11} />
-                <YAxis domain={["auto", "auto"]} fontSize={11} width={56} />
-                <Tooltip
-                  labelFormatter={(lab) => String(lab)}
-                  formatter={(value: number) => [Number(value).toFixed(4), "Close"]}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="close" name="Close" stroke={strokePrice} dot={false} strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <PriceSeriesBlock chartData={chartData} axisProps={axisProps} strokePrice={strokePrice} />
 
           <div
             style={{
@@ -249,33 +380,8 @@ export function TimeSeriesSection({ apiBase }: Props) {
               gap: 16,
             }}
           >
-            {METRICS.map((m) => (
-              <div key={m.key} style={{ height: 200, border: "1px solid var(--border, #e5e4e7)", borderRadius: 8, padding: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{m.label}</div>
-                <ResponsiveContainer>
-                  <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
-                    <XAxis dataKey="ts" tickFormatter={axisProps.tickFormatter} hide={false} minTickGap={20} fontSize={10} />
-                    <YAxis domain={["auto", "auto"]} fontSize={10} width={44} />
-                    <Tooltip
-                      formatter={(val: number | string) => {
-                        const v = typeof val === "number" ? val : parseFloat(String(val));
-                        if (m.pct) return [`${(v * 100).toFixed(2)}%`, m.label];
-                        return [Number(v).toFixed(3), m.label];
-                      }}
-                    />
-                    <Line
-                      type="stepAfter"
-                      dataKey={m.key}
-                      name={m.label}
-                      stroke={strokeMuted}
-                      dot={false}
-                      strokeWidth={1.5}
-                      connectNulls
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+            {METRICS.map((m, i) => (
+              <MetricSparkBlock key={m.key} m={m} index={i} chartData={chartData} axisProps={axisProps} />
             ))}
           </div>
         </div>

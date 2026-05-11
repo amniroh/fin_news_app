@@ -29,12 +29,14 @@ from value_metrics_store import (
     query_fundamental_points,
     query_latest_daily_metric_points,
     query_metric_points,
+    query_stock_splits,
     query_yearly_metric_coverage,
     upsert_metric_points,
     update_rule_state,
 )
 from value_metrics_provider_fmp import fetch_ratios_history
 from value_metrics_price_history import fetch_price_history
+from value_metrics_stock_splits import persist_yfinance_splits_to_db
 
 
 def _utcnow_iso() -> str:
@@ -262,6 +264,43 @@ def build_value_router(
                 }
             )
         return {"ts_utc": _utcnow_iso(), "symbol": sym, "provider": prov, "n": len(rows), "rows": rows}
+
+    @router.get("/stock/splits")
+    async def get_stock_splits(
+        symbol: str,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        refresh: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Stock split events from ``vm_stock_splits`` (yfinance-sourced), keyed by ex-date.
+        If no rows are stored yet, fetches from yfinance once and upserts. Use ``refresh=true`` to re-pull.
+        """
+        sym = str(symbol or "").strip().upper()
+        if not sym:
+            raise HTTPException(status_code=400, detail="symbol is required")
+        con = _con()
+        try:
+            init_db(con)
+            rows = query_stock_splits(con, symbol=sym, start_date=start, end_date=end, provider="yfinance")
+            if bool(refresh) or not rows:
+                # Same-thread SQLite + short yfinance call (avoid passing ``con`` across threads).
+                persist_yfinance_splits_to_db(con, sym)
+                rows = query_stock_splits(con, symbol=sym, start_date=start, end_date=end, provider="yfinance")
+        finally:
+            con.close()
+        out: List[Dict[str, Any]] = []
+        for r in rows:
+            out.append(
+                {
+                    "symbol": r.get("symbol"),
+                    "ex_date": r.get("ex_date"),
+                    "split_ratio": r.get("split_ratio"),
+                    "provider": r.get("provider"),
+                    "fetched_ts_utc": r.get("fetched_ts_utc"),
+                }
+            )
+        return {"ts_utc": _utcnow_iso(), "symbol": sym, "n": len(out), "rows": out}
 
     @router.post("/metrics/history/fetch")
     async def fetch_metrics_history(

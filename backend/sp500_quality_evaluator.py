@@ -14,6 +14,7 @@ often than daily / weekly / monthly intent (cached snapshot JSON).
 
 Environment:
   SP500_SYMBOLS — optional comma-separated override if Wikipedia fetch fails.
+  WIKIPEDIA_USER_AGENT / HTTP_USER_AGENT — optional override for Wikipedia requests (recommended).
 """
 
 from __future__ import annotations
@@ -22,7 +23,10 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
+import urllib.request
 import time
+from io import StringIO
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -58,6 +62,19 @@ def normalize_symbol(sym: str) -> str:
     return s
 
 
+def _read_sp500_cache(path: Path, *, min_symbols: int) -> Optional[List[str]]:
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        syms = data.get("symbols") if isinstance(data, dict) else data
+        if isinstance(syms, list) and len(syms) >= min_symbols:
+            return sorted({normalize_symbol(str(x)) for x in syms if str(x).strip()})
+    except Exception:
+        return None
+    return None
+
+
 def load_sp500_symbols(*, cache_path: Optional[Path] = None, refresh: bool = False) -> List[str]:
     """Return sorted unique S&P 500 tickers (Yahoo-style: BRK-B not BRK.B)."""
     env = (os.getenv("SP500_SYMBOLS") or "").strip()
@@ -67,23 +84,40 @@ def load_sp500_symbols(*, cache_path: Optional[Path] = None, refresh: bool = Fal
     path = cache_path or (_REPO_ROOT / "backend" / "data" / "sp500_symbols.json")
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    if path.is_file() and not refresh:
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            syms = data.get("symbols") if isinstance(data, dict) else data
-            if isinstance(syms, list) and len(syms) >= 400:
-                return sorted({normalize_symbol(str(x)) for x in syms if str(x).strip()})
-        except Exception:
-            pass
+    if not refresh:
+        cached = _read_sp500_cache(path, min_symbols=400)
+        if cached is not None:
+            return cached
 
-    # Wikipedia S&P 500 table (Symbol column)
+    # Wikipedia S&P 500 table (Symbol column). Bare urllib User-Agent is often blocked (403).
     url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+    ua = (os.getenv("WIKIPEDIA_USER_AGENT") or os.getenv("HTTP_USER_AGENT") or "").strip()
+    if not ua:
+        ua = "market_analysis/1.0 (https://github.com; S&P 500 symbol list) Python/urllib"
     try:
-        tables = pd.read_html(url)
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": ua,
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+        tables = pd.read_html(StringIO(html))
     except ImportError as e:
         raise RuntimeError(
             "pandas.read_html needs an HTML parser (e.g. pip install lxml). "
             "Or set SP500_SYMBOLS to a comma-separated list."
+        ) from e
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as e:
+        stale = _read_sp500_cache(path, min_symbols=50)
+        if stale is not None:
+            return stale
+        raise RuntimeError(
+            "Could not download the Wikipedia S&P 500 list (network or HTTP error). "
+            "Use WIKIPEDIA_USER_AGENT with a descriptive app string, set SP500_SYMBOLS, "
+            "or keep backend/data/sp500_symbols.json from a prior successful run."
         ) from e
     sym_col = None
     table = None
@@ -415,7 +449,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         type=str,
         default="",
         choices=["", "daily", "weekly", "monthly"],
-        help="Shorthand for cache: daily≈20h, weekly=168h, monthly=720h (only if --cache-hours unset)",
+        help="Shorthand for cache: daily≈20h, weekly=168h, monthly=720h. With --strategy ml, also selects which trained model to use.",
+    )
+    ap.add_argument(
+        "--strategy",
+        type=str,
+        default="quality",
+        choices=["quality", "ml", "ml_pred_weighted", "rsi_mean"],
+        help=(
+            "quality (default): profitability/stability/value composite. "
+            "ml: top-N equal-weight from sp500_return_model. "
+            "ml_pred_weighted: same model, weights linear in predicted return. "
+            "rsi_mean: bottom-N by 30d mean of daily RSI(14) (mean-reversion). "
+            "All ml_* and rsi_mean variants require --cadence."
+        ),
     )
     ap.add_argument("--output", type=str, default="", help="Write JSON results to this path")
     args = ap.parse_args(list(argv) if argv is not None else None)
@@ -426,7 +473,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     elif cache_h < 0:
         cache_h = 0.0
 
-    snap_path = _REPO_ROOT / "backend" / "data" / "quality_evaluator_last_run.json"
+    strategy = (args.strategy or "quality").strip().lower()
+    cadence_tag = (args.cadence or "none").strip().lower() or "none"
+    snap_dir = _REPO_ROOT / "backend" / "data"
+    snap_dir.mkdir(parents=True, exist_ok=True)
+    # Per-(strategy, cadence) snapshot so the website can show all variants side-by-side.
+    snap_path = snap_dir / f"quality_evaluator_last_run_{strategy}_{cadence_tag}.json"
+    legacy_path = snap_dir / "quality_evaluator_last_run.json"
 
     if cache_h > 0 and snap_path.is_file():
         try:
@@ -441,33 +494,85 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         except Exception:
             pass
 
-    symbols = load_sp500_symbols(refresh=bool(args.refresh_sp500))
-    print(f"Loaded {len(symbols)} S&P 500 symbols. Scoring (this may take several minutes)…", file=sys.stderr)
+    if strategy in ("ml", "ml_pred_weighted", "rsi_mean"):
+        if not args.cadence:
+            print(f"--strategy {strategy} requires --cadence {{daily,weekly,monthly}}", file=sys.stderr)
+            return 2
+        try:
+            if strategy == "rsi_mean":
+                from rsi_mean_strategy import predict_top_n as rsi_predict  # type: ignore
 
-    scored = score_universe(symbols, benchmark=args.benchmark.strip().upper(), lookback_days=args.lookback_days, sleep_s=args.sleep)
-    scored.sort(key=lambda r: r.composite_rank, reverse=True)
+                ranked = rsi_predict(args.cadence, n=int(args.top))
+                docs = {
+                    "rsi_mean": (
+                        "Mean-reversion: pick the N symbols with the lowest 30-day mean of daily RSI(14) "
+                        "(most oversold) at the rebalance date. Equal-weighted."
+                    ),
+                }
+            else:
+                from sp500_return_model import predict_top_n as ml_predict  # type: ignore
 
-    top = scored[: int(args.top)]
+                weighting = "score_weighted" if strategy == "ml_pred_weighted" else "equal"
+                ranked = ml_predict(args.cadence, n=int(args.top), weighting=weighting)
+                docs = {
+                    "ml_model": (
+                        "LightGBM (or sklearn HGB fallback) regression on cross-sectional momentum/reversal/"
+                        "volatility/MA/RSI/MACD/Bollinger/beta/volume features. Predicts forward log return "
+                        "over the chosen cadence horizon. "
+                        + ("Weights linear in predicted profit (sum to 1)." if weighting == "score_weighted" else "Equal-weighted top-N.")
+                    ),
+                }
+        except FileNotFoundError as e:
+            print(
+                f"Artifact for {strategy}/{args.cadence} not found: {e}\n"
+                f"Train via: python backend/sp500_return_model_train.py --cadence {args.cadence}",
+                file=sys.stderr,
+            )
+            return 3
+        top_symbols = [r["symbol"] for r in ranked]
+        risk = risk_match_report(top_symbols, benchmark=args.benchmark, lookback_days=args.lookback_days)
+        out: Dict[str, Any] = {
+            "ts_utc": _utcnow_iso(),
+            "strategy": strategy,
+            "cadence": args.cadence,
+            "cadence_cache_hours": cache_h,
+            "signals_documentation": docs,
+            "top_symbols": top_symbols,
+            "top_detail": ranked,
+            "risk_match": risk,
+        }
+    else:
+        symbols = load_sp500_symbols(refresh=bool(args.refresh_sp500))
+        print(f"Loaded {len(symbols)} S&P 500 symbols. Scoring (this may take several minutes)…", file=sys.stderr)
 
-    risk = risk_match_report([r.symbol for r in top], benchmark=args.benchmark, lookback_days=args.lookback_days)
+        scored = score_universe(symbols, benchmark=args.benchmark.strip().upper(), lookback_days=args.lookback_days, sleep_s=args.sleep)
+        scored.sort(key=lambda r: r.composite_rank, reverse=True)
 
-    out: Dict[str, Any] = {
-        "ts_utc": _utcnow_iso(),
-        "cadence_cache_hours": cache_h,
-        "universe_size": len(symbols),
-        "signals_documentation": {
-            "profitability": "Average percentile rank of ROE, operating margin, FCF yield (higher better).",
-            "stability": "Average rank of low debt/equity, higher current ratio, low quarterly NI CV, low 252d vol.",
-            "value": "Average rank of low P/E, P/B, EV/EBITDA (value tilt among large caps).",
-            "composite": "0.35*profitability + 0.35*stability + 0.30*value",
-        },
-        "top_symbols": [r.symbol for r in top],
-        "top_detail": [asdict(r) for r in top],
-        "risk_match": risk,
-    }
+        top = scored[: int(args.top)]
 
-    snap_path.parent.mkdir(parents=True, exist_ok=True)
+        risk = risk_match_report([r.symbol for r in top], benchmark=args.benchmark, lookback_days=args.lookback_days)
+
+        out = {
+            "ts_utc": _utcnow_iso(),
+            "strategy": "quality",
+            "cadence": args.cadence or None,
+            "cadence_cache_hours": cache_h,
+            "universe_size": len(symbols),
+            "signals_documentation": {
+                "profitability": "Average percentile rank of ROE, operating margin, FCF yield (higher better).",
+                "stability": "Average rank of low debt/equity, higher current ratio, low quarterly NI CV, low 252d vol.",
+                "value": "Average rank of low P/E, P/B, EV/EBITDA (value tilt among large caps).",
+                "composite": "0.35*profitability + 0.35*stability + 0.30*value",
+            },
+            "top_symbols": [r.symbol for r in top],
+            "top_detail": [asdict(r) for r in top],
+            "risk_match": risk,
+        }
+
     snap_path.write_text(json.dumps(out, indent=2, default=_json_default), encoding="utf-8")
+    # Legacy path keeps the previous behaviour for any script that reads it.
+    if strategy == "quality":
+        legacy_path.write_text(json.dumps(out, indent=2, default=_json_default), encoding="utf-8")
 
     txt = json.dumps(out, indent=2, default=_json_default)
     print(txt)

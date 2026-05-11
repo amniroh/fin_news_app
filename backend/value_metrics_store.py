@@ -109,6 +109,17 @@ CREATE TABLE IF NOT EXISTS vm_fundamental_points (
 );
 CREATE INDEX IF NOT EXISTS idx_vm_fundamental_points_symbol_date ON vm_fundamental_points(symbol, asof_date);
 
+-- Stock splits (ex-date + yfinance ratio); populated during daily backfill and/or GET /value/stock/splits.
+CREATE TABLE IF NOT EXISTS vm_stock_splits (
+  symbol TEXT NOT NULL,
+  ex_date TEXT NOT NULL,
+  split_ratio REAL NOT NULL,
+  provider TEXT NOT NULL DEFAULT 'yfinance',
+  fetched_ts_utc TEXT NOT NULL,
+  PRIMARY KEY(symbol, ex_date, provider)
+);
+CREATE INDEX IF NOT EXISTS idx_vm_stock_splits_symbol_ex ON vm_stock_splits(symbol, ex_date);
+
 -- Latest standard analytics snapshot for each symbol (DB-first website table reads).
 CREATE TABLE IF NOT EXISTS vm_standard_metrics (
   symbol TEXT NOT NULL,
@@ -492,6 +503,77 @@ def query_fundamental_points(
             d["raw"] = {}
         out.append(d)
     return out
+
+
+def upsert_stock_splits(con: sqlite3.Connection, *, rows: List[Dict[str, Any]]) -> int:
+    """
+    rows: symbol, ex_date (YYYY-MM-DD), split_ratio (yfinance: new shares per pre-split share),
+          provider (default yfinance), fetched_ts_utc
+    """
+    if not rows:
+        return 0
+    payload = []
+    for r in rows:
+        sym = str(r.get("symbol") or "").strip().upper()
+        ex = str(r.get("ex_date") or "").strip()[:10]
+        if not sym or not ex:
+            continue
+        try:
+            ratio = float(r.get("split_ratio"))
+        except Exception:
+            continue
+        prov = str(r.get("provider") or "yfinance").strip().lower()
+        payload.append(
+            (
+                sym,
+                ex,
+                ratio,
+                prov,
+                str(r.get("fetched_ts_utc") or _utcnow_iso()),
+            )
+        )
+    if not payload:
+        return 0
+    con.executemany(
+        """
+        INSERT INTO vm_stock_splits(symbol, ex_date, split_ratio, provider, fetched_ts_utc)
+        VALUES(?, ?, ?, ?, ?)
+        ON CONFLICT(symbol, ex_date, provider) DO UPDATE SET
+          split_ratio=excluded.split_ratio,
+          fetched_ts_utc=excluded.fetched_ts_utc
+        """,
+        payload,
+    )
+    con.commit()
+    return len(payload)
+
+
+def query_stock_splits(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    provider: str = "yfinance",
+) -> List[Dict[str, Any]]:
+    sym = str(symbol or "").strip().upper()
+    prov = str(provider or "yfinance").strip().lower()
+    where = ["symbol = ?", "provider = ?"]
+    params: List[Any] = [sym, prov]
+    if start_date:
+        where.append("ex_date >= ?")
+        params.append(str(start_date))
+    if end_date:
+        where.append("ex_date <= ?")
+        params.append(str(end_date))
+    sql = f"""
+      SELECT symbol, ex_date, split_ratio, provider, fetched_ts_utc
+      FROM vm_stock_splits
+      WHERE {' AND '.join(where)}
+      ORDER BY ex_date ASC
+    """
+    cur = con.execute(sql, params)
+    return [dict(r) for r in cur.fetchall()]
 
 
 def upsert_standard_metrics(

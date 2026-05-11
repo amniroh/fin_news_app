@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -19,12 +20,28 @@ type FundRow = {
   revenue?: number | null;
 };
 
+type SplitRow = {
+  ex_date: string;
+  split_ratio: number;
+};
+
 type Props = { apiBase: string };
 
 function ymdShiftYears(yearsBack: number): string {
   const d = new Date();
   d.setFullYear(d.getFullYear() - yearsBack);
   return d.toISOString().slice(0, 10);
+}
+
+/** yfinance: ratio = new shares per 1 pre-split share (e.g. 4 = 4:1). */
+function formatSplitLabel(ratio: number): string {
+  if (!Number.isFinite(ratio) || ratio <= 0) return "split";
+  if (ratio >= 1) {
+    const r = ratio % 1 === 0 ? String(ratio) : ratio.toFixed(2);
+    return `${r}:1`;
+  }
+  const inv = Math.round(1 / ratio);
+  return `1:${inv}`;
 }
 
 export function QuarterlyEarningsSection({ apiBase }: Props) {
@@ -34,6 +51,7 @@ export function QuarterlyEarningsSection({ apiBase }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<FundRow[]>([]);
+  const [splits, setSplits] = useState<SplitRow[]>([]);
 
   const load = useCallback(async () => {
     const sym = symbol.trim().toUpperCase();
@@ -46,14 +64,28 @@ export function QuarterlyEarningsSection({ apiBase }: Props) {
     try {
       const start = ymdShiftYears(years);
       const end = new Date().toISOString().slice(0, 10);
-      const url = `${apiBase}/value/fundamentals/quarterly?symbol=${encodeURIComponent(sym)}&provider=${encodeURIComponent(provider)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
-      const r = await fetch(url);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = await r.json();
-      setRows(j.rows || []);
+      const fundUrl = `${apiBase}/value/fundamentals/quarterly?symbol=${encodeURIComponent(sym)}&provider=${encodeURIComponent(provider)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+      const splitUrl = `${apiBase}/value/stock/splits?symbol=${encodeURIComponent(sym)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+      const [fr, sr] = await Promise.all([fetch(fundUrl), fetch(splitUrl)]);
+      if (!fr.ok) throw new Error(`Fundamentals HTTP ${fr.status}`);
+      const fj = await fr.json();
+      setRows(fj.rows || []);
+
+      if (sr.ok) {
+        const sj = await sr.json();
+        const raw = (sj.rows || []) as { ex_date?: string; split_ratio?: number }[];
+        setSplits(
+          raw
+            .filter((r) => r.ex_date && r.split_ratio != null && Number.isFinite(Number(r.split_ratio)))
+            .map((r) => ({ ex_date: String(r.ex_date).slice(0, 10), split_ratio: Number(r.split_ratio) })),
+        );
+      } else {
+        setSplits([]);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load");
       setRows([]);
+      setSplits([]);
     } finally {
       setLoading(false);
     }
@@ -75,12 +107,33 @@ export function QuarterlyEarningsSection({ apiBase }: Props) {
       .sort((a, b) => a.asof_date.localeCompare(b.asof_date));
   }, [rows]);
 
+  /** Map each split ex-date to the first fiscal quarter bar at or after the split (X = YYYY-MM). */
+  const splitMarkers = useMemo(() => {
+    if (!chartData.length || !splits.length) return [];
+    const sorted = [...chartData].sort((a, b) => a.asof_date.localeCompare(b.asof_date));
+    const byLabel = new Map<string, string[]>();
+    for (const s of splits) {
+      const ex = s.ex_date.slice(0, 10);
+      const row = sorted.find((r) => r.asof_date >= ex);
+      if (!row) continue;
+      const t = formatSplitLabel(s.split_ratio);
+      if (!byLabel.has(row.label)) byLabel.set(row.label, []);
+      byLabel.get(row.label)!.push(t);
+    }
+    return Array.from(byLabel.entries()).map(([label, texts]) => {
+      const uniq = [...new Set(texts)];
+      const caption = uniq.length === 1 ? uniq[0]! : uniq.join(", ");
+      return { label, caption };
+    });
+  }, [chartData, splits]);
+
   return (
     <section style={{ marginTop: 36, textAlign: "left" }}>
       <h2 style={{ margin: "16px 0 8px", fontSize: "1.35rem" }}>Quarterly earnings (EPS)</h2>
       <p style={{ margin: "0 0 12px", fontSize: 14, color: "var(--text, #666)", maxWidth: 720 }}>
         Diluted EPS per fiscal quarter from SQLite fundamentals (<code>vm_fundamental_points</code>). Populate via the yfinance / SEC
-        fundamentals backfill for the chosen provider.
+        fundamentals backfill for the chosen provider. Orange dashed lines mark stock splits stored in <code>vm_stock_splits</code>{" "}
+        (sourced from yfinance when you load this chart or run the daily backfill).
       </p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end", marginBottom: 12 }}>
@@ -116,7 +169,7 @@ export function QuarterlyEarningsSection({ apiBase }: Props) {
       {chartData.length > 0 && (
         <div style={{ width: "100%", height: 320, marginTop: 8 }}>
           <ResponsiveContainer>
-            <BarChart data={chartData} margin={{ top: 8, right: 12, left: 8, bottom: 48 }}>
+            <BarChart data={chartData} margin={{ top: 28, right: 12, left: 8, bottom: 48 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.35} />
               <XAxis
                 dataKey="label"
@@ -135,6 +188,22 @@ export function QuarterlyEarningsSection({ apiBase }: Props) {
                   return p?.asof_date ? `Quarter end ${p.asof_date}` : "";
                 }}
               />
+              {splitMarkers.map((m) => (
+                <ReferenceLine
+                  key={`${m.label}-${m.caption}`}
+                  x={m.label}
+                  stroke="#ea580c"
+                  strokeDasharray="5 4"
+                  strokeWidth={1.5}
+                  isFront
+                  label={{
+                    value: m.caption,
+                    position: "top",
+                    fill: "#c2410c",
+                    fontSize: 10,
+                  }}
+                />
+              ))}
               <Bar dataKey="eps" name="Diluted EPS" fill="#3b7ddd" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

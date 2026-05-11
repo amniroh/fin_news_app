@@ -5,6 +5,7 @@ A FastAPI backend for helping users make healthy and sustainable investment deci
 """
 
 import os
+import sys
 import json
 import logging
 import asyncio
@@ -15,6 +16,9 @@ from dotenv import load_dotenv
 
 # Find and load .env file
 current_dir = Path(__file__).parent
+# Allow `import backend.main` / tooling imports when cwd is not `backend/`.
+if str(current_dir.resolve()) not in sys.path:
+    sys.path.insert(0, str(current_dir.resolve()))
 dotenv_path = current_dir / '.env'
 
 if not dotenv_path.exists():
@@ -52,6 +56,7 @@ import numpy as np
 # Value-metrics web app API
 from pathlib import Path as _Path
 from value_metrics_api import build_value_router
+from strategy_api import build_strategy_router
 
 # Import unified LLM service
 from llm_service import llm_service
@@ -72,6 +77,9 @@ _vm_db = _Path(os.getenv("VALUE_METRICS_DB_PATH", "backend/data/value_metrics.sq
 _vm_cache_ttl = int(os.getenv("VALUE_METRICS_CACHE_TTL_SECONDS", "1800"))
 value_router = build_value_router(db_path=_vm_db, cache_ttl_seconds=_vm_cache_ttl)
 app.include_router(value_router)
+
+# Strategies (quality + ML) snapshots and backtest metrics for the website.
+app.include_router(build_strategy_router())
 
 
 @app.on_event("startup")

@@ -220,6 +220,12 @@ def _compute_daily_metrics_for_symbol(
 
     # dividends for trailing 365d dividend yield (per share)
     t = yf.Ticker(sym)
+    try:
+        from value_metrics_stock_splits import persist_yfinance_splits_to_db
+
+        persist_yfinance_splits_to_db(con, sym)
+    except Exception:
+        pass
     div_series = _coerce_div_series(getattr(t, "dividends", None))
     if not div_series.empty:
         div_daily = div_series.reindex(closes.index, fill_value=0.0)

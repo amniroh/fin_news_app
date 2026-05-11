@@ -11,13 +11,24 @@ Rule used here:
     **smallest** ``(end - start)`` duration (single quarter).
   - **Annual** flow metrics: among facts with ``fp == 'FY'`` and the same ``end``, choose the
     **largest** duration (full fiscal year).
+  - Tie-break across same end+duration filings: latest ``filed`` date.
 Instant facts (balance sheet): facts without ``start``; tie-break by latest ``filed``.
 
-**EPS (quarterly):** prefer ``NetIncomeLoss / WeightedAverageNumberOfDilutedSharesOutstanding``
-(min-duration slice, same ``end`` as other flow facts). That keeps numerator and denominator on one
-basis and avoids mixed restated-vs-pre-split ``EarningsPerShareDiluted`` tags. If weighted-average
-share tags are missing, fall back to the diluted EPS tag plus split reconciliation (see
-``_reconcile_tag_eps_with_splits``), not a blind multiply/divide for every symbol.
+**EPS (split-adjusted to today's share basis).** SEC ``companyfacts`` returns each fact
+**as-filed**, in whatever per-share basis was current on the filing date. To reconcile against
+present-day series (Macrotrends, brokerage charts), we divide the picked tag value by the
+cumulative split ratio for splits with **ex-date strictly after the picked fact's ``filed``**.
+
+  - If a quarter was restated in a later post-split filing (the picker prefers latest ``filed``),
+    the picked value is already on the new basis and ``split_factor_after(filed) == 1.0`` →
+    no adjustment.
+  - If a quarter was never refiled after a later split (e.g. GOOGL 2017 Q1 vs the 2022 20:1
+    split), the picked value is on the old basis and we divide by the post-filing split factor.
+
+We prefer ``EarningsPerShareDiluted`` (min-duration quarter slice). If the tag is missing we
+fall back to ``NetIncomeLoss / WeightedAverageNumberOfDilutedSharesOutstanding`` and use the
+share-count fact's ``filed`` date as the split-adjustment reference (NI dollars are
+split-invariant; the share-count basis determines the resulting per-share basis).
 """
 
 from __future__ import annotations
@@ -43,10 +54,15 @@ def _utcnow_iso() -> str:
 
 
 def _sec_headers() -> Dict[str, str]:
+    """
+    SEC EDGAR rejects requests without a contact-style ``User-Agent``. Set
+    ``SEC_EDGAR_USER_AGENT`` in the environment to e.g. ``"value_metrics/1.0 you@example.com"``.
+    The default contains an email-shaped placeholder so a fresh checkout still gets through
+    SEC's UA filter (you should still configure a real address per their fair-use policy).
+    """
     ua = (os.getenv("SEC_EDGAR_USER_AGENT") or "").strip()
     if not ua:
-        ua = "market_analysis/1.0 (contact: set SEC_EDGAR_USER_AGENT in .env)"
-    # Avoid gzip so ``urlopen`` returns plain JSON without manual decompress.
+        ua = "value_metrics/1.0 set-SEC_EDGAR_USER_AGENT@example.com"
     return {"User-Agent": ua, "Accept-Encoding": "identity"}
 
 
@@ -93,16 +109,15 @@ def _http_get_json(url: str, *, timeout: float = 120) -> Any:
     return json.loads(raw.decode("utf-8"))
 
 
-def _load_ticker_cik_map() -> Dict[str, str]:
-    global _TICKERS_CIKS_CACHE, _TICKERS_FETCH_TS
-    now = time.time()
-    if _TICKERS_CIKS_CACHE is not None and (now - _TICKERS_FETCH_TS) < 86400:
-        return _TICKERS_CIKS_CACHE
-    url = "https://www.sec.gov/files/company_tickers.json"
-    try:
-        data = _http_get_json(url, timeout=60)
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as e:
-        raise RuntimeError(f"Failed to load SEC ticker map: {e}") from e
+def _ticker_map_cache_path() -> Path:
+    base = os.getenv("SEC_TICKER_MAP_CACHE_PATH")
+    if base:
+        return Path(base).expanduser()
+    here = Path(__file__).resolve().parent
+    return here / "data" / "sec_companyfacts_cache" / "company_tickers.json"
+
+
+def _parse_ticker_map_payload(data: Any) -> Dict[str, str]:
     rows: List[Dict[str, Any]]
     if isinstance(data, dict):
         rows = [v for v in data.values() if isinstance(v, dict)]
@@ -116,9 +131,53 @@ def _load_ticker_cik_map() -> Dict[str, str]:
         cik = row.get("cik_str")
         if t and cik is not None:
             out[t] = str(int(cik)).zfill(10)
+    return out
+
+
+def _load_ticker_cik_map() -> Dict[str, str]:
+    """
+    Ticker → 10-digit CIK map.
+
+    Priority: in-memory (24h) → live SEC fetch → on-disk cache (best-effort).
+    The disk cache lets backfills succeed when SEC briefly 403s, as long as a previous
+    successful fetch persisted ``company_tickers.json`` next to the companyfacts cache.
+    """
+    global _TICKERS_CIKS_CACHE, _TICKERS_FETCH_TS
+    now = time.time()
+    if _TICKERS_CIKS_CACHE is not None and (now - _TICKERS_FETCH_TS) < 86400:
+        return _TICKERS_CIKS_CACHE
+
+    cache_path = _ticker_map_cache_path()
+    url = "https://www.sec.gov/files/company_tickers.json"
+    out: Dict[str, str] = {}
+    fetch_err: Optional[BaseException] = None
+    try:
+        data = _http_get_json(url, timeout=60)
+        out = _parse_ticker_map_payload(data)
+        try:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(json.dumps(data), encoding="utf-8")
+        except Exception:
+            pass
+        time.sleep(0.15)
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as e:
+        fetch_err = e
+
+    if not out:
+        try:
+            if cache_path.is_file():
+                disk_data = json.loads(cache_path.read_text(encoding="utf-8"))
+                out = _parse_ticker_map_payload(disk_data)
+        except Exception:
+            pass
+
+    if not out:
+        raise RuntimeError(
+            f"Failed to load SEC ticker map (live fetch and disk cache both empty): {fetch_err}"
+        )
+
     _TICKERS_CIKS_CACHE = out
     _TICKERS_FETCH_TS = now
-    time.sleep(0.15)
     return out
 
 
@@ -212,6 +271,26 @@ def _collect_fy_end_dates(facts: Dict[str, Any], start_date: str, end_date: str)
     return ends
 
 
+def _flow_pick(
+    facts: Dict[str, Any],
+    tag: str,
+    end: str,
+    *,
+    annual: bool,
+    unit_preference: Sequence[str],
+) -> Optional[Dict[str, Any]]:
+    """Pick the full fact dict from the first tag/unit that has data for ``end``."""
+    for unit in unit_preference:
+        arr = _facts_for_tag_units(facts, tag, unit)
+        at_end = [x for x in arr if str(x.get("end") or "") == end]
+        if not at_end:
+            continue
+        picked = pick_flow_fact_same_end(at_end, annual=annual)
+        if picked and picked.get("val") is not None:
+            return picked
+    return None
+
+
 def _flow_value(
     facts: Dict[str, Any],
     tag: str,
@@ -220,16 +299,8 @@ def _flow_value(
     annual: bool,
     unit_preference: Sequence[str],
 ) -> Optional[float]:
-    """Pick value from first tag that has data for ``end``."""
-    for unit in unit_preference:
-        arr = _facts_for_tag_units(facts, tag, unit)
-        at_end = [x for x in arr if str(x.get("end") or "") == end]
-        if not at_end:
-            continue
-        picked = pick_flow_fact_same_end(at_end, annual=annual)
-        if picked and picked.get("val") is not None:
-            return float(picked["val"])
-    return None
+    p = _flow_pick(facts, tag, end, annual=annual, unit_preference=unit_preference)
+    return float(p["val"]) if (p and p.get("val") is not None) else None
 
 
 def _instant_value(facts: Dict[str, Any], tag: str, end: str, unit: str = "USD") -> Optional[float]:
@@ -289,70 +360,51 @@ def _free_cash_flow_value(facts: Dict[str, Any], end: str, *, annual: bool) -> O
     return op - capex
 
 
-def _weighted_average_diluted_shares(facts: Dict[str, Any], end: str, *, annual: bool) -> Optional[float]:
-    """
-    Diluted weighted-average shares for the same fiscal slice as other flow facts.
-
-    Prefer diluted-specific tags; fall back to combined basic+diluted only if needed.
-    Units vary by filer (usually ``shares``).
-    """
+def _weighted_average_diluted_shares_pick(
+    facts: Dict[str, Any], end: str, *, annual: bool
+) -> Optional[Dict[str, Any]]:
+    """Pick the diluted weighted-average shares fact for the same fiscal slice."""
     unit_pref = ("shares", "pure", "Shares")
     for tag in (
         "WeightedAverageNumberOfDilutedSharesOutstanding",
         "WeightedAverageNumberOfSharesOutstandingDiluted",
         "WeightedAverageNumberOfSharesOutstandingBasicAndDiluted",
     ):
-        v = _flow_value(facts, tag, end, annual=annual, unit_preference=unit_pref)
-        if v is not None and float(v) > 1e-6:
-            return float(v)
+        p = _flow_pick(facts, tag, end, annual=annual, unit_preference=unit_pref)
+        if p is not None and p.get("val") is not None and float(p["val"]) > 1e-6:
+            return p
     return None
 
 
-def _tag_eps_diluted(facts: Dict[str, Any], end: str, *, annual: bool) -> Optional[float]:
-    eps = _flow_value(
+def _weighted_average_diluted_shares(facts: Dict[str, Any], end: str, *, annual: bool) -> Optional[float]:
+    p = _weighted_average_diluted_shares_pick(facts, end, annual=annual)
+    return float(p["val"]) if (p and p.get("val") is not None) else None
+
+
+def _tag_eps_diluted_pick(facts: Dict[str, Any], end: str, *, annual: bool) -> Optional[Dict[str, Any]]:
+    p = _flow_pick(
         facts,
         "EarningsPerShareDiluted",
         end,
         annual=annual,
         unit_preference=("USD/shares", "USD/shares1"),
     )
-    if eps is None:
-        eps = _flow_value(
+    if p is None:
+        p = _flow_pick(
             facts,
             "EarningsPerShareBasic",
             end,
             annual=annual,
             unit_preference=("USD/shares", "USD/shares1"),
         )
-    return eps
+    return p
 
 
-def _reconcile_tag_eps_with_splits(*, tag_eps: float, split_factor_after_end: float) -> Tuple[float, str]:
-    """
-    SEC ``EarningsPerShareDiluted`` is sometimes on a pre-split per-share basis and sometimes already
-    restated after later splits. When we cannot use net income / weighted diluted shares, pick between
-    ``tag_eps`` and ``tag_eps / S`` using magnitude heuristics (works for common ~10–20:1 splits).
-    """
-    S = float(split_factor_after_end)
-    if S <= 1.001 or tag_eps is None:
-        return float(tag_eps), "tag_only"
-
-    adj = float(tag_eps) / S
-    a, b = float(tag_eps), adj
-
-    # Already looks like post-split "street scale" quarterly EPS; adjusted candidate implausibly tiny.
-    if abs(a) <= 12 and abs(b) < 0.2:
-        return a, "tag_restated_scale"
-
-    # Tag looks like pre-split dollars per old share; adjusted lands in normal quarterly range.
-    if abs(a) >= 8 and abs(b) <= 12 and abs(b) > 1e-9:
-        return b, "tag_presplit_scaled"
-
-    # Very large tag, smaller adjusted in plausible EPS band.
-    if abs(a) > 20 and abs(b) <= 15:
-        return b, "tag_presplit_scaled"
-
-    return a, "tag_default"
+def _filed_date(fact: Optional[Dict[str, Any]]) -> Optional[str]:
+    if not fact:
+        return None
+    f = str(fact.get("filed") or "").strip()
+    return f[:10] if f else None
 
 
 def _build_row(
@@ -365,27 +417,48 @@ def _build_row(
     annual: bool,
 ) -> Dict[str, Any]:
     facts = facts_json
+    sym_u = str(symbol).strip().upper()
     revenue = _revenue_value(facts, end, annual=annual)
     op_inc = _flow_value(facts, "OperatingIncomeLoss", end, annual=annual, unit_preference=("USD",))
-    net_income = _flow_value(facts, "NetIncomeLoss", end, annual=annual, unit_preference=("USD",))
-    wa_dil_shares = _weighted_average_diluted_shares(facts, end, annual=annual)
 
-    eps_tag = _tag_eps_diluted(facts, end, annual=annual)
+    ni_pick = _flow_pick(facts, "NetIncomeLoss", end, annual=annual, unit_preference=("USD",))
+    net_income = float(ni_pick["val"]) if (ni_pick and ni_pick.get("val") is not None) else None
+
+    shares_pick = _weighted_average_diluted_shares_pick(facts, end, annual=annual)
+    wa_dil_shares = (
+        float(shares_pick["val"]) if (shares_pick and shares_pick.get("val") is not None) else None
+    )
+
+    eps_pick = _tag_eps_diluted_pick(facts, end, annual=annual)
+    eps_tag = float(eps_pick["val"]) if (eps_pick and eps_pick.get("val") is not None) else None
+    eps_tag_filed = _filed_date(eps_pick)
+
+    eps_ni_over_wa: Optional[float] = None
+    if net_income is not None and wa_dil_shares is not None and abs(float(wa_dil_shares)) > 1e-9:
+        eps_ni_over_wa = float(net_income) / float(wa_dil_shares)
 
     eps: Optional[float]
     eps_method: str
-    split_factor_after_end = 1.0
-    eps_tag_reconcile_reason: Optional[str] = None
+    split_factor_after_filed: float = 1.0
+    split_ref_filed: Optional[str] = None
 
-    if net_income is not None and wa_dil_shares is not None and abs(float(wa_dil_shares)) > 1e-9:
-        eps = float(net_income) / float(wa_dil_shares)
-        eps_method = "net_income_over_weighted_avg_diluted_shares"
-    elif eps_tag is not None:
-        split_factor_after_end = _yf_split_factor_after(str(symbol).strip().upper(), str(end)[:10])
-        eps, eps_tag_reconcile_reason = _reconcile_tag_eps_with_splits(
-            tag_eps=float(eps_tag), split_factor_after_end=split_factor_after_end
-        )
-        eps_method = f"eps_tag_reconciled:{eps_tag_reconcile_reason}"
+    # Prefer GAAP diluted EPS tag — already published as a per-share number, no shares-basis
+    # reconstruction needed. Forward-split adjust by splits with ex-date strictly after the
+    # picked fact's ``filed``: if the latest filing was post-split, the value is on the new
+    # basis (S=1.0); if it was never refiled after a later split, divide by the split factor.
+    if eps_tag is not None:
+        split_ref_filed = eps_tag_filed or str(end)[:10]
+        split_factor_after_filed = _yf_split_factor_after(sym_u, split_ref_filed)
+        S = float(split_factor_after_filed) if split_factor_after_filed and split_factor_after_filed > 0 else 1.0
+        eps = float(eps_tag) / S
+        eps_method = "eps_tag_split_adjusted_after_filed"
+    elif eps_ni_over_wa is not None:
+        # NI dollars are split-invariant, so the per-share basis follows the picked share fact.
+        split_ref_filed = _filed_date(shares_pick) or _filed_date(ni_pick) or str(end)[:10]
+        split_factor_after_filed = _yf_split_factor_after(sym_u, split_ref_filed)
+        S = float(split_factor_after_filed) if split_factor_after_filed and split_factor_after_filed > 0 else 1.0
+        eps = float(eps_ni_over_wa) / S
+        eps_method = "ni_over_wa_shares_split_adjusted_after_filed"
     else:
         eps = None
         eps_method = "missing"
@@ -403,10 +476,10 @@ def _build_row(
     fcf = _free_cash_flow_value(facts, end, annual=annual)
 
     shares: Optional[float]
-    if wa_dil_shares is not None:
-        shares = float(wa_dil_shares)
-    elif net_income is not None and eps is not None and abs(float(eps)) > 1e-15:
+    if net_income is not None and eps is not None and abs(float(eps)) > 1e-15:
         shares = float(net_income) / float(eps)
+    elif wa_dil_shares is not None:
+        shares = float(wa_dil_shares)
     else:
         shares = None
 
@@ -421,9 +494,13 @@ def _build_row(
         "selection": "min_duration_flow_quarter" if not annual else "max_duration_flow_fy",
         "eps_method": eps_method,
         "eps_tag": eps_tag,
+        "eps_tag_filed": eps_tag_filed,
+        "eps_ni_over_weighted_avg_diluted_shares": eps_ni_over_wa,
         "weighted_avg_diluted_shares": wa_dil_shares,
-        "eps_tag_split_factor_after_end": split_factor_after_end,
-        "eps_tag_reconcile_reason": eps_tag_reconcile_reason,
+        "shares_filed": _filed_date(shares_pick),
+        "ni_filed": _filed_date(ni_pick),
+        "split_ref_filed": split_ref_filed,
+        "split_factor_after_filed": split_factor_after_filed,
         "concepts": {
             "revenue": ["us-gaap:Revenues", "us-gaap:SalesRevenueNet"],
             "operating_income": "us-gaap:OperatingIncomeLoss",
