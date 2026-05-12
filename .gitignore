@@ -44,3 +44,5 @@ backend/images/
 telegram_agent/data/
 telegram_agent/sessions/
 
+# Deployment bundles (too large for git)
+/dist/

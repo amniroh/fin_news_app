@@ -57,8 +57,18 @@ logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "backend" / "data"
-PRICE_CACHE_DIR = DATA_DIR / "sp500_prices"
-MODEL_DIR = DATA_DIR / "sp500_return_models"
+
+
+def _data_subdir(env_name: str, default_relative: str) -> Path:
+    """Allow remote/paper hosts to override artifact dirs without editing code."""
+    raw = (os.environ.get(env_name) or "").strip()
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return (DATA_DIR / default_relative).resolve()
+
+
+PRICE_CACHE_DIR = _data_subdir("SP500_PRICE_CACHE_DIR", "sp500_prices")
+MODEL_DIR = _data_subdir("SP500_MODEL_DIR", "sp500_return_models")
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 PRICE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
