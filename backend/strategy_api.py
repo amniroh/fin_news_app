@@ -375,4 +375,21 @@ def build_strategy_router() -> APIRouter:
             },
         }
 
+    @router.get("/walkforward/{cadence}")
+    def walkforward(cadence: str) -> Dict[str, Any]:
+        """Precomputed yearly walk-forward folds + aggregate mean / 95% CI (see walkforward JSON)."""
+        c = (cadence or "").strip().lower()
+        if c not in VALID_CADENCES:
+            raise HTTPException(status_code=400, detail=f"cadence must be one of {VALID_CADENCES}")
+        p = ML_DIR / f"walkforward_{c}.json"
+        if not p.is_file():
+            raise HTTPException(
+                status_code=404,
+                detail=f"missing {p.name}; run: python backend/sp500_return_model_walkforward.py --cadence {c}",
+            )
+        j = _load_json(p)
+        if j is None:
+            raise HTTPException(status_code=500, detail="failed to read walkforward JSON")
+        return j
+
     return router

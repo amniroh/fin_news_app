@@ -40,6 +40,7 @@ from rsi_mean_strategy import (
     evaluate_rsi_mean,
     save_artifacts as save_rsi_artifacts,
 )
+from sp500_return_model_walkforward import run_walk_forward, save_walk_forward_json
 from sp500_quality_evaluator import load_sp500_symbols
 
 
@@ -106,6 +107,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Don't also fit the rsi_mean baseline (default: run it for every cadence).",
     )
     ap.add_argument("--rsi-window-days", type=int, default=30, help="Window for averaging daily RSI(14).")
+    ap.add_argument(
+        "--walkforward",
+        action="store_true",
+        help="After each ML cadence, run yearly walk-forward (up to 20 test years) and save walkforward_{cadence}.json.",
+    )
+    ap.add_argument(
+        "--walkforward-no-tc",
+        action="store_true",
+        help="With --walkforward: disable transaction costs in walk-forward folds.",
+    )
+    ap.add_argument("--walkforward-max-folds", type=int, default=20)
+    ap.add_argument("--walkforward-min-train-rows", type=int, default=0, help="0 = use 300 if --smoke else 2000")
     args = ap.parse_args(list(argv) if argv is not None else None)
 
     cadences = _parse_cadences(args.cadence)
@@ -205,6 +218,43 @@ def main(argv: Sequence[str] | None = None) -> int:
             except Exception as e:
                 print(f"  [rsi_mean] failed: {e}", file=sys.stderr)
                 cad_summary["rsi_error"] = str(e)
+
+        if args.walkforward:
+            min_tr = (
+                int(args.walkforward_min_train_rows)
+                if int(args.walkforward_min_train_rows) > 0
+                else (300 if args.smoke else 2000)
+            )
+            wf_cfg = TrainConfig(
+                cadence=c,
+                symbols=symbols,
+                years=years,
+                split_train_frac=tf,
+                split_val_frac=vf,
+                split_test_frac=sf,
+                spy_risk_align_kappa_vol=float(args.spy_risk_kappa_vol),
+                spy_risk_align_kappa_beta=float(args.spy_risk_kappa_beta),
+                top_n=int(args.top_n),
+                benchmark=args.benchmark.upper(),
+                seed=int(args.seed),
+                weightings=weightings,
+                refresh_prices=False,
+                tc_enabled=not bool(args.walkforward_no_tc),
+            )
+            try:
+                payload = run_walk_forward(
+                    wf_cfg,
+                    prices=prices,
+                    max_folds=int(args.walkforward_max_folds),
+                    min_train_rows=min_tr,
+                )
+                wf_path = save_walk_forward_json(payload)
+                print(f"  [walkforward] wrote {wf_path.name} folds={payload.get('n_folds_completed')}", flush=True)
+                cad_summary["walkforward_path"] = str(wf_path)
+            except Exception as e:
+                print(f"  [walkforward] failed: {e}", file=sys.stderr)
+                cad_summary["walkforward_error"] = str(e)
+
         summary["cadences"][c] = cad_summary
 
     out_path = DATA_DIR / "sp500_return_models" / "training_summary.json"

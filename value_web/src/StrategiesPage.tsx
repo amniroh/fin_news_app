@@ -108,6 +108,41 @@ type SnapshotResponse = {
   ml_metrics: Record<string, unknown> | null;
 };
 
+type WalkforwardCiAgg = {
+  mean: number;
+  ci_low: number;
+  ci_high: number;
+  n: number;
+};
+
+type WalkforwardFold = {
+  test_year: number;
+  val_year?: number | null;
+  strategies?: Record<
+    string,
+    {
+      test_metrics?: MetricsBlock;
+      baseline_test_metrics?: MetricsBlock;
+    }
+  >;
+};
+
+type WalkforwardPayload = {
+  cadence: string;
+  top_n: number;
+  benchmark: string;
+  years_history: number;
+  n_folds_requested: number;
+  n_folds_completed: number;
+  min_train_rows: number;
+  transaction_cost_model?: {
+    slippage_one_way?: number;
+    commission_one_way_rate?: number;
+  };
+  folds?: WalkforwardFold[];
+  aggregate: Record<string, Record<string, WalkforwardCiAgg>>;
+};
+
 const FMT_PCT = (v: number | null | undefined, digits = 2): string =>
   v == null || Number.isNaN(v) ? "—" : `${(Number(v) * 100).toFixed(digits)}%`;
 const FMT_NUM = (v: number | null | undefined, digits = 3): string =>
@@ -155,6 +190,38 @@ const METRIC_COLS: { key: keyof MetricsBlock; label: string; fmt: (v: number | n
   { key: "ic", label: "Cross-section IC", fmt: (v) => FMT_NUM(v, 4) },
   { key: "turnover_avg", label: "Turnover", fmt: (v) => FMT_PCT(v, 1) },
 ];
+
+const WF_SID_ORDER = ["ml_equal", "ml_pred_weighted"];
+
+function walkforwardStrategyLabel(sid: string, strategyMeta: Record<string, StrategyMeta>): string {
+  if (sid === "ml_equal") return strategyMeta.ml?.label || "ML top-N (equal-weight)";
+  return strategyMeta[sid]?.label || sid;
+}
+
+function walkforwardStrategyColor(sid: string, strategyMeta: Record<string, StrategyMeta>): string {
+  if (sid === "ml_equal") return strategyMeta.ml?.color || "#38a169";
+  return strategyMeta[sid]?.color || "#4a5568";
+}
+
+function walkforwardSidSort(a: string, b: string): number {
+  const ia = WF_SID_ORDER.indexOf(a);
+  const ib = WF_SID_ORDER.indexOf(b);
+  const ra = ia === -1 ? 100 + WF_SID_ORDER.length : ia;
+  const rb = ib === -1 ? 100 + WF_SID_ORDER.length : ib;
+  if (ra !== rb) return ra - rb;
+  return a.localeCompare(b);
+}
+
+function formatWalkforwardCi(
+  col: (typeof METRIC_COLS)[number],
+  agg: WalkforwardCiAgg | undefined,
+): string {
+  if (!agg || !Number.isFinite(agg.mean)) return "—";
+  const m = col.fmt(agg.mean);
+  const lo = col.fmt(agg.ci_low);
+  const hi = col.fmt(agg.ci_high);
+  return `${m} [${lo}, ${hi}]`;
+}
 
 function ColorSwatch({ color }: { color: string }) {
   return (
@@ -533,6 +600,240 @@ function CompareEquityChart({
         hiddenKeys={hiddenKeys}
         onToggleSeries={toggleSeries}
       />
+    </div>
+  );
+}
+
+function WalkForwardPanel({
+  apiBase,
+  cadence,
+  strategyMeta,
+}: {
+  apiBase: string;
+  cadence: "daily" | "weekly" | "monthly";
+  strategyMeta: Record<string, StrategyMeta>;
+}) {
+  const [payload, setPayload] = useState<WalkforwardPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      setLoading(true);
+      setError(null);
+      setPayload(null);
+      try {
+        const r = await fetch(`${apiBase}/strategy/walkforward/${cadence}`);
+        if (r.status === 404) {
+          let detail = "Walk-forward JSON not found.";
+          try {
+            const j = (await r.json()) as { detail?: string };
+            if (typeof j.detail === "string") detail = j.detail;
+          } catch {
+            /* ignore */
+          }
+          if (!cancelled) setError(detail);
+          return;
+        }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const j = (await r.json()) as WalkforwardPayload;
+        if (!cancelled) setPayload(j);
+      } catch (e: unknown) {
+        if (!cancelled) setError(errMessage(e) || "Failed to load walk-forward results");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, cadence]);
+
+  return (
+    <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid #e2e8f0" }}>
+      <h3 style={{ margin: "0 0 8px" }}>Yearly walk-forward (out-of-sample)</h3>
+      <p style={{ margin: "0 0 14px", fontSize: 13, color: "#555", lineHeight: 1.45 }}>
+        When generated, this section loads precomputed folds: each test window is one calendar year, the prior year is
+        validation, and all earlier rows train the model. Up to 20 of the most recent eligible years are used (fewer if
+        history is shorter or the minimum training length is not met). Table cells show the mean and 95% interval
+        (Student&nbsp;t) of each metric <em>across those test years</em> (cross-fold uncertainty). Portfolio returns use
+        one-way slippage and commission on rebalance turnover from{" "}
+        <code style={{ fontSize: 12 }}>backend/data/transaction_costs_us.json</code> when present.
+      </p>
+      {loading && <div style={{ fontSize: 13 }}>Loading walk-forward…</div>}
+      {error && (
+        <div
+          style={{
+            color: "#744210",
+            background: "#fffbeb",
+            border: "1px solid #f6e05e",
+            borderRadius: 8,
+            padding: "10px 12px",
+            fontSize: 13,
+          }}
+        >
+          {error}
+        </div>
+      )}
+      {payload && (() => {
+        const sids = Object.keys(payload.aggregate || {}).sort(walkforwardSidSort);
+        const sampleSid = sids[0];
+        const agg0 = sampleSid ? payload.aggregate[sampleSid] : undefined;
+        const wfCols = METRIC_COLS.filter((c) => {
+          const k = `strategy_${String(c.key)}`;
+          return agg0?.[k] != null && Number.isFinite(agg0[k]!.mean);
+        });
+        const slip = payload.transaction_cost_model?.slippage_one_way;
+        const comm = payload.transaction_cost_model?.commission_one_way_rate;
+        const firstSid = sids[0];
+        const baselineBlock = firstSid ? payload.aggregate[firstSid] : undefined;
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontSize: 13, color: "#444" }}>
+              <strong>{payload.n_folds_completed}</strong> of {payload.n_folds_requested} requested folds completed ·
+              top_n={payload.top_n} · benchmark={payload.benchmark} · min train rows={payload.min_train_rows} · loaded{" "}
+              {payload.years_history}y history
+              {slip != null && comm != null && (
+                <>
+                  {" "}
+                  · TC one-way: slippage {(Number(slip) * 100).toFixed(2)}% + commission {(Number(comm) * 100).toFixed(3)}
+                  %
+                </>
+              )}
+            </div>
+            {wfCols.length === 0 ? (
+              <div style={{ color: "#666" }}>No aggregate metrics in walk-forward payload.</div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ddd" }}>Variant</th>
+                      {wfCols.map((c) => (
+                        <th
+                          key={String(c.key)}
+                          style={{
+                            textAlign: "right",
+                            padding: 8,
+                            borderBottom: "1px solid #ddd",
+                            whiteSpace: "nowrap",
+                            maxWidth: 220,
+                          }}
+                        >
+                          {c.label}
+                          <div style={{ fontWeight: 400, fontSize: 10, color: "#718096" }}>mean [95% CI]</div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sids.map((sid) => {
+                      const color = walkforwardStrategyColor(sid, strategyMeta);
+                      const label = walkforwardStrategyLabel(sid, strategyMeta);
+                      const row = payload.aggregate[sid] || {};
+                      return (
+                        <tr key={sid}>
+                          <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: 600, color }}>
+                            <ColorSwatch color={color} /> {label}
+                          </td>
+                          {wfCols.map((c) => (
+                            <td
+                              key={`${sid}-${String(c.key)}`}
+                              style={{
+                                padding: 8,
+                                borderBottom: "1px solid #f0f0f0",
+                                textAlign: "right",
+                                fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                                fontSize: 12,
+                                verticalAlign: "top",
+                              }}
+                            >
+                              {formatWalkforwardCi(c, row[`strategy_${String(c.key)}`])}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                    <tr>
+                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: 600, color: "#718096" }}>
+                        <ColorSwatch color="#718096" /> {payload.benchmark} (buy-and-hold baseline)
+                      </td>
+                      {wfCols.map((c) => (
+                        <td
+                          key={`baseline-${String(c.key)}`}
+                          style={{
+                            padding: 8,
+                            borderBottom: "1px solid #f0f0f0",
+                            textAlign: "right",
+                            fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                            fontSize: 12,
+                            verticalAlign: "top",
+                          }}
+                        >
+                          {formatWalkforwardCi(c, baselineBlock?.[`baseline_${String(c.key)}`])}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {payload.folds && payload.folds.length > 0 && (
+              <details style={{ fontSize: 13 }}>
+                <summary style={{ cursor: "pointer", fontWeight: 600 }}>Per-fold test-year total return</summary>
+                <div style={{ marginTop: 10, overflowX: "auto" }}>
+                  <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #ddd" }}>Test year</th>
+                        <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #ddd" }}>Val year</th>
+                        {sids.map((sid) => (
+                          <th
+                            key={sid}
+                            style={{ textAlign: "right", padding: 6, borderBottom: "1px solid #ddd", fontSize: 12 }}
+                          >
+                            {walkforwardStrategyLabel(sid, strategyMeta)}
+                            <div style={{ fontWeight: 400, fontSize: 10, color: "#718096" }}>strategy / {payload.benchmark}</div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payload.folds.map((fold) => (
+                        <tr key={fold.test_year}>
+                          <td style={{ padding: 6, borderBottom: "1px solid #f5f5f5" }}>{fold.test_year}</td>
+                          <td style={{ padding: 6, borderBottom: "1px solid #f5f5f5" }}>{fold.val_year ?? "—"}</td>
+                          {sids.map((sid) => {
+                            const b = fold.strategies?.[sid];
+                            const tr = b?.test_metrics?.total_return;
+                            const br = b?.baseline_test_metrics?.total_return;
+                            return (
+                              <td
+                                key={`${fold.test_year}-${sid}`}
+                                style={{
+                                  padding: 6,
+                                  borderBottom: "1px solid #f5f5f5",
+                                  textAlign: "right",
+                                  fontFamily: "ui-monospace, monospace",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {FMT_PCT(tr)} / {FMT_PCT(br)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -917,6 +1218,7 @@ export function StrategiesPage({ apiBase }: { apiBase: string }) {
           </div>
 
           <CompareView apiBase={apiBase} cadence={cadence} strategyMeta={list.strategy_meta || {}} />
+          <WalkForwardPanel apiBase={apiBase} cadence={cadence} strategyMeta={list.strategy_meta || {}} />
 
           <hr style={{ margin: "24px 0", border: 0, borderTop: "1px solid #e2e8f0" }} />
           <h3 style={{ margin: "0 0 8px" }}>Drill-in: current portfolio per variant</h3>

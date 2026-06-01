@@ -256,16 +256,25 @@ def load_prices(
     refresh: bool = False,
     batch_size: int = 80,
     sleep_s: float = 0.4,
+    max_staleness_days: int = 4,
+    fallback_to_stale_cache: bool = True,
 ) -> Dict[str, pd.DataFrame]:
-    """Load adjusted daily OHLCV for ``symbols``, caching on disk in parquet."""
+    """Load adjusted daily OHLCV for ``symbols``, caching on disk in parquet.
+
+    ``fallback_to_stale_cache``: when True (default), if a cached series is past the
+    ``max_staleness_days`` window we still try to refresh — but if the refresh fails (e.g.
+    yfinance is throttling), we fall back to the stale cached data instead of dropping the
+    symbol from the returned universe. This keeps walk-forward evaluation deterministic
+    across runs when only a subset of symbols can be refreshed.
+    """
     end = datetime.now(timezone.utc).date()
     start = end - timedelta(days=int(years * 365.25) + 30)
     end_iso = (end + timedelta(days=1)).isoformat()
     start_iso = start.isoformat()
     out: Dict[str, pd.DataFrame] = {}
     todo: List[str] = []
+    stale_fallback: Dict[str, pd.DataFrame] = {}
     syms = [_yahoo_symbol(s) for s in symbols]
-    # If the cache doesn't span the requested window we MUST re-download.
     earliest_required = pd.Timestamp(start) + pd.Timedelta(days=14)
     for s in syms:
         if not refresh:
@@ -273,11 +282,13 @@ def load_prices(
             if cached is not None and not cached.empty:
                 last = pd.Timestamp(cached.index.max())
                 first = pd.Timestamp(cached.index.min())
-                fresh = last.date() >= end - timedelta(days=4)
+                fresh = last.date() >= end - timedelta(days=int(max_staleness_days))
                 deep_enough = first <= earliest_required
                 if fresh and deep_enough:
                     out[s] = cached
                     continue
+                if deep_enough and fallback_to_stale_cache:
+                    stale_fallback[s] = cached
         todo.append(s)
     if todo:
         for i in range(0, len(todo), batch_size):
@@ -294,6 +305,16 @@ def load_prices(
                 out[sym] = df
             time.sleep(sleep_s)
             print(f"  downloaded prices {min(i + batch_size, len(todo))}/{len(todo)}", file=sys.stderr)
+    # Symbols whose refresh failed but which had usable (just slightly stale) cached data
+    # are restored here so the universe stays stable across runs.
+    if fallback_to_stale_cache and stale_fallback:
+        used_fallback = 0
+        for sym, df in stale_fallback.items():
+            if sym not in out:
+                out[sym] = df
+                used_fallback += 1
+        if used_fallback:
+            print(f"  using stale cache for {used_fallback} symbols whose refresh failed", file=sys.stderr)
     return out
 
 
@@ -499,14 +520,27 @@ def _build_predictions_panel(
     )
 
 
-def _compute_basket_weights(scores: np.ndarray, *, weighting: str) -> np.ndarray:
+def _compute_basket_weights(
+    scores: np.ndarray,
+    *,
+    weighting: str,
+    score_weighted_scheme: str = "rank_decay",
+) -> np.ndarray:
     """Per-rebalance weights for a top-N basket.
 
     Conventions:
-      - ``weighting='equal'``      → 1/N each.
-      - ``weighting='score_weighted'`` → linear in score (predicted profit). We shift to
-        non-negative before normalising so a basket with mixed-sign predictions still
-        produces a long-only allocation that emphasises the highest expected return.
+      - ``weighting='equal'``         → 1/N each.
+      - ``weighting='score_weighted'`` → rank-decay: the i-th best name (1-indexed
+        rank ``r_i``) gets weight ∝ ``(N + 1 − r_i)``. This is monotone in the
+        predicted return (highest prediction → highest weight) but it does NOT
+        blow up when scores are clustered near zero or when the lowest prediction
+        is a noisy outlier (those failure modes plagued the previous
+        ``shifted-positive linear`` formulation). The top pick gets ~2× the weight
+        of the median pick and ~N× the weight of the bottom pick in the basket —
+        a moderate, stable concentration on the best predictions.
+
+    Scores entering this function are assumed to already be sorted descending
+    (highest predicted return first), as produced by :func:`_run_strategy_backtest`.
     """
     n = len(scores)
     if n == 0:
@@ -515,12 +549,83 @@ def _compute_basket_weights(scores: np.ndarray, *, weighting: str) -> np.ndarray
         return np.ones(n) / n
     if weighting == "score_weighted":
         s = np.asarray(scores, dtype=float)
-        shifted = s - np.min(s) + 1e-6
-        total = float(np.sum(shifted))
-        if not np.isfinite(total) or total <= 0.0:
-            return np.ones(n) / n
-        return shifted / total
+        if n == 1:
+            return np.ones(1)
+        scheme = str(score_weighted_scheme or "rank_decay").strip().lower()
+        if scheme in ("linear", "linear_shifted", "legacy"):
+            shifted = s - np.min(s) + 1e-6
+            total = float(np.sum(shifted))
+            if not np.isfinite(total) or total <= 0.0:
+                return np.ones(n) / n
+            return shifted / total
+        if scheme in ("rank_decay", "rank", "default"):
+            ranks = pd.Series(s).rank(ascending=False, method="average").to_numpy(dtype=float)
+            w = (float(n) + 1.0 - ranks)
+            total = float(np.sum(w))
+            if not np.isfinite(total) or total <= 0.0:
+                return np.ones(n) / n
+            return w / total
+        raise ValueError(f"unknown score_weighted_scheme {score_weighted_scheme!r}")
     raise ValueError(f"unknown weighting {weighting!r}")
+
+
+def _smooth_panel_predictions(panel: pd.DataFrame, *, k: int, score_col: str = "pred") -> pd.DataFrame:
+    """Causally smooth predictions per symbol over the last ``k`` rebalance dates.
+
+    Daily 1-day forward returns are dominated by noise; averaging predictions across the
+    most recent ``k`` observations per symbol reduces day-to-day prediction churn and the
+    associated turnover, while preserving the cross-sectional ordering produced by the
+    model. Smoothing is strictly causal: at date ``t`` we average ``pred(t), pred(t-1),
+    …, pred(t-k+1)`` for that symbol. When ``k <= 1`` this is a no-op.
+    """
+    if int(k) <= 1:
+        return panel
+    out = panel.sort_values(["symbol", "date"]).copy()
+    out[score_col] = (
+        out.groupby("symbol")[score_col]
+        .transform(lambda s: s.rolling(int(k), min_periods=1).mean())
+    )
+    return out
+
+
+def _spy_trend_mask(spy_close: pd.Series, dates: pd.DatetimeIndex, ma_days: int) -> pd.Series:
+    """Return a boolean series indexed by ``dates``: True ⇔ SPY close at that date
+    is at or above its trailing ``ma_days`` simple moving average (i.e. "risk on").
+
+    The SMA is computed from daily SPY closes and read as-of the rebalance date (no
+    look-ahead). When SPY history is missing for a date we conservatively treat it
+    as risk-on (mask=True) so the strategy doesn't accidentally sit in cash.
+    """
+    if spy_close is None or len(spy_close) == 0 or int(ma_days) <= 1:
+        return pd.Series(True, index=dates)
+    ma = spy_close.rolling(int(ma_days), min_periods=max(20, int(ma_days) // 2)).mean()
+    risk_on = (spy_close >= ma).reindex(pd.DatetimeIndex(spy_close.index))
+    aligned = risk_on.reindex(pd.DatetimeIndex(dates), method="ffill")
+    return aligned.fillna(True).astype(bool)
+
+
+def _inverse_vol_weights(basket: List[str], dt: pd.Timestamp, close_df: pd.DataFrame, lookback: int = 63) -> Optional[np.ndarray]:
+    """Inverse-volatility weights: ``w_i ∝ 1/σ_i`` using trailing ``lookback`` daily log-returns.
+
+    This is a standard low-vol portfolio tilt: stocks with calmer realised vol get more weight,
+    so the basket's overall volatility (and drawdown) is dampened without changing which names
+    we hold. Returns None if any volatility is missing/zero — caller falls back to equal weights.
+    """
+    try:
+        sub = close_df.loc[close_df.index <= dt, basket].iloc[-(lookback + 1):]
+        if len(sub) < max(20, lookback // 3):
+            return None
+        log_r = np.log(sub / sub.shift(1)).dropna(how="all")
+        vol = log_r.std(ddof=0).reindex(basket)
+        if not np.all(np.isfinite(vol.values)) or float(np.nanmin(vol.values)) <= 0:
+            return None
+        inv = 1.0 / vol.values
+        total = float(np.nansum(inv))
+        if not np.isfinite(total) or total <= 0:
+            return None
+        return inv / total
+    except Exception:
+        return None
 
 
 def _run_strategy_backtest(
@@ -531,14 +636,50 @@ def _run_strategy_backtest(
     top_n: int,
     weighting: str = "equal",
     score_col: str = "pred",
+    tc_slippage_one_way: float = 0.0,
+    tc_commission_one_way_rate: float = 0.0,
+    pred_smoothing_days: int = 0,
+    trend_filter_enabled: bool = False,
+    trend_filter_ma_days: int = 200,
+    trend_filter_fallback_symbol: str = "SPY",
+    inverse_vol_blend: float = 0.0,
+    inverse_vol_lookback_days: int = 63,
+    score_weighted_scheme: str = "rank_decay",
 ) -> Dict[str, Any]:
     """Long-only top-N backtest rebalanced at each cadence date.
 
     ``score_col`` is the column in ``panel`` used to rank symbols (higher = buy).
     ``weighting`` is forwarded to :func:`_compute_basket_weights`.
+
+    Transaction costs (optional): on each rebalance, one-way turnover in *weight space*
+    times ``tc_slippage_one_way + tc_commission_one_way_rate`` is subtracted from the
+    first daily portfolio return of the subsequent holding window (simple friction model).
+
+    Risk controls:
+      - ``pred_smoothing_days`` (≥2): smooth predictions causally per symbol across the
+        last K rebalance dates before ranking. Reduces noise-driven churn in daily
+        cadence; turnover drops without changing the underlying signal.
+      - ``trend_filter_enabled``: when True, at each rebalance date check whether the
+        market benchmark (``trend_filter_fallback_symbol``, default SPY) closed at or
+        above its trailing SMA(``trend_filter_ma_days``). When *below* the SMA the
+        market is judged to be in a downtrend and the basket for the upcoming holding
+        window is replaced with a 100%-weight position in the benchmark itself (default
+        SPY). This keeps the strategy in the market in bull regimes (so it can capture
+        alpha) while defending against the catastrophic drawdowns that long-only
+        cross-sectional momentum models suffer in bear regimes (2008, 2020Q1, 2022).
+      - ``inverse_vol_blend`` (0..1): blend the chosen `weighting` with inverse-volatility
+        weights (lookback = ``inverse_vol_lookback_days``). ``w = (1-α)·w_chosen + α·w_invvol``.
+        A low-vol tilt is a textbook drawdown dampener — names with calmer realised vol
+        absorb less of any sell-off — and is essentially free in expected return when applied
+        to a basket whose members already share a high predicted-return rank.
     """
     horizon = CADENCE_HORIZON_DAYS[cadence]
+    if int(pred_smoothing_days) > 1:
+        panel = _smooth_panel_predictions(panel, k=int(pred_smoothing_days), score_col=score_col)
     use_syms = set(panel["symbol"].unique())
+    bench_sym = _yahoo_symbol(trend_filter_fallback_symbol)
+    if trend_filter_enabled and bench_sym in prices:
+        use_syms.add(bench_sym)
     closes = {}
     for s, df in prices.items():
         if s in use_syms:
@@ -551,25 +692,61 @@ def _run_strategy_backtest(
     if len(rebal_dates) < 2:
         raise RuntimeError("not enough rebalance dates for backtest")
 
+    # Pre-compute the trend mask for the union of rebal dates (cheap; SPY close is small).
+    if trend_filter_enabled and bench_sym in prices:
+        spy_close = pd.to_numeric(prices[bench_sym]["Close"], errors="coerce")
+        trend_on_series = _spy_trend_mask(spy_close, rebal_dates, int(trend_filter_ma_days))
+    else:
+        trend_on_series = pd.Series(True, index=rebal_dates)
+
     daily_returns = close_df.pct_change()
     port_rets: List[pd.Series] = []
     turnover_vals: List[float] = []
+    risk_off_count = 0
     prev_basket: Optional[set] = None
+    prev_weights: Optional[Dict[str, float]] = None
+    tc_rate = float(tc_slippage_one_way) + float(tc_commission_one_way_rate)
+    iv_alpha = float(max(0.0, min(1.0, inverse_vol_blend)))
+    iv_lb = int(max(20, inverse_vol_lookback_days))
     for i, dt in enumerate(rebal_dates):
-        block = panel[panel["date"] == dt].sort_values(score_col, ascending=False)
-        block = block[block["symbol"].isin(close_df.columns)]
-        if block.empty:
-            continue
-        head = block.head(top_n)
-        basket = head["symbol"].tolist()
-        scores = head[score_col].values.astype(float)
-        weights = _compute_basket_weights(scores, weighting=weighting)
+        is_risk_on = bool(trend_on_series.loc[dt]) if dt in trend_on_series.index else True
+        if is_risk_on:
+            block = panel[panel["date"] == dt].sort_values(score_col, ascending=False)
+            block = block[block["symbol"].isin(close_df.columns)]
+            if block.empty:
+                continue
+            head = block.head(top_n)
+            basket = head["symbol"].tolist()
+            scores = head[score_col].values.astype(float)
+            weights = _compute_basket_weights(
+                scores, weighting=weighting, score_weighted_scheme=score_weighted_scheme
+            )
+            if iv_alpha > 0.0 and len(basket) > 1:
+                iv = _inverse_vol_weights(basket, dt, close_df, lookback=iv_lb)
+                if iv is not None and len(iv) == len(weights):
+                    weights = (1.0 - iv_alpha) * weights + iv_alpha * iv
+                    s = float(weights.sum())
+                    if s > 0:
+                        weights = weights / s
+        else:
+            risk_off_count += 1
+            if bench_sym not in close_df.columns:
+                continue
+            basket = [bench_sym]
+            weights = np.array([1.0], dtype=float)
         if prev_basket is None:
             turnover_vals.append(1.0)
         else:
             inter = len(set(basket) & prev_basket)
-            turnover_vals.append(1.0 - inter / max(1, top_n))
+            turnover_vals.append(1.0 - inter / max(1, len(basket)))
         prev_basket = set(basket)
+        new_w = {str(basket[j]): float(weights[j]) for j in range(len(basket))}
+        if prev_weights is None:
+            one_way_w = 1.0
+        else:
+            syms = set(prev_weights.keys()) | set(new_w.keys())
+            one_way_w = float(sum(max(0.0, new_w.get(s, 0.0) - prev_weights.get(s, 0.0)) for s in syms))
+        prev_weights = dict(new_w)
         next_dt = rebal_dates[i + 1] if i + 1 < len(rebal_dates) else None
         idx_mask = (daily_returns.index > dt)
         if next_dt is not None:
@@ -580,9 +757,11 @@ def _run_strategy_backtest(
         sub = daily_returns.loc[idx_mask, basket].fillna(0.0)
         if sub.empty:
             continue
-        # Weighted portfolio return: sum_i w_i * r_i,t
-        port = (sub.values * weights[None, :]).sum(axis=1)
-        port_rets.append(pd.Series(port, index=sub.index))
+        port_arr = (sub.values * weights[None, :]).sum(axis=1).astype(float, copy=True)
+        if tc_rate > 0.0 and one_way_w > 0.0 and len(port_arr) > 0:
+            drag = float(one_way_w) * tc_rate
+            port_arr[0] -= drag
+        port_rets.append(pd.Series(port_arr, index=sub.index))
     if not port_rets:
         raise RuntimeError("backtest produced no return observations")
     series = pd.concat(port_rets).sort_index()
@@ -592,6 +771,12 @@ def _run_strategy_backtest(
         "rebal_dates": rebal_dates,
         "turnover_avg": float(np.mean(turnover_vals)) if turnover_vals else float("nan"),
         "weighting": weighting,
+        "trend_filter_enabled": bool(trend_filter_enabled),
+        "trend_filter_ma_days": int(trend_filter_ma_days) if trend_filter_enabled else 0,
+        "trend_filter_risk_off_rebalances": int(risk_off_count),
+        "pred_smoothing_days": int(pred_smoothing_days),
+        "inverse_vol_blend": float(iv_alpha),
+        "inverse_vol_lookback_days": int(iv_lb),
     }
 
 
@@ -662,16 +847,50 @@ class TrainConfig:
     split_train_frac: float = 0.5
     split_val_frac: float = 0.25
     split_test_frac: float = 0.25
-    """Weighted MSE toward SPY-like risk (rolling vol ratio ~1, beta ~1). Set both to 0 to disable."""
-    spy_risk_align_kappa_vol: float = 2.0
-    spy_risk_align_kappa_beta: float = 1.0
-    top_n: int = 50
+    """Weighted MSE toward SPY-like risk (rolling vol ratio ~1, beta ~1). Set both to 0 to disable.
+
+    Defaults are intentionally **off for the vol term** and **mild for the beta term**:
+    aggressively pulling the regressor toward SPY-vol/SPY-beta names crushes the alpha the
+    cross-sectional model would otherwise capture (the top-N basket should diverge from SPY
+    by design — that is the source of excess return). The trend filter (see below) and
+    the SPY-buy-and-hold fallback in bear regimes give us drawdown control without
+    penalising the regression itself.
+    """
+    spy_risk_align_kappa_vol: float = 0.0
+    spy_risk_align_kappa_beta: float = 0.5
+    top_n: int = 20
     benchmark: str = "SPY"
     seed: int = 7
     refresh_prices: bool = False
     # Which weighting variants to backtest+save. The model itself is the same; only the
     # portfolio construction differs. Each variant gets its own metrics JSON.
     weightings: Tuple[str, ...] = ("equal", "score_weighted")
+    # Transaction costs (see backend/data/transaction_costs_us.json; file overrides defaults).
+    tc_slippage_one_way: float = 0.001
+    tc_commission_one_way_rate: float = 0.0002
+    tc_enabled: bool = True
+    """Causal smoothing of the predictions across rebalances (per symbol).
+
+    For daily cadence (forecast horizon = 1 day) the model output is dominated by noise
+    so we smooth predictions across the last K rebalance dates. ``0`` or ``1`` disables
+    smoothing. Weekly/monthly cadences default to off because the horizon already
+    incorporates substantial averaging.
+    """
+    pred_smoothing_days: int = 0
+    """Trend filter: when SPY is below its trailing simple moving average we switch the
+    portfolio for that holding window to a 100% SPY position. This caps strategy-specific
+    drawdown to roughly the SPY drawdown in regimes where long-only cross-sectional
+    momentum signals are known to fail (2008, 2020Q1, 2022)."""
+    trend_filter_enabled: bool = True
+    trend_filter_ma_days: int = 200
+    score_weighted_scheme: str = "rank_decay"
+    """Inverse-volatility blend (0..1) applied on top of the per-basket weighting. Set ≥ 0
+    to mix in inverse-vol weights as a low-vol tilt; in our 10-fold daily walk-forward
+    this dampened tail returns more than it dampened drawdowns (the trend filter is
+    already absorbing the bulk of the regime risk), so the default is **off** and the
+    knob is exposed for ablation."""
+    inverse_vol_blend: float = 0.0
+    inverse_vol_lookback_days: int = 63
 
 
 @dataclass
@@ -744,6 +963,23 @@ _STRATEGY_ID_BY_WEIGHTING = {
 }
 
 
+def resolve_transaction_cost_rates(cfg: TrainConfig) -> Tuple[float, float]:
+    """Slippage + commission (per weight-turnover side) applied in :func:`_run_strategy_backtest`."""
+    if not cfg.tc_enabled:
+        return 0.0, 0.0
+    slip = float(cfg.tc_slippage_one_way)
+    comm = float(cfg.tc_commission_one_way_rate)
+    tcp = REPO_ROOT / "backend" / "data" / "transaction_costs_us.json"
+    if tcp.is_file():
+        try:
+            tcj = json.loads(tcp.read_text(encoding="utf-8"))
+            slip = float(tcj.get("slippage_one_way", slip))
+            comm = float(tcj.get("commission_one_way_rate", comm))
+        except Exception:
+            pass
+    return slip, comm
+
+
 def train_one_cadence(
     cfg: TrainConfig,
     prices: Optional[Dict[str, pd.DataFrame]] = None,
@@ -765,6 +1001,8 @@ def train_one_cadence(
         )
     if cfg.benchmark not in prices:
         raise RuntimeError(f"benchmark {cfg.benchmark!r} not loaded")
+
+    slip, comm = resolve_transaction_cost_rates(cfg)
 
     ds = build_dataset(
         prices,
@@ -850,25 +1088,49 @@ def train_one_cadence(
 
     universe_size = int(len([s for s in prices.keys() if s != cfg.benchmark]))
 
+    bt_kwargs: Dict[str, Any] = {
+        "cadence": cfg.cadence,
+        "top_n": cfg.top_n,
+        "tc_slippage_one_way": slip,
+        "tc_commission_one_way_rate": comm,
+        "pred_smoothing_days": int(cfg.pred_smoothing_days),
+        "trend_filter_enabled": bool(cfg.trend_filter_enabled),
+        "trend_filter_ma_days": int(cfg.trend_filter_ma_days),
+        "trend_filter_fallback_symbol": cfg.benchmark,
+        "inverse_vol_blend": float(cfg.inverse_vol_blend),
+        "inverse_vol_lookback_days": int(cfg.inverse_vol_lookback_days),
+        "score_weighted_scheme": str(getattr(cfg, "score_weighted_scheme", "rank_decay")),
+    }
     results: List[TrainResult] = []
     for weighting in cfg.weightings:
         try:
-            train_bt = _run_strategy_backtest(train_panel, prices, cadence=cfg.cadence, top_n=cfg.top_n, weighting=weighting)
-            val_bt = _run_strategy_backtest(val_panel, prices, cadence=cfg.cadence, top_n=cfg.top_n, weighting=weighting)
-            test_bt = _run_strategy_backtest(test_panel, prices, cadence=cfg.cadence, top_n=cfg.top_n, weighting=weighting)
+            train_bt = _run_strategy_backtest(train_panel, prices, weighting=weighting, **bt_kwargs)
+            val_bt = _run_strategy_backtest(val_panel, prices, weighting=weighting, **bt_kwargs)
+            test_bt = _run_strategy_backtest(test_panel, prices, weighting=weighting, **bt_kwargs)
         except Exception as e:
             logger.warning("backtest failed for weighting=%s: %s", weighting, e)
             continue
 
+        risk_meta = {
+            "trend_filter_enabled": bool(cfg.trend_filter_enabled),
+            "trend_filter_ma_days": int(cfg.trend_filter_ma_days) if cfg.trend_filter_enabled else 0,
+            "pred_smoothing_days": int(cfg.pred_smoothing_days),
+        }
         train_metrics = _summary_metrics(train_bt["returns"])
         train_metrics["ic"] = train_ic
         train_metrics["turnover_avg"] = train_bt["turnover_avg"]
+        train_metrics["transaction_cost_model"] = {"slippage_one_way": slip, "commission_one_way_rate": comm}
+        train_metrics["risk_controls"] = dict(risk_meta, trend_filter_risk_off_rebalances=int(train_bt.get("trend_filter_risk_off_rebalances", 0)))
         val_metrics = _summary_metrics(val_bt["returns"])
         val_metrics["ic"] = val_ic
         val_metrics["turnover_avg"] = val_bt["turnover_avg"]
+        val_metrics["transaction_cost_model"] = {"slippage_one_way": slip, "commission_one_way_rate": comm}
+        val_metrics["risk_controls"] = dict(risk_meta, trend_filter_risk_off_rebalances=int(val_bt.get("trend_filter_risk_off_rebalances", 0)))
         test_metrics = _summary_metrics(test_bt["returns"])
         test_metrics["ic"] = test_ic
         test_metrics["turnover_avg"] = test_bt["turnover_avg"]
+        test_metrics["transaction_cost_model"] = {"slippage_one_way": slip, "commission_one_way_rate": comm}
+        test_metrics["risk_controls"] = dict(risk_meta, trend_filter_risk_off_rebalances=int(test_bt.get("trend_filter_risk_off_rebalances", 0)))
 
         base_train = _spy_baseline_returns(prices, train_bt["returns"].index[0], train_bt["returns"].index[-1])
         base_val = _spy_baseline_returns(prices, val_bt["returns"].index[0], val_bt["returns"].index[-1])
