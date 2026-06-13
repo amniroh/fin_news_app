@@ -4,6 +4,8 @@ import { BrowserRouter, Link, NavLink, Route, Routes } from "react-router-dom";
 import "./index.css";
 import App from "./App.tsx";
 import { StrategiesPage } from "./StrategiesPage.tsx";
+import { InterestingStocksPage } from "./InterestingStocksPage.tsx";
+import { TickerDetailPage } from "./TickerDetailPage.tsx";
 
 const apiBase = (import.meta as any).env?.VITE_API_BASE || "http://localhost:8000";
 
@@ -34,6 +36,9 @@ function NavBar() {
       <NavLink to="/strategies" style={linkStyle}>
         Strategies
       </NavLink>
+      <NavLink to="/stocks" style={linkStyle}>
+        Stocks
+      </NavLink>
     </nav>
   );
 }
@@ -45,6 +50,8 @@ createRoot(document.getElementById("root")!).render(
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/strategies" element={<StrategiesPage apiBase={apiBase} />} />
+        <Route path="/stocks" element={<InterestingStocksPage apiBase={apiBase} />} />
+        <Route path="/stocks/:symbol" element={<TickerDetailPage apiBase={apiBase} />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

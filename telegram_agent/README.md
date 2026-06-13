@@ -84,7 +84,13 @@ telegram_agent/
 ├── store.py            # Seen IDs (dedupe)
 ├── summarizer.py       # LLM digest (OpenRouter / Gemini)
 ├── publisher.py        # Send message to Telegram
-├── run.py              # CLI: --once / --schedule
+├── run.py              # CLI: --once / --schedule (digest)
+├── agent.py            # CLI: ingest / prices / research / run-all / …
+├── agent_db.py         # SQLite schema + queries
+├── ingest.py           # News ingest
+├── prices.py           # yfinance price fetch
+├── agent_research.py   # Research LLM agent
+├── orchestrator.py     # Daily orchestrate helper
 ├── collectors/
 │   ├── telegram_collector.py  # Telethon channel reader
 │   └── rss_collector.py       # RSS/Atom feeds
@@ -103,6 +109,170 @@ telegram_agent/
 3. Add your **own user** as admin (so the bot can post).
 4. The channel username is like `@my_digest_channel`, or use the channel ID.
 5. Set `TARGET_CHANNEL=@my_digest_channel` (or the ID) in `.env`.
+
+## Market analysis agent CLI (`agent.py`)
+
+The **research / ingest / prices** pipeline stores data in the SQLite agent DB (`AGENT_DB_PATH`, default `telegram_agent/data/agent.sqlite`). Run all commands from the **project root**:
+
+```bash
+python -m telegram_agent.agent <subcommand> [options]
+```
+
+Requires a configured `.env` (repo root and/or `telegram_agent/.env`): ingest sources (`TELEGRAM_*`, `RSS_FEEDS`, etc.), `OPENROUTER_API_KEY` for LLM steps (extract, universe-preprocess, memory, research), and optional `MAX_PRIORITY` / `AGENT_DB_PATH`. See `telegram_agent/.env.example` and `config.py`.
+
+Pipeline order: **ingest → extract → universe-preprocess → prices → memory → research**. More examples live in the module docstring at the top of `agent.py`.
+
+### Fetch news (`ingest`)
+
+Pulls news from configured Telegram channels, RSS feeds, and/or API sources into `news_items`.
+
+```bash
+# Incremental (new items since last run)
+python -m telegram_agent.agent ingest --mode incremental
+
+# Backfill history
+python -m telegram_agent.agent ingest --mode backfill --days 365
+```
+
+| Flag | Purpose |
+|------|---------|
+| `--sources` | `all`, `rss`, `telegram`, or `api` |
+| `--dry-run` | No network: print what would be fetched |
+| `--max-priority` | Only universe symbols with priority ≤ N (0..3) |
+| `--force` | Refetch even if DB already has coverage |
+| `--spy_symbols` | Use `SP500_SYMBOLS` from repo `.env` as the symbol universe |
+
+**Reset ingest state:**
+
+```bash
+python -m telegram_agent.agent clear-ingest
+```
+
+### Extract tickers from news (`extract`)
+
+LLM pass: news rows → `news_mentions` / instruments.
+
+```bash
+python -m telegram_agent.agent extract
+python -m telegram_agent.agent extract --dry-run   # token/USD estimate only
+python -m telegram_agent.agent clear-extract
+```
+
+### Universe news preprocess (`universe-preprocess`)
+
+Cheap LLM: tag news with tickers from the symbol universe → `symbol_news_linkage`.
+
+```bash
+python -m telegram_agent.agent universe-preprocess
+python -m telegram_agent.agent universe-preprocess --dry-run
+python -m telegram_agent.agent universe-preprocess --backfill-from 2026-03-24 --backfill-to 2026-03-24
+python -m telegram_agent.agent clear-universe-preprocess
+```
+
+### Fetch prices (`prices`)
+
+Fetches yfinance bars for universe / mentioned symbols into `prices`, `prices_hourly`, `prices_minute`.
+
+```bash
+# Incremental
+python -m telegram_agent.agent prices --mode incremental
+
+# Backfill (default intervals: 1d,1h,1m)
+python -m telegram_agent.agent prices --mode backfill
+python -m telegram_agent.agent prices --mode backfill --intervals 1d
+```
+
+| Flag | Purpose |
+|------|---------|
+| `--days` | History depth for backfill (default 400) |
+| `--intervals` | Comma-separated: `1d`, `1h`, `1m` |
+| `--max-priority` / `--priority` | Filter by universe priority (0..3) |
+| `--symbols` | Override list, e.g. `TSLA,AAPL,BTC` |
+| `--force` | Refetch even if window looks populated |
+| `--reverse` | Backfill newest day → oldest |
+| `--spy_symbols` | Use `SP500_SYMBOLS` from repo `.env` |
+
+### Agent memory (`memory`)
+
+Updates rolling macro/micro memory snapshots (LLM).
+
+```bash
+python -m telegram_agent.agent memory
+```
+
+### Research agent (`research`)
+
+Runs opportunity research (LLM), writes recommendations and memory; may publish to `TARGET_CHANNEL` when enabled.
+
+```bash
+# Live / incremental research
+python -m telegram_agent.agent research
+
+# Dry-run: cost estimate + prompt export (no API calls)
+python -m telegram_agent.agent research --dry-run
+python -m telegram_agent.agent research --dry-run --dry-run-out /tmp/research_prompt.txt
+
+# Historical replay (one LLM call per UTC calendar day)
+python -m telegram_agent.agent research --backfill-from 2024-01-01 --backfill-to 2024-01-31
+python -m telegram_agent.agent research --backfill-from 2024-06-01 --backfill-to 2024-06-01 --clear-memories
+```
+
+| Flag | Purpose |
+|------|---------|
+| `--model` | OpenRouter model override (see `agent.py` choices) |
+| `--min-confidence` | Min confidence to persist suggestions (default from `AGENT_RESEARCH_MIN_CONFIDENCE`) |
+| `--max-priority` | Universe filter for news/context (env `MAX_PRIORITY`) |
+| `--research-max-priority` | Research-only priority cap (default 1) |
+| `--max-num-ofnews` | Cap news rows in the prompt |
+| `--backfill-dry-run` | With backfill dates: estimate total cost for the range |
+
+**Reset research outputs:**
+
+```bash
+python -m telegram_agent.agent clear-research
+```
+
+### Full pipeline (`run-all`)
+
+Runs ingest → extract → universe-preprocess → prices → memory → research in one shot.
+
+```bash
+python -m telegram_agent.agent run-all --mode incremental
+python -m telegram_agent.agent run-all --mode backfill --days 365
+python -m telegram_agent.agent run-all --mode incremental --skip-memory --skip-research
+```
+
+### Daily orchestrator (`orchestrate`)
+
+Skips ingest/prices for the current UTC day if data already exists; then preprocess → test concluded legs → research. Supports backfill by calendar day.
+
+```bash
+python -m telegram_agent.agent orchestrate
+python -m telegram_agent.agent orchestrate --backfill-from 2024-01-01 --backfill-to 2024-01-31
+```
+
+### Interesting stocks — daily gap backfill (web universe)
+
+Separate from `agent ingest`/`prices` one-offs: fills **~2y coverage gaps** for all tickers in the web “interesting stocks” list (prices, fundamentals, news, analyst ratings). Run from repo root:
+
+```bash
+.venv/bin/python backend/interesting_stocks_daily_backfill.py
+.venv/bin/python backend/interesting_stocks_daily_backfill.py --dry-run
+```
+
+Schedule daily (cron example): `0 6 * * * cd /path/to/market_analysis && .venv/bin/python backend/interesting_stocks_daily_backfill.py >> logs/interesting_stocks_backfill.log 2>&1`
+
+The **Stocks** tab in `value_web` shows coverage gaps only (no backfill button).
+
+### Evaluation and reporting
+
+```bash
+python -m telegram_agent.agent test-suggestions
+python -m telegram_agent.agent test-suggestions --concluded-only --show-aggregate
+python -m telegram_agent.agent backtest
+python -m telegram_agent.agent narrative --horizon daily
+python -m telegram_agent.agent narrative --horizon all
+```
 
 ## Competitive systematic bots (short-term, universe P0/P1)
 

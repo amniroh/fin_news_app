@@ -190,3 +190,47 @@ def symbols_with_exact_priority(cfg: dict, priority: int) -> List[str]:
         return []
     return sorted(s for s, pr in pmap.items() if pr == priority)
 
+
+def default_typed_universe_path() -> Path:
+    """JSON list with ``ticker`` + ``type`` fields (e.g. top1000_investments.json)."""
+    root = Path(__file__).resolve().parent
+    for name in ("top1000_investments.json", "data/symbol_universe_top1000.json"):
+        p = root / name
+        if p.is_file():
+            return p
+    return root / "top1000_investments.json"
+
+
+def load_symbol_type_map(path: Optional[Path] = None) -> Dict[str, str]:
+    """
+    Return {CANONICAL_SYMBOL: type} from typed universe JSON (``type`` field per entry).
+    """
+    p = path or default_typed_universe_path()
+    if not p.is_file():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    out: Dict[str, str] = {}
+    items: List[Any] = []
+    if isinstance(data, list):
+        items = data
+    elif isinstance(data, dict):
+        for key in ("symbols", "tickers", "investments", "items"):
+            if isinstance(data.get(key), list):
+                items = data[key]
+                break
+    for x in items:
+        if not isinstance(x, dict):
+            continue
+        t = x.get("ticker") or x.get("symbol")
+        typ = x.get("type")
+        if t and str(t).strip() and typ:
+            out[normalize_symbol(str(t))] = str(typ).strip().lower()
+    return out
+
+
+def crypto_symbols_from_universe(path: Optional[Path] = None) -> Set[str]:
+    return {s for s, t in load_symbol_type_map(path).items() if t == "crypto"}
+

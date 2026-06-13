@@ -159,6 +159,63 @@ CREATE TABLE IF NOT EXISTS vm_standard_metrics (
   PRIMARY KEY(symbol, provider)
 );
 CREATE INDEX IF NOT EXISTS idx_vm_standard_metrics_symbol ON vm_standard_metrics(symbol);
+
+-- User-curated universe for the web app (seeded from SYMBOL_UNIVERSE JSON).
+CREATE TABLE IF NOT EXISTS vm_interesting_stocks (
+  symbol TEXT PRIMARY KEY,
+  universe_priority INTEGER NOT NULL DEFAULT 3,
+  name TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_ts_utc TEXT NOT NULL,
+  updated_ts_utc TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_vm_interesting_stocks_priority ON vm_interesting_stocks(universe_priority);
+
+-- yfinance analyst consensus + price targets (daily snapshots).
+CREATE TABLE IF NOT EXISTS vm_analyst_ratings (
+  symbol TEXT NOT NULL,
+  asof_date TEXT NOT NULL,
+  provider TEXT NOT NULL DEFAULT 'yfinance',
+  recommendation_key TEXT,
+  recommendation_mean REAL,
+  num_analysts INTEGER,
+  strong_buy INTEGER,
+  buy INTEGER,
+  hold INTEGER,
+  sell INTEGER,
+  strong_sell INTEGER,
+  target_current REAL,
+  target_high REAL,
+  target_low REAL,
+  target_mean REAL,
+  target_median REAL,
+  raw_json TEXT,
+  fetched_ts_utc TEXT NOT NULL,
+  PRIMARY KEY(symbol, asof_date, provider)
+);
+CREATE INDEX IF NOT EXISTS idx_vm_analyst_ratings_symbol_date ON vm_analyst_ratings(symbol, asof_date);
+
+-- Intrinsic value / 6-pillar assessments (value-trading agent).
+CREATE TABLE IF NOT EXISTS vm_value_trading_assessments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  symbol TEXT NOT NULL,
+  produced_ts_utc TEXT NOT NULL,
+  model TEXT NOT NULL,
+  investment_name TEXT,
+  asset_type TEXT,
+  overall_summary TEXT,
+  total_score INTEGER,
+  competitive_edge_score INTEGER,
+  management_competence_score INTEGER,
+  financial_fortress_score INTEGER,
+  pricing_power_score INTEGER,
+  understandability_score INTEGER,
+  valuation_score INTEGER,
+  pillars_json TEXT NOT NULL,
+  raw_json TEXT,
+  meta_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_vm_value_trading_symbol_ts ON vm_value_trading_assessments(symbol, produced_ts_utc DESC);
 """
 
 
@@ -869,4 +926,443 @@ def list_alert_events(con: sqlite3.Connection, user_id: str, *, limit: int = 200
         (uid, int(limit)),
     )
     return [dict(r) for r in cur.fetchall()]
+
+
+def count_interesting_stocks(con: sqlite3.Connection) -> int:
+    cur = con.execute("SELECT COUNT(*) AS c FROM vm_interesting_stocks WHERE active = 1")
+    row = cur.fetchone()
+    return int(row["c"]) if row else 0
+
+
+def list_interesting_stocks(
+    con: sqlite3.Connection,
+    *,
+    active_only: bool = True,
+) -> List[Dict[str, Any]]:
+    if active_only:
+        cur = con.execute(
+            """
+            SELECT symbol, universe_priority, name, active, created_ts_utc, updated_ts_utc
+            FROM vm_interesting_stocks
+            WHERE active = 1
+            ORDER BY universe_priority ASC, symbol ASC
+            """
+        )
+    else:
+        cur = con.execute(
+            """
+            SELECT symbol, universe_priority, name, active, created_ts_utc, updated_ts_utc
+            FROM vm_interesting_stocks
+            ORDER BY universe_priority ASC, symbol ASC
+            """
+        )
+    return [dict(r) for r in cur.fetchall()]
+
+
+def upsert_interesting_stocks(
+    con: sqlite3.Connection,
+    rows: Sequence[Dict[str, Any]],
+) -> int:
+    if not rows:
+        return 0
+    now = _utcnow_iso()
+    payload = []
+    for r in rows:
+        sym = str(r.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        payload.append(
+            (
+                sym,
+                int(r.get("universe_priority", 3)),
+                r.get("name"),
+                1 if r.get("active", True) else 0,
+                str(r.get("created_ts_utc") or now),
+                now,
+            )
+        )
+    if not payload:
+        return 0
+    con.executemany(
+        """
+        INSERT INTO vm_interesting_stocks(
+          symbol, universe_priority, name, active, created_ts_utc, updated_ts_utc
+        )
+        VALUES(?, ?, ?, ?, ?, ?)
+        ON CONFLICT(symbol) DO UPDATE SET
+          universe_priority=excluded.universe_priority,
+          name=COALESCE(excluded.name, vm_interesting_stocks.name),
+          active=excluded.active,
+          updated_ts_utc=excluded.updated_ts_utc
+        """,
+        payload,
+    )
+    con.commit()
+    return len(payload)
+
+
+def add_interesting_stock(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    universe_priority: int = 3,
+    name: Optional[str] = None,
+) -> None:
+    upsert_interesting_stocks(
+        con,
+        [{"symbol": symbol, "universe_priority": universe_priority, "name": name, "active": True}],
+    )
+
+
+def remove_interesting_stock(con: sqlite3.Connection, symbol: str) -> None:
+    sym = str(symbol).strip().upper()
+    con.execute(
+        """
+        UPDATE vm_interesting_stocks
+        SET active = 0, updated_ts_utc = ?
+        WHERE symbol = ?
+        """,
+        (_utcnow_iso(), sym),
+    )
+    con.commit()
+
+
+def upsert_analyst_ratings(
+    con: sqlite3.Connection,
+    points: List[Dict[str, Any]],
+) -> int:
+    if not points:
+        return 0
+    rows = []
+    for p in points:
+        sym = str(p.get("symbol") or "").strip().upper()
+        d = str(p.get("asof_date") or "").strip()
+        if not sym or not d:
+            continue
+        rows.append(
+            (
+                sym,
+                d,
+                str(p.get("provider") or "yfinance").strip().lower(),
+                p.get("recommendation_key"),
+                p.get("recommendation_mean"),
+                p.get("num_analysts"),
+                p.get("strong_buy"),
+                p.get("buy"),
+                p.get("hold"),
+                p.get("sell"),
+                p.get("strong_sell"),
+                p.get("target_current"),
+                p.get("target_high"),
+                p.get("target_low"),
+                p.get("target_mean"),
+                p.get("target_median"),
+                json.dumps(p.get("raw") or {}),
+                str(p.get("fetched_ts_utc") or _utcnow_iso()),
+            )
+        )
+    if not rows:
+        return 0
+    con.executemany(
+        """
+        INSERT INTO vm_analyst_ratings(
+          symbol, asof_date, provider,
+          recommendation_key, recommendation_mean, num_analysts,
+          strong_buy, buy, hold, sell, strong_sell,
+          target_current, target_high, target_low, target_mean, target_median,
+          raw_json, fetched_ts_utc
+        )
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(symbol, asof_date, provider) DO UPDATE SET
+          recommendation_key=excluded.recommendation_key,
+          recommendation_mean=excluded.recommendation_mean,
+          num_analysts=excluded.num_analysts,
+          strong_buy=excluded.strong_buy,
+          buy=excluded.buy,
+          hold=excluded.hold,
+          sell=excluded.sell,
+          strong_sell=excluded.strong_sell,
+          target_current=excluded.target_current,
+          target_high=excluded.target_high,
+          target_low=excluded.target_low,
+          target_mean=excluded.target_mean,
+          target_median=excluded.target_median,
+          raw_json=excluded.raw_json,
+          fetched_ts_utc=excluded.fetched_ts_utc
+        """,
+        rows,
+    )
+    con.commit()
+    return len(rows)
+
+
+def query_analyst_ratings(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    provider: str = "yfinance",
+    limit: int = 120,
+) -> List[Dict[str, Any]]:
+    sym = str(symbol).strip().upper()
+    prov = str(provider).strip().lower()
+    sql = """
+        SELECT * FROM vm_analyst_ratings
+        WHERE symbol = ? AND provider = ?
+    """
+    params: List[Any] = [sym, prov]
+    if start_date:
+        sql += " AND asof_date >= ?"
+        params.append(start_date)
+    if end_date:
+        sql += " AND asof_date <= ?"
+        params.append(end_date)
+    sql += " ORDER BY asof_date DESC LIMIT ?"
+    params.append(int(limit))
+    cur = con.execute(sql, params)
+    return [dict(r) for r in cur.fetchall()]
+
+
+def latest_analyst_rating(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    provider: str = "yfinance",
+) -> Optional[Dict[str, Any]]:
+    rows = query_analyst_ratings(con, symbol=symbol, provider=provider, limit=1)
+    return rows[0] if rows else None
+
+
+def batch_latest_analyst_ratings(
+    con: sqlite3.Connection,
+    symbols: Sequence[str],
+    *,
+    provider: str = "yfinance",
+) -> Dict[str, Dict[str, Any]]:
+    """Latest snapshot per symbol (one query)."""
+    syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
+    if not syms:
+        return {}
+    prov = str(provider).strip().lower()
+    ph = ",".join("?" * len(syms))
+    cur = con.execute(
+        f"""
+        SELECT a.*
+        FROM vm_analyst_ratings a
+        INNER JOIN (
+          SELECT symbol, MAX(asof_date) AS max_date
+          FROM vm_analyst_ratings
+          WHERE provider = ? AND symbol IN ({ph})
+          GROUP BY symbol
+        ) latest ON a.symbol = latest.symbol AND a.asof_date = latest.max_date AND a.provider = ?
+        """,
+        (prov, *syms, prov),
+    )
+    return {str(r["symbol"]): dict(r) for r in cur.fetchall()}
+
+
+def count_analyst_rating_snapshots(
+    con: sqlite3.Connection,
+    symbol: str,
+    *,
+    provider: str = "yfinance",
+) -> int:
+    cur = con.execute(
+        """
+        SELECT COUNT(*) AS c FROM vm_analyst_ratings
+        WHERE symbol = ? AND provider = ?
+        """,
+        (str(symbol).strip().upper(), str(provider).strip().lower()),
+    )
+    row = cur.fetchone()
+    return int(row["c"]) if row else 0
+
+
+def count_fundamental_points_in_window(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    provider: str = "yfinance",
+    period: str = "quarter",
+) -> int:
+    cur = con.execute(
+        """
+        SELECT COUNT(*) AS c FROM vm_fundamental_points
+        WHERE symbol = ? AND provider = ? AND period = ?
+          AND asof_date >= ? AND asof_date <= ?
+        """,
+        (
+            str(symbol).strip().upper(),
+            str(provider).strip().lower(),
+            str(period).strip().lower(),
+            start_date,
+            end_date,
+        ),
+    )
+    row = cur.fetchone()
+    return int(row["c"]) if row else 0
+
+
+def count_daily_metrics_in_window(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    provider: str = "yfinance",
+) -> int:
+    cur = con.execute(
+        """
+        SELECT COUNT(*) AS c FROM vm_metric_points
+        WHERE symbol = ? AND provider = ? AND period = 'daily'
+          AND asof_date >= ? AND asof_date <= ?
+        """,
+        (
+            str(symbol).strip().upper(),
+            str(provider).strip().lower(),
+            start_date,
+            end_date,
+        ),
+    )
+    row = cur.fetchone()
+    return int(row["c"]) if row else 0
+
+
+def insert_value_trading_assessment(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    produced_ts_utc: str,
+    model: str,
+    investment_name: Optional[str],
+    asset_type: Optional[str],
+    overall_summary: Optional[str],
+    total_score: int,
+    pillar_scores: Dict[str, int],
+    pillars_json: Dict[str, Any],
+    raw_json: Optional[Dict[str, Any]] = None,
+    meta_json: Optional[Dict[str, Any]] = None,
+) -> int:
+    sym = str(symbol).strip().upper()
+    keys = (
+        "competitive_edge",
+        "management_competence",
+        "financial_fortress",
+        "pricing_power",
+        "understandability",
+        "valuation",
+    )
+    scores = {k: int(pillar_scores.get(k, 0)) for k in keys}
+    con.execute(
+        """
+        INSERT INTO vm_value_trading_assessments(
+          symbol, produced_ts_utc, model, investment_name, asset_type, overall_summary,
+          total_score,
+          competitive_edge_score, management_competence_score, financial_fortress_score,
+          pricing_power_score, understandability_score, valuation_score,
+          pillars_json, raw_json, meta_json
+        )
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            sym,
+            produced_ts_utc,
+            str(model).strip(),
+            investment_name,
+            asset_type,
+            overall_summary,
+            int(total_score),
+            scores["competitive_edge"],
+            scores["management_competence"],
+            scores["financial_fortress"],
+            scores["pricing_power"],
+            scores["understandability"],
+            scores["valuation"],
+            json.dumps(pillars_json),
+            json.dumps(raw_json or {}),
+            json.dumps(meta_json or {}),
+        ),
+    )
+    con.commit()
+    return int(con.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+
+def query_value_trading_assessments(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    limit: int = 20,
+) -> List[Dict[str, Any]]:
+    sym = str(symbol).strip().upper()
+    cur = con.execute(
+        """
+        SELECT * FROM vm_value_trading_assessments
+        WHERE symbol = ?
+        ORDER BY produced_ts_utc DESC
+        LIMIT ?
+        """,
+        (sym, int(limit)),
+    )
+    out = []
+    for r in cur.fetchall():
+        row = dict(r)
+        try:
+            row["pillars"] = json.loads(row.pop("pillars_json") or "{}")
+        except json.JSONDecodeError:
+            row["pillars"] = {}
+        try:
+            row["raw"] = json.loads(row.pop("raw_json") or "{}")
+        except json.JSONDecodeError:
+            row["raw"] = {}
+        try:
+            row["meta"] = json.loads(row.pop("meta_json") or "{}")
+        except json.JSONDecodeError:
+            row["meta"] = {}
+        out.append(row)
+    return out
+
+
+def latest_value_trading_assessment(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+) -> Optional[Dict[str, Any]]:
+    rows = query_value_trading_assessments(con, symbol=symbol, limit=1)
+    return rows[0] if rows else None
+
+
+def batch_latest_value_trading_assessments(
+    con: sqlite3.Connection,
+    symbols: Sequence[str],
+) -> Dict[str, Dict[str, Any]]:
+    syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
+    if not syms:
+        return {}
+    ph = ",".join("?" * len(syms))
+    cur = con.execute(
+        f"""
+        SELECT a.*
+        FROM vm_value_trading_assessments a
+        INNER JOIN (
+          SELECT symbol, MAX(produced_ts_utc) AS max_ts
+          FROM vm_value_trading_assessments
+          WHERE symbol IN ({ph})
+          GROUP BY symbol
+        ) latest ON a.symbol = latest.symbol AND a.produced_ts_utc = latest.max_ts
+        """,
+        syms,
+    )
+    out: Dict[str, Dict[str, Any]] = {}
+    for r in cur.fetchall():
+        row = dict(r)
+        sym = str(row["symbol"])
+        try:
+            row["pillars"] = json.loads(row.get("pillars_json") or "{}")
+        except json.JSONDecodeError:
+            row["pillars"] = {}
+        out[sym] = row
+    return out
 

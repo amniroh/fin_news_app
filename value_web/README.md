@@ -18,6 +18,32 @@ npm run dev
 
 Then open the Vite URL (prints in terminal).
 
+## Interesting stocks (MVP)
+
+Nav: **Stocks** (`/stocks`) — universe table, add tickers, **read-only** coverage gaps. Backfills are **not** triggered from the UI.
+
+**Daily backfill script** (schedule via cron):
+
+```bash
+# From repo root
+.venv/bin/python backend/interesting_stocks_daily_backfill.py
+.venv/bin/python backend/interesting_stocks_daily_backfill.py --dry-run   # gap summary only
+
+# Cron example (6:00 UTC daily)
+# 0 6 * * * cd /path/to/market_analysis && .venv/bin/python backend/interesting_stocks_daily_backfill.py >> logs/interesting_stocks_backfill.log 2>&1
+```
+
+The script: seeds interesting stocks → incremental news ingest + universe preprocess → fills gaps (prices, fundamentals, news, analyst ratings) using the telegram_agent / value_metrics pipelines.
+
+**API (read + manage list only):**
+
+- `GET /value/interesting/stocks` — list + 2y coverage gaps
+- `POST /value/interesting/stocks` body: `{"symbol":"NVDA"}`
+- `DELETE /value/interesting/stocks/{symbol}`
+- `GET /value/interesting/stocks/{symbol}/detail` — prices, metrics, news, research recommendations
+
+Ticker detail: `/stocks/AAPL`
+
 ## API
 
 - `GET /value/metrics?symbols=AAPL,MSFT`

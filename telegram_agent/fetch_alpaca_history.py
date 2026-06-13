@@ -34,11 +34,18 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from telegram_agent.agent_db import _utc_iso, connect, init_db, upsert_intraday_rows, upsert_price_rows
+from telegram_agent.agent_db import (
+    _utc_iso,
+    connect,
+    delete_alpaca_daily_prices,
+    init_db,
+    upsert_intraday_rows,
+    upsert_price_rows,
+)
 from telegram_agent.config import load_config
 from telegram_agent.derive_hourly_daily_from_5m import _load_symbols_by_max_priority
 from telegram_agent.rsi_alpaca_live import AlpacaRest
-from telegram_agent.symbol_universe import normalize_symbol, sp500_symbols_from_env
+from telegram_agent.symbol_universe import crypto_symbols_from_universe, normalize_symbol, sp500_symbols_from_env
 
 logger = logging.getLogger(__name__)
 
@@ -393,9 +400,31 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     con = connect(db)
     init_db(con)
     try:
+        crypto_skip = crypto_symbols_from_universe()
+        if crypto_skip:
+            removed = delete_alpaca_daily_prices(con, sorted(crypto_skip))
+            if removed:
+                logger.info(
+                    "Removed %s mistaken Alpaca daily bar(s) for crypto symbols (ticker collision with equities)",
+                    removed,
+                )
+    finally:
+        con.close()
+
+    con = connect(db)
+    init_db(con)
+    try:
         syms = _load_symbol_list(cfg, args, con)
     finally:
         con.close()
+
+    crypto_skip = crypto_symbols_from_universe()
+    if crypto_skip:
+        before = len(syms)
+        syms = [s for s in syms if s not in crypto_skip]
+        skipped = before - len(syms)
+        if skipped:
+            logger.info("Skipping %s crypto symbol(s) for Alpaca stock bars (use yfinance for crypto)", skipped)
 
     if not syms:
         return 2

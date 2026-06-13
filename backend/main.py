@@ -73,7 +73,11 @@ app.add_middleware(
 )
 
 # Mount value-metrics router (watchlists, metrics, alerts).
-_vm_db = _Path(os.getenv("VALUE_METRICS_DB_PATH", "backend/data/value_metrics.sqlite")).expanduser()
+_BACKEND_DIR = _Path(__file__).resolve().parent
+_default_vm_db = _BACKEND_DIR / "data" / "value_metrics.sqlite"
+_vm_db = _Path(os.getenv("VALUE_METRICS_DB_PATH", str(_default_vm_db))).expanduser()
+if not _vm_db.is_absolute():
+    _vm_db = (_BACKEND_DIR.parent / _vm_db).resolve()
 _vm_cache_ttl = int(os.getenv("VALUE_METRICS_CACHE_TTL_SECONDS", "1800"))
 value_router = build_value_router(db_path=_vm_db, cache_ttl_seconds=_vm_cache_ttl)
 app.include_router(value_router)

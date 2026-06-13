@@ -79,49 +79,30 @@ def _price_fetch_symbol(canonical: str, typ: str) -> str:
     return _yf_symbol(c)
 
 
+def resolve_yfinance_ticker(symbol: str, cfg: Optional[dict] = None) -> str:
+    """Map canonical universe symbol to Yahoo Finance ticker (crypto → ``SYMBOL-USD``)."""
+    from telegram_agent.symbol_universe import load_symbol_type_map, normalize_symbol
+
+    sym = normalize_symbol(symbol)
+    typ = load_symbol_type_map().get(sym, "")
+    if not typ and cfg:
+        path_raw = cfg.get("symbol_universe_path")
+        if path_raw:
+            typ = load_symbol_type_map(Path(path_raw).expanduser()).get(sym, "")
+    return _price_fetch_symbol(sym, typ)
+
+
+def yfinance_ticker_for_symbol(symbol: str) -> str:
+    """Public helper when ``cfg`` is unavailable (e.g. value_metrics API)."""
+    return resolve_yfinance_ticker(symbol, None)
+
+
 def price_job_symbols(cfg: dict, con) -> Tuple[List[str], Dict[str, str]]:
     """
     Canonical symbols and optional type map (same resolution as daily backfill).
     Typed universe file is loaded whenever ``symbol_universe_path`` is set so
     crypto tickers map to ``…-USD`` even in mention-only mode when symbols overlap.
     """
-    # Optional override: allow CLI callers to restrict to a given set of canonical symbols.
-    override_raw = cfg.get("prices_symbols")
-    override_syms: Optional[List[str]] = None
-    if isinstance(override_raw, str) and override_raw.strip():
-        override_syms = []
-        for raw in override_raw.split(","):
-            s = str(raw or "").strip().upper()
-            while s.startswith("$") or s.startswith("#"):
-                s = s[1:]
-            if s:
-                override_syms.append(s)
-    elif isinstance(override_raw, list) and override_raw:
-        override_syms = []
-        for raw in override_raw:
-            s = str(raw or "").strip().upper()
-            while s.startswith("$") or s.startswith("#"):
-                s = s[1:]
-            if s:
-                override_syms.append(s)
-    if override_syms:
-        # De-dupe preserving order
-        seen = set()
-        canon_syms: List[str] = []
-        for s in override_syms:
-            if s and s not in seen:
-                canon_syms.append(s)
-                seen.add(s)
-        # Still load typed_map (if available) so crypto tickers map to …-USD correctly.
-        typed_universe: Optional[List[Tuple[str, str]]] = None
-        path_raw = cfg.get("symbol_universe_path")
-        if path_raw:
-            typed_universe = _load_typed_universe_from_path(Path(path_raw).expanduser())
-        typed_map: Dict[str, str] = {}
-        if typed_universe:
-            typed_map = {s.strip().upper(): t for s, t in typed_universe if s and str(s).strip()}
-        return canon_syms, typed_map
-
     uni = symbol_universe_set(cfg)
     use_universe = uni is not None
     typed_universe: Optional[List[Tuple[str, str]]] = None
@@ -489,32 +470,11 @@ def backfill_all_mentioned(cfg: dict, *, days: int = 400) -> None:
             logger.info("No symbols in news_mentions; set SYMBOL_UNIVERSE_PATH or run extract after ingest.")
         con.close()
         return
-    if cfg.get("prices_symbols"):
-        logger.info("Backfilling prices for %s specified symbol(s) (%s days)", len(syms), days)
-    elif use_universe:
+    if use_universe:
         logger.info("Backfilling prices for %s universe symbols (%s days)", len(syms), days)
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days)
     force = bool(cfg.get("prices_force", False))
-
-    # Fast-path: when caller specifies symbols explicitly, fetch full range per symbol
-    # instead of scanning day-by-day (which can look stalled and is slower).
-    if cfg.get("prices_symbols"):
-        sleep_s = float(cfg.get("prices_yf_sleep_seconds", 0.5))
-        for sym in syms:
-            fetch_sym = _price_fetch_symbol(sym, typed_map.get(sym, ""))
-            try:
-                n = fetch_and_store_history(con, sym, start=start, end=end, fetch_symbol=fetch_sym, interval="1d")
-            except Exception as e:
-                logger.warning("yfinance range backfill failed sym=%s: %s", sym, e)
-                n = 0
-            if n:
-                logger.info("Backfill %s: upserted %s daily row(s)", sym, n)
-            if sleep_s > 0:
-                import time
-                time.sleep(sleep_s)
-        con.close()
-        return
     batch_size = int(cfg.get("prices_yf_batch_size", 80))
     batch_size = max(1, min(200, batch_size))
     sleep_s = float(cfg.get("prices_yf_sleep_seconds", 0.5))
@@ -528,23 +488,7 @@ def backfill_all_mentioned(cfg: dict, *, days: int = 400) -> None:
     def _advance(dt: datetime) -> datetime:
         return dt - timedelta(days=1) if reverse else dt + timedelta(days=1)
 
-    n_days = int(abs((dayN - day0).days)) + 1
-    progress_every = int(cfg.get("prices_backfill_progress_every_days", 25))
-    progress_every = max(1, min(365, progress_every))
-    it = 0
-
     while (d >= day0) if reverse else (d <= dayN):
-        it += 1
-        if it == 1 or (it % progress_every == 0):
-            logger.info(
-                "Prices backfill progress: day=%s (%s/%s) candidates=%s force=%s reverse=%s",
-                d.date().isoformat(),
-                it,
-                n_days,
-                len(syms),
-                bool(force),
-                bool(reverse),
-            )
         is_weekend = d.weekday() >= 5
         candidates = syms
 
@@ -593,13 +537,6 @@ def backfill_all_mentioned(cfg: dict, *, days: int = 400) -> None:
         total_up = 0
         for i in range(0, len(missing), batch_size):
             chunk = missing[i : i + batch_size]
-            logger.info(
-                "Prices day %s: fetching %s symbol(s) via yfinance (batch %s/%s)",
-                d.date().isoformat(),
-                len(chunk),
-                (i // batch_size) + 1,
-                (len(missing) + batch_size - 1) // batch_size,
-            )
             try:
                 if typed_map:
                     payload = [(s, typed_map.get(s.strip().upper(), "")) for s in chunk]
@@ -700,7 +637,6 @@ def backfill_intraday_all_mentioned(cfg: dict, *, yf_interval: str, days: int) -
     )
     for sym in syms:
         fetch_sym = _price_fetch_symbol(sym, typed_map.get(sym, ""))
-        logger.info("Intraday backfill interval=%s canonical=%s fetch_symbol=%s", yf_interval, sym, fetch_sym)
         n = fetch_and_store_intraday_history(
             con,
             sym,
@@ -790,9 +726,6 @@ def run_prices(cfg: dict, *, mode: str, days: int, intervals: str) -> None:
     """
     Run daily and/or intraday price jobs. ``intervals`` is comma-separated: 1d, 1h, 1m.
     Intraday data is stored in ``prices_hourly`` / ``prices_minute`` only.
-
-    The agent CLI defaults to ``1d,1h,1m`` so backfill runs daily + hourly + minutely
-    in one invocation unless ``--intervals`` overrides.
     """
     parts: Set[str] = {p.strip().lower() for p in intervals.split(",") if p.strip()}
     valid = {"1d", "1h", "1m"}
@@ -800,7 +733,7 @@ def run_prices(cfg: dict, *, mode: str, days: int, intervals: str) -> None:
     if unknown:
         raise ValueError(f"Unknown interval(s): {sorted(unknown)}; allowed: 1d, 1h, 1m")
     if not parts:
-        parts = {"1d", "1h", "1m"}
+        parts = {"1d"}
     for iv in ("1d", "1h", "1m"):
         if iv not in parts:
             continue

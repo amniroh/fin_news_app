@@ -60,6 +60,13 @@ def fetch_price_history(
         raise ValueError("interval must be daily|hourly|minute")
     iv = INTERVAL_MAP[itv_key]
 
+    try:
+        from telegram_agent.prices import yfinance_ticker_for_symbol
+
+        yf_sym = yfinance_ticker_for_symbol(sym)
+    except Exception:
+        yf_sym = sym
+
     end_dt = pd.Timestamp(end or datetime.now(timezone.utc).date())
     if end_dt.tzinfo is None:
         end_dt = end_dt.tz_localize("UTC")
@@ -100,14 +107,14 @@ def fetch_price_history(
 
     buf_end = (end_naive + timedelta(days=1)).strftime("%Y-%m-%d")
     px = yf.download(
-        sym,
+        yf_sym,
         start=start_naive.strftime("%Y-%m-%d"),
         end=buf_end,
         interval=iv,
         auto_adjust=True,
         progress=False,
     )
-    sub = _extract_close_series(px, sym)
+    sub = _extract_close_series(px, yf_sym)
     if sub.empty:
         return []
 

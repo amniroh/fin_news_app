@@ -54,12 +54,28 @@ function App() {
 
   const columns: { key: string; label: string; fmt?: (v: any) => string }[] = [
     { key: "symbol", label: "Symbol" },
+    { key: "pe", label: "Low P/E", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
+    { key: "mean_rsi_30d", label: "Low RSI", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
+    {
+      key: "analyst_recommendation_key",
+      label: "Analyst ratings",
+      fmt: (v) => (v == null || v === "" ? "—" : String(v)),
+    },
+    {
+      key: "total_return_1y",
+      label: "Momentum",
+      fmt: (v) => (v == null ? "" : (Number(v) * 100).toFixed(2) + "%"),
+    },
+    {
+      key: "value_trading_score",
+      label: "Value assessed by LLM",
+      fmt: (v) => (v == null ? "—" : `${Number(v)}/30`),
+    },
     {
       key: "metrics_asof_date",
       label: "Daily metrics as of",
       fmt: (v) => (v == null || v === "" ? "—" : String(v)),
     },
-    { key: "pe", label: "P/E", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
     { key: "pb", label: "P/B", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
     { key: "peg", label: "PEG", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
     { key: "dividend_yield", label: "Div Yield", fmt: (v) => (v == null ? "" : (Number(v) * 100).toFixed(2) + "%") },
@@ -69,7 +85,6 @@ function App() {
     { key: "current_ratio", label: "Current", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
     { key: "operating_margin", label: "Op Margin", fmt: (v) => (v == null ? "" : (Number(v) * 100).toFixed(1) + "%") },
     { key: "ev_to_ebitda", label: "EV/EBITDA", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
-    { key: "total_return_1y", label: "Total Return 1Y", fmt: (v) => (v == null ? "" : (Number(v) * 100).toFixed(2) + "%") },
     { key: "total_return_3y", label: "Total Return 3Y", fmt: (v) => (v == null ? "" : (Number(v) * 100).toFixed(2) + "%") },
     { key: "total_return_5y", label: "Total Return 5Y", fmt: (v) => (v == null ? "" : (Number(v) * 100).toFixed(2) + "%") },
     { key: "total_return_10y", label: "Total Return 10Y", fmt: (v) => (v == null ? "" : (Number(v) * 100).toFixed(2) + "%") },
@@ -86,10 +101,16 @@ function App() {
     { key: "expense_ratio", label: "Expense Ratio", fmt: (v) => (v == null ? "" : (Number(v) * 100).toFixed(2) + "%") },
     { key: "trailing_pe", label: "Trailing P/E", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
     { key: "mean_rsi_7d", label: "Mean RSI 7d", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
-    { key: "mean_rsi_30d", label: "Mean RSI 30d", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
     { key: "mean_rsi_3m", label: "Mean RSI 3m", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
     { key: "mean_rsi_1y", label: "Mean RSI 1Y", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
   ];
+
+  function valueScoreColor(score: number): string {
+    if (score >= 24) return "#276749";
+    if (score >= 18) return "#48bb78";
+    if (score >= 12) return "#d69e2e";
+    return "#c53030";
+  }
 
   const filteredSorted = useMemo(() => {
     const applyFilters = (r: any) => {
@@ -237,10 +258,28 @@ function App() {
                   const txt = c.fmt ? c.fmt(v) : v ?? "";
                   let color: string | undefined;
                   if (c.key === "pe" && v != null) color = Number(v) <= 15 ? "green" : Number(v) >= 30 ? "crimson" : undefined;
+                  if (c.key === "mean_rsi_30d" && v != null) {
+                    color = Number(v) <= 30 ? "green" : Number(v) >= 70 ? "crimson" : undefined;
+                  }
+                  if (c.key === "analyst_recommendation_key" && v != null) {
+                    const k = String(v).toLowerCase();
+                    if (k.includes("buy") || k === "strong_buy") color = "green";
+                    else if (k.includes("sell") || k === "underperform") color = "crimson";
+                  }
+                  if (c.key === "total_return_1y" && v != null) {
+                    color = Number(v) > 0 ? "green" : Number(v) < 0 ? "crimson" : undefined;
+                  }
+                  if (c.key === "value_trading_score" && v != null) color = valueScoreColor(Number(v));
                   if (c.key === "debt_to_equity" && v != null) color = Number(v) <= 100 ? "green" : Number(v) >= 200 ? "crimson" : undefined;
                   if (c.key === "operating_margin" && v != null) color = Number(v) >= 0.2 ? "green" : Number(v) <= 0.05 ? "crimson" : undefined;
+                  const title =
+                    c.key === "analyst_recommendation_key" && r.analyst_asof_date
+                      ? `As of ${r.analyst_asof_date}`
+                      : c.key === "value_trading_score" && r.value_trading_summary
+                        ? String(r.value_trading_summary).slice(0, 240)
+                        : undefined;
                   return (
-                    <td key={c.key} style={{ padding: 8, borderBottom: "1px solid #f0f0f0", color }}>
+                    <td key={c.key} title={title} style={{ padding: 8, borderBottom: "1px solid #f0f0f0", color, fontWeight: c.key === "value_trading_score" && v != null ? 600 : undefined }}>
                       {txt}
                     </td>
                   );

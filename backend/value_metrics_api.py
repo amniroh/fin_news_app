@@ -13,6 +13,8 @@ from types import SimpleNamespace
 from value_metrics_cache import InMemoryTTLCache, get_or_fetch_metrics
 from value_metrics_store import (
     add_to_watchlist,
+    batch_latest_analyst_ratings,
+    batch_latest_value_trading_assessments,
     connect,
     create_alert_rule,
     delete_alert_rule,
@@ -29,18 +31,116 @@ from value_metrics_store import (
     query_fundamental_points,
     query_latest_daily_metric_points,
     query_metric_points,
+    query_standard_metrics,
     query_stock_splits,
     query_yearly_metric_coverage,
+    upsert_analyst_ratings,
     upsert_metric_points,
     update_rule_state,
 )
 from value_metrics_provider_fmp import fetch_ratios_history
 from value_metrics_price_history import fetch_price_history
 from value_metrics_stock_splits import persist_yfinance_splits_to_db
+from interesting_stocks_api import register_interesting_stocks_routes
 
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+_STANDARD_SUPPLEMENT_KEYS = (
+    "mean_rsi_7d",
+    "mean_rsi_30d",
+    "mean_rsi_3m",
+    "mean_rsi_1y",
+    "total_return_1y",
+    "total_return_3y",
+    "total_return_5y",
+    "total_return_10y",
+    "ytd_return",
+    "high_52w",
+    "low_52w",
+    "range_position_52w",
+    "sharpe_ratio",
+    "beta",
+    "alpha",
+    "volatility",
+    "max_drawdown",
+    "average_volume",
+    "expense_ratio",
+    "trailing_pe",
+)
+
+
+def _apply_analyst_fields(row: Dict[str, Any], ar: Optional[Dict[str, Any]]) -> None:
+    if not ar:
+        return
+    row["analyst_recommendation_key"] = ar.get("recommendation_key")
+    row["analyst_recommendation_mean"] = ar.get("recommendation_mean")
+    row["analyst_asof_date"] = ar.get("asof_date")
+
+
+def _apply_value_trading_fields(row: Dict[str, Any], vt: Optional[Dict[str, Any]]) -> None:
+    if not vt:
+        return
+    row["value_trading_score"] = vt.get("total_score")
+    row["value_trading_assessed_ts"] = vt.get("produced_ts_utc")
+    row["value_trading_summary"] = vt.get("overall_summary")
+
+
+def _merge_standard_supplement(row: Dict[str, Any], std: Dict[str, Any]) -> None:
+    for k in _STANDARD_SUPPLEMENT_KEYS:
+        if row.get(k) is None and std.get(k) is not None:
+            row[k] = std[k]
+
+
+def _enrich_metric_rows(
+    con: Any,
+    rows: List[Dict[str, Any]],
+    *,
+    cache: Optional[InMemoryTTLCache] = None,
+) -> List[Dict[str, Any]]:
+    """Join analyst ratings, value-trading scores, and standard metrics (RSI, momentum)."""
+    syms = [str(r.get("symbol") or "").strip().upper() for r in rows if r.get("symbol")]
+    if not syms:
+        return rows
+    analyst_map = batch_latest_analyst_ratings(con, syms)
+    vt_map = batch_latest_value_trading_assessments(con, syms)
+    std_map = {str(r["symbol"]): r for r in query_standard_metrics(con, symbols=syms, provider="yfinance")}
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        row = dict(r)
+        sym = str(row.get("symbol") or "").strip().upper()
+        std = std_map.get(sym) or {}
+        _merge_standard_supplement(row, std)
+        if cache is not None and (row.get("mean_rsi_30d") is None or row.get("total_return_1y") is None):
+            live = get_or_fetch_metrics(cache, sym, con=con)
+            _merge_standard_supplement(row, live)
+        _apply_analyst_fields(row, analyst_map.get(sym))
+        _apply_value_trading_fields(row, vt_map.get(sym))
+        out.append(row)
+
+    missing_analyst = [sym for sym in syms if sym not in analyst_map]
+    if missing_analyst:
+        try:
+            from interesting_stocks_service import fetch_yfinance_analyst_ratings
+
+            for sym in missing_analyst:
+                snaps = fetch_yfinance_analyst_ratings(sym)
+                if not snaps:
+                    continue
+                latest = max(snaps, key=lambda x: str(x.get("asof_date") or ""))
+                analyst_map[sym] = latest
+                upsert_analyst_ratings(con, snaps)
+        except Exception:
+            pass
+        if missing_analyst and analyst_map:
+            for row in out:
+                sym = str(row.get("symbol") or "").strip().upper()
+                if row.get("analyst_recommendation_key") is None:
+                    _apply_analyst_fields(row, analyst_map.get(sym))
+
+    return out
 
 
 def _op_eval(op: str, x: Optional[float], thr: float) -> Optional[bool]:
@@ -137,6 +237,7 @@ def build_value_router(
         con = _con()
         try:
             out = [get_or_fetch_metrics(cache, s, con=con) for s in syms]
+            out = _enrich_metric_rows(con, out, cache=cache)
             return {"ts_utc": _utcnow_iso(), "n": len(out), "rows": out}
         finally:
             con.close()
@@ -178,6 +279,7 @@ def build_value_router(
                         "fetched_ts_utc": r.get("fetched_ts_utc"),
                     }
                 )
+            rows = _enrich_metric_rows(con, rows, cache=cache)
             return {"ts_utc": _utcnow_iso(), "n": len(rows), "rows": rows}
         finally:
             con.close()
@@ -569,5 +671,8 @@ def build_value_router(
     router.state._stop_evt = asyncio.Event()
     router.state._task = None
     router.state._alert_loop = _alert_loop
+
+    register_interesting_stocks_routes(router, db_path=db_path)
+
     return router
 

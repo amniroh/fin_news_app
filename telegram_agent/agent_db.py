@@ -1315,14 +1315,18 @@ def get_adj_closes_series(
     end_ts = end_ts.astimezone(timezone.utc)
     cur = con.execute(
         """
-        SELECT ts_utc, close, adj_close FROM prices
+        SELECT ts_utc, close, adj_close, source FROM prices
         WHERE symbol = ? AND interval = ? AND ts_utc <= ?
         ORDER BY ts_utc DESC
         LIMIT ?
         """,
-        (symbol.upper(), interval, _utc_iso(end_ts), int(limit)),
+        (symbol.upper(), interval, _utc_iso(end_ts), int(limit) * 3 if interval == "1d" else int(limit)),
     )
-    rows = list(cur.fetchall())
+    fetched = list(cur.fetchall())
+    if interval == "1d":
+        rows = _dedupe_daily_price_rows(fetched)[-int(limit) :]
+    else:
+        rows = fetched[: int(limit)]
     rows.reverse()
     out: List[Tuple[datetime, float]] = []
     for row in rows:
@@ -1415,6 +1419,93 @@ def _price_source_sql_clause(sources: Optional[Sequence[str]]) -> Tuple[str, Tup
     return f" AND source IN ({ph})", tuple(vals)
 
 
+# When multiple daily bars share a calendar day (e.g. yfinance midnight + alpaca 04:00),
+# prefer the source that matches the canonical symbol semantics (yfinance crypto uses ETH-USD).
+_DAILY_SOURCE_RANK: Dict[str, int] = {
+    "yfinance": 0,
+    "parquet": 1,
+    "derived_from_5m": 2,
+    "csv": 3,
+    "alpaca": 9,
+}
+
+
+def _daily_source_rank(source: Optional[str]) -> int:
+    return _DAILY_SOURCE_RANK.get(str(source or "yfinance").strip().lower(), 5)
+
+
+def _dedupe_daily_price_rows(rows: Sequence[sqlite3.Row]) -> List[sqlite3.Row]:
+    """One bar per UTC calendar day; lower rank wins (yfinance over alpaca)."""
+    by_day: Dict[str, Tuple[int, sqlite3.Row]] = {}
+    for row in rows:
+        day = str(row["ts_utc"])[:10]
+        rank = _daily_source_rank(row["source"] if "source" in row.keys() else None)
+        prev = by_day.get(day)
+        if prev is None or rank < prev[0]:
+            by_day[day] = (rank, row)
+    return [by_day[d][1] for d in sorted(by_day.keys())]
+
+
+def query_daily_prices(
+    con: sqlite3.Connection,
+    symbol: str,
+    *,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    sources: Optional[Sequence[str]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Daily OHLCV for charting: deduped to one row per UTC calendar day.
+    """
+    sym = symbol.strip().upper()
+    src_clause, src_params = _price_source_sql_clause(sources)
+    sql = f"""
+        SELECT ts_utc, open, high, low, close, adj_close, volume, source
+        FROM prices
+        WHERE symbol = ? AND interval = '1d'
+    """
+    params: List[Any] = [sym]
+    if start_date:
+        sql += " AND SUBSTR(ts_utc, 1, 10) >= ?"
+        params.append(start_date)
+    if end_date:
+        sql += " AND SUBSTR(ts_utc, 1, 10) <= ?"
+        params.append(end_date)
+    sql += f"{src_clause} ORDER BY ts_utc ASC"
+    params.extend(src_params)
+    cur = con.execute(sql, params)
+    deduped = _dedupe_daily_price_rows(list(cur.fetchall()))
+    out: List[Dict[str, Any]] = []
+    for row in deduped:
+        px = row["adj_close"] if row["adj_close"] is not None else row["close"]
+        out.append(
+            {
+                "ts": str(row["ts_utc"]),
+                "close": float(px),
+                "volume": row["volume"],
+                "source": row["source"],
+            }
+        )
+    return out
+
+
+def delete_alpaca_daily_prices(con: sqlite3.Connection, symbols: Sequence[str]) -> int:
+    """Remove mistaken Alpaca daily bars (e.g. crypto ticker colliding with an equity ETF)."""
+    syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
+    if not syms:
+        return 0
+    ph = ",".join("?" * len(syms))
+    cur = con.execute(
+        f"""
+        DELETE FROM prices
+        WHERE source = 'alpaca' AND interval = '1d' AND symbol IN ({ph})
+        """,
+        syms,
+    )
+    con.commit()
+    return int(cur.rowcount or 0)
+
+
 def get_full_adj_close_series_asc(
     con: sqlite3.Connection,
     symbol: str,
@@ -1484,14 +1575,17 @@ def get_full_adj_close_series_asc(
         )
     cur = con.execute(
         f"""
-        SELECT ts_utc, close, adj_close FROM prices
+        SELECT ts_utc, close, adj_close, source FROM prices
         WHERE symbol = ? AND interval = ?{src_clause}
         ORDER BY ts_utc ASC
         """,
         (sym, ni) + src_params,
     )
+    raw_rows = list(cur.fetchall())
+    if ni == "1d" and len(raw_rows) > 1:
+        raw_rows = _dedupe_daily_price_rows(raw_rows)
     out: List[Tuple[datetime, float]] = []
-    for row in cur.fetchall():
+    for row in raw_rows:
         ts = _parse_dt(row["ts_utc"])
         if not ts:
             continue
