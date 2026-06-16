@@ -103,6 +103,17 @@ def price_job_symbols(cfg: dict, con) -> Tuple[List[str], Dict[str, str]]:
     Typed universe file is loaded whenever ``symbol_universe_path`` is set so
     crypto tickers map to ``…-USD`` even in mention-only mode when symbols overlap.
     """
+    explicit = cfg.get("prices_symbols")
+    if explicit:
+        canon_syms = sorted({str(s).strip().upper() for s in explicit if str(s).strip()})
+        typed_map: Dict[str, str] = {}
+        path_raw = cfg.get("symbol_universe_path")
+        if path_raw:
+            typed_universe = _load_typed_universe_from_path(Path(path_raw).expanduser())
+            if typed_universe:
+                typed_map = {s.strip().upper(): t for s, t in typed_universe if s and str(s).strip()}
+        return canon_syms, typed_map
+
     uni = symbol_universe_set(cfg)
     use_universe = uni is not None
     typed_universe: Optional[List[Tuple[str, str]]] = None
