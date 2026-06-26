@@ -46,3 +46,24 @@ telegram_agent/sessions/
 
 # Deployment bundles (too large for git)
 /dist/
+
+# Local data backups (not in git)
+.data-backup-*/
+
+# Local uncommitted files (preserved on disk, excluded from git)
+backend/daily_market_refresh.py
+deploy/ec2/bootstrap-full.sh
+deploy/ec2/daily-jobs.service
+deploy/ec2/daily-jobs.timer
+deploy/ec2/install-services.sh
+deploy/ec2/nginx-value-web.conf
+deploy/ec2/requirements-server.txt
+deploy/ec2/run-catch-up-daily-metrics.sh
+deploy/ec2/run-daily-jobs.sh
+deploy/ec2/run-weekly-value-trading.sh
+deploy/ec2/sync-local-data.sh
+deploy/ec2/value-web-backend.service
+deploy/ec2/weekly-value-trading.service
+deploy/ec2/weekly-value-trading.timer
+value_web/src/AddInterestingStock.tsx
+value_web/src/SymbolPricePopover.tsx
