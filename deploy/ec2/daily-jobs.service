@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily market data jobs (prices, news, fundamentals, momentum, analyst ratings)
+Requires=daily-jobs.timer
+
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/home/ec2-user/market_analysis
+ExecStart=/bin/bash /home/ec2-user/market_analysis/deploy/ec2/run-daily-jobs.sh

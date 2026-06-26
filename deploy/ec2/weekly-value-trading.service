@@ -1,0 +1,9 @@
+[Unit]
+Description=Weekly value-trading agent (missing or expired assessments)
+Requires=weekly-value-trading.timer
+
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/home/ec2-user/market_analysis
+ExecStart=/bin/bash /home/ec2-user/market_analysis/deploy/ec2/run-weekly-value-trading.sh

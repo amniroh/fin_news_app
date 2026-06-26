@@ -1,0 +1,18 @@
+[Unit]
+Description=Value Metrics FastAPI backend
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/market_analysis
+Environment=MPLBACKEND=Agg
+Environment=VALUE_METRICS_DB_PATH=/home/ec2-user/market_analysis/backend/data/value_metrics.sqlite
+Environment=AGENT_DB_PATH=/home/ec2-user/market_analysis/telegram_agent/data/agent.sqlite
+EnvironmentFile=-/home/ec2-user/market_analysis/.env
+ExecStart=/home/ec2-user/market_analysis/.venv/bin/python /home/ec2-user/market_analysis/backend/main.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

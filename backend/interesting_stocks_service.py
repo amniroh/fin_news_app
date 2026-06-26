@@ -300,6 +300,25 @@ def _asof_date_from_rec_period(period_label: str, ref: date) -> str:
     return date(y, mo, 28).isoformat()
 
 
+def recommendation_key_from_mean(mean: Optional[float]) -> Optional[str]:
+    """Map Yahoo-style consensus mean (1=strong buy … 5=strong sell) to recommendation_key."""
+    if mean is None:
+        return None
+    try:
+        m = float(mean)
+    except (TypeError, ValueError):
+        return None
+    if m <= 1.5:
+        return "strong_buy"
+    if m <= 2.5:
+        return "buy"
+    if m <= 3.5:
+        return "hold"
+    if m <= 4.5:
+        return "sell"
+    return "strong_sell"
+
+
 def _consensus_mean_from_counts(
     strong_buy: int,
     buy: int,
@@ -497,6 +516,93 @@ def _backfill_prices(symbols: List[str], days: int = 730) -> Dict[str, Any]:
     except Exception as e:
         logger.exception("Price backfill failed")
         return {"ok": False, "error": str(e), "symbols": symbols}
+
+
+def extend_recent_daily_metrics(
+    vm_db: Path,
+    *,
+    symbols: Optional[Sequence[str]] = None,
+    since_date: Optional[str] = None,
+    provider: str = "yfinance",
+) -> Dict[str, Any]:
+    """
+    Append daily ``vm_metric_points`` from each symbol's last stored asof_date + 1 through today.
+
+    ``since_date`` (YYYY-MM-DD) sets a minimum start when catching up after missed job runs.
+    """
+    from value_metrics_daily_backfill import _compute_daily_metrics_for_symbol
+
+    end_d = datetime.now(timezone.utc).date()
+    end_s = end_d.isoformat()
+    floor_d = date.fromisoformat(str(since_date)[:10]) if since_date else None
+
+    con = connect(vm_db)
+    init_db(con)
+    try:
+        if symbols:
+            sym_list = [str(s).strip().upper() for s in symbols if str(s).strip()]
+        else:
+            sym_list = [
+                str(r["symbol"]).strip().upper() for r in list_interesting_stocks(con) if r.get("symbol")
+            ]
+        if not sym_list:
+            return {"skipped": True, "reason": "no symbols"}
+
+        ph = ",".join("?" * len(sym_list))
+        cur = con.execute(
+            f"""
+            SELECT symbol, MAX(asof_date) AS dmax
+            FROM vm_metric_points
+            WHERE period = 'daily' AND provider = ? AND symbol IN ({ph})
+            GROUP BY symbol
+            """,
+            [provider] + sym_list,
+        )
+        last_map = {str(r["symbol"]): str(r["dmax"]) for r in cur.fetchall()}
+
+        ok: List[str] = []
+        skipped: List[str] = []
+        failed: List[Dict[str, str]] = []
+        n_rows = 0
+        for sym in sym_list:
+            last_s = last_map.get(sym)
+            if last_s:
+                start_d = date.fromisoformat(last_s[:10]) + timedelta(days=1)
+            elif floor_d:
+                start_d = floor_d
+            else:
+                skipped.append(sym)
+                continue
+            if floor_d and start_d < floor_d:
+                start_d = floor_d
+            if start_d > end_d:
+                skipped.append(sym)
+                continue
+            try:
+                n = _compute_daily_metrics_for_symbol(
+                    con,
+                    symbol=sym,
+                    start_s=start_d.isoformat(),
+                    end_s=end_s,
+                    provider=provider,
+                )
+                n_rows += int(n)
+                ok.append(sym)
+            except Exception as e:
+                failed.append({"symbol": sym, "error": str(e)})
+            time.sleep(0.25)
+    finally:
+        con.close()
+
+    return {
+        "window_end": end_s,
+        "since_date": since_date,
+        "n_ok": len(ok),
+        "n_skipped": len(skipped),
+        "n_failed": len(failed),
+        "daily_rows_upserted": n_rows,
+        "failed_sample": failed[:20],
+    }
 
 
 def _backfill_fundamentals(vm_db: Path, symbols: List[str], start_s: str, end_s: str) -> Dict[str, Any]:

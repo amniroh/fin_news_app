@@ -31,7 +31,19 @@ class InMemoryTTLCache:
         self._store.clear()
 
 
-def get_or_fetch_metrics(cache: InMemoryTTLCache, symbol: str, con: Any = None) -> Dict[str, Any]:
+def get_or_fetch_metrics(
+    cache: InMemoryTTLCache,
+    symbol: str,
+    con: Any = None,
+    *,
+    allow_network: bool = True,
+) -> Dict[str, Any]:
+    """
+    Read metrics for one symbol: in-memory cache → ``vm_standard_metrics`` → optional Yahoo.
+
+    Website / read APIs must pass ``allow_network=False`` so historical series are never
+    downloaded on page load; use ``daily_market_refresh`` or backfill jobs instead.
+    """
     sym = str(symbol).strip().upper()
     hit = cache.get(sym)
     if hit is not None:
@@ -43,6 +55,9 @@ def get_or_fetch_metrics(cache: InMemoryTTLCache, symbol: str, con: Any = None) 
             out = dict(rows[0])
             cache.set(sym, out)
             return out
+
+    if not allow_network:
+        return {"symbol": sym}
 
     out = fetch_standard_metrics(sym)
     if con is not None:

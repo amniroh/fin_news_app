@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -26,6 +27,7 @@ from value_metrics_store import (
     list_alert_rules,
     list_enabled_rules,
     list_all_watchlist_symbols,
+    list_interesting_stocks,
     remove_from_watchlist,
     set_alert_rule_enabled,
     query_fundamental_points,
@@ -42,6 +44,8 @@ from value_metrics_provider_fmp import fetch_ratios_history
 from value_metrics_price_history import fetch_price_history
 from value_metrics_stock_splits import persist_yfinance_splits_to_db
 from interesting_stocks_api import register_interesting_stocks_routes
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow_iso() -> str:
@@ -71,12 +75,38 @@ _STANDARD_SUPPLEMENT_KEYS = (
     "trailing_pe",
 )
 
+_DAILY_FALLBACK_KEYS = (
+    "pe",
+    "pb",
+    "peg",
+    "dividend_yield",
+    "free_cash_flow_yield",
+    "debt_to_equity",
+    "roe",
+    "current_ratio",
+    "operating_margin",
+    "ev_to_ebitda",
+)
+
+_VALUE_PILLAR_SPECS = (
+    ("competitive_edge", "competitive_edge_score"),
+    ("management_competence", "management_competence_score"),
+    ("financial_fortress", "financial_fortress_score"),
+    ("pricing_power", "pricing_power_score"),
+    ("understandability", "understandability_score"),
+    ("valuation", "valuation_score"),
+)
+
 
 def _apply_analyst_fields(row: Dict[str, Any], ar: Optional[Dict[str, Any]]) -> None:
     if not ar:
         return
-    row["analyst_recommendation_key"] = ar.get("recommendation_key")
-    row["analyst_recommendation_mean"] = ar.get("recommendation_mean")
+    from interesting_stocks_service import recommendation_key_from_mean
+
+    mean = ar.get("recommendation_mean")
+    key = ar.get("recommendation_key") or recommendation_key_from_mean(mean)
+    row["analyst_recommendation_key"] = key
+    row["analyst_recommendation_mean"] = mean
     row["analyst_asof_date"] = ar.get("asof_date")
 
 
@@ -86,6 +116,82 @@ def _apply_value_trading_fields(row: Dict[str, Any], vt: Optional[Dict[str, Any]
     row["value_trading_score"] = vt.get("total_score")
     row["value_trading_assessed_ts"] = vt.get("produced_ts_utc")
     row["value_trading_summary"] = vt.get("overall_summary")
+    pillars = vt.get("pillars") if isinstance(vt.get("pillars"), dict) else {}
+    for key, col in _VALUE_PILLAR_SPECS:
+        block = pillars.get(key) if isinstance(pillars.get(key), dict) else {}
+        score = vt.get(col)
+        if score is None:
+            score = block.get("score")
+        row[f"value_pillar_{key}"] = score
+        rationale = block.get("rationale")
+        if rationale:
+            row[f"value_pillar_{key}_rationale"] = str(rationale).strip()
+
+
+def _merge_daily_fallback(row: Dict[str, Any], daily: Optional[Dict[str, Any]]) -> None:
+    if not daily:
+        return
+    for k in _DAILY_FALLBACK_KEYS:
+        if row.get(k) is None and daily.get(k) is not None:
+            row[k] = daily[k]
+    if not row.get("metrics_asof_date") and daily.get("asof_date"):
+        row["metrics_asof_date"] = daily.get("asof_date")
+
+
+def _tracker_symbols(
+    con: Any,
+    *,
+    symbols_param: str,
+    priority: Optional[str],
+) -> List[str]:
+    if symbols_param and str(symbols_param).strip():
+        return [s.strip().upper() for s in str(symbols_param).split(",") if s.strip()]
+    stocks = list_interesting_stocks(con)
+    pr = str(priority or "all").strip().lower()
+    if pr in ("", "all", "any"):
+        return [str(r["symbol"]).strip().upper() for r in stocks if r.get("symbol")]
+    try:
+        want = int(pr)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="priority must be an integer (0, 1, 2, …) or 'all'")
+    return [
+        str(r["symbol"]).strip().upper()
+        for r in stocks
+        if r.get("symbol") and int(r.get("universe_priority", 99)) == want
+    ]
+
+
+def _fetch_tracker_rows(
+    con: Any,
+    cache: InMemoryTTLCache,
+    syms: List[str],
+) -> List[Dict[str, Any]]:
+    """Assemble tracker rows from SQLite (fast). Live Yahoo is handled by daily jobs."""
+    daily_map = {
+        str(r["symbol"]): r
+        for r in query_latest_daily_metric_points(con, symbols=syms, provider="yfinance")
+    }
+    std_map = {
+        str(r["symbol"]): r
+        for r in query_standard_metrics(con, symbols=syms, provider="yfinance")
+    }
+    priority_map = {
+        str(r["symbol"]): int(r.get("universe_priority", 3))
+        for r in list_interesting_stocks(con)
+    }
+    rows: List[Dict[str, Any]] = []
+    for sym in syms:
+        std = std_map.get(sym)
+        if std:
+            row = dict(std)
+            row["data_source"] = "standard_metrics"
+        else:
+            row = {"data_source": "daily_fallback"}
+        _merge_daily_fallback(row, daily_map.get(sym))
+        row["symbol"] = sym
+        row["universe_priority"] = priority_map.get(sym)
+        rows.append(row)
+    return _enrich_metric_rows(con, rows, cache=cache, allow_live=False)
 
 
 def _merge_standard_supplement(row: Dict[str, Any], std: Dict[str, Any]) -> None:
@@ -99,6 +205,7 @@ def _enrich_metric_rows(
     rows: List[Dict[str, Any]],
     *,
     cache: Optional[InMemoryTTLCache] = None,
+    allow_live: bool = True,
 ) -> List[Dict[str, Any]]:
     """Join analyst ratings, value-trading scores, and standard metrics (RSI, momentum)."""
     syms = [str(r.get("symbol") or "").strip().upper() for r in rows if r.get("symbol")]
@@ -113,31 +220,36 @@ def _enrich_metric_rows(
         sym = str(row.get("symbol") or "").strip().upper()
         std = std_map.get(sym) or {}
         _merge_standard_supplement(row, std)
-        if cache is not None and (row.get("mean_rsi_30d") is None or row.get("total_return_1y") is None):
-            live = get_or_fetch_metrics(cache, sym, con=con)
-            _merge_standard_supplement(row, live)
+        if allow_live and cache is not None and (
+            row.get("mean_rsi_30d") is None or row.get("total_return_1y") is None
+        ):
+            try:
+                live = get_or_fetch_metrics(cache, sym, con=con)
+                _merge_standard_supplement(row, live)
+            except Exception as e:
+                logger.warning("Live supplement fetch failed for %s: %s", sym, e)
         _apply_analyst_fields(row, analyst_map.get(sym))
         _apply_value_trading_fields(row, vt_map.get(sym))
         out.append(row)
 
-    missing_analyst = [sym for sym in syms if sym not in analyst_map]
-    if missing_analyst:
-        try:
-            from interesting_stocks_service import fetch_yfinance_analyst_ratings
+    if allow_live:
+        missing_analyst = [sym for sym in syms if sym not in analyst_map]
+        if missing_analyst:
+            try:
+                from interesting_stocks_service import fetch_yfinance_analyst_ratings
 
-            for sym in missing_analyst:
-                snaps = fetch_yfinance_analyst_ratings(sym)
-                if not snaps:
-                    continue
-                latest = max(snaps, key=lambda x: str(x.get("asof_date") or ""))
-                analyst_map[sym] = latest
-                upsert_analyst_ratings(con, snaps)
-        except Exception:
-            pass
-        if missing_analyst and analyst_map:
+                for sym in missing_analyst:
+                    snaps = fetch_yfinance_analyst_ratings(sym)
+                    if not snaps:
+                        continue
+                    latest = max(snaps, key=lambda x: str(x.get("asof_date") or ""))
+                    analyst_map[sym] = latest
+                    upsert_analyst_ratings(con, snaps)
+            except Exception:
+                pass
             for row in out:
                 sym = str(row.get("symbol") or "").strip().upper()
-                if row.get("analyst_recommendation_key") is None:
+                if sym in missing_analyst:
                     _apply_analyst_fields(row, analyst_map.get(sym))
 
     return out
@@ -228,19 +340,64 @@ def build_value_router(
     @router.get("/metrics")
     async def get_metrics(symbols: str) -> Dict[str, Any]:
         """
-        Fetch value metrics for a comma-separated symbol list.
-        Cached in-memory to avoid hitting provider rate limits.
+        Read value metrics from SQLite (``vm_standard_metrics`` + enrichments).
+        Does not call Yahoo on request; run ``daily_market_refresh`` to refresh snapshots.
         """
         syms = [s.strip().upper() for s in (symbols or "").split(",") if s.strip()]
         if not syms:
             raise HTTPException(status_code=400, detail="symbols is required")
         con = _con()
         try:
-            out = [get_or_fetch_metrics(cache, s, con=con) for s in syms]
-            out = _enrich_metric_rows(con, out, cache=cache)
+            std_map = {
+                str(r["symbol"]): r
+                for r in query_standard_metrics(con, symbols=syms, provider="yfinance")
+            }
+            out = []
+            for s in syms:
+                row = dict(std_map.get(s) or {"symbol": s})
+                row["symbol"] = s
+                out.append(row)
+            out = _enrich_metric_rows(con, out, cache=cache, allow_live=False)
             return {"ts_utc": _utcnow_iso(), "n": len(out), "rows": out}
         finally:
             con.close()
+
+    @router.get("/metrics/tracker")
+    async def get_tracker_metrics(
+        symbols: str = "",
+        priority: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Value Metrics Tracker row set: precomputed SQLite metrics (daily fundamentals,
+        standard momentum/RSI, analyst ratings, value-trading pillars). Refreshed by
+        ``daily_market_refresh`` and backfill jobs — no per-request Yahoo calls.
+        Provide ``symbols`` (comma-separated) or ``priority`` (e.g. 0, 1, all).
+        """
+
+        def _run() -> Dict[str, Any]:
+            con = _con()
+            try:
+                syms = _tracker_symbols(con, symbols_param=symbols, priority=priority)
+                if not syms:
+                    return {
+                        "ts_utc": _utcnow_iso(),
+                        "n": 0,
+                        "rows": [],
+                        "priority": priority,
+                        "symbols": [],
+                    }
+                rows = _fetch_tracker_rows(con, cache, syms)
+                return {
+                    "ts_utc": _utcnow_iso(),
+                    "n": len(rows),
+                    "rows": rows,
+                    "priority": priority,
+                    "symbols": syms,
+                }
+            finally:
+                con.close()
+
+        return await run_in_threadpool(_run)
 
     @router.get("/metrics/latest-daily")
     async def get_latest_daily_metrics(symbols: str, provider: str = "yfinance") -> Dict[str, Any]:
@@ -504,6 +661,44 @@ def build_value_router(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         return {"symbol": sym, "interval": itv, "n": len(rows), "rows": rows}
+
+    @router.get("/price/history/stored")
+    async def get_stored_price_history(
+        symbol: str,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        years: float = 1.0,
+    ) -> Dict[str, Any]:
+        """
+        Daily close prices from ``agent.sqlite`` (backfill pipeline). No Yahoo calls.
+        Default window: last ``years`` (default 1).
+        """
+        sym = str(symbol or "").strip().upper()
+        if not sym:
+            raise HTTPException(status_code=400, detail="symbol is required")
+
+        def _run() -> Dict[str, Any]:
+            from interesting_stocks_service import _agent_price_history
+
+            end_dt = datetime.now(timezone.utc).date()
+            if end and str(end).strip():
+                end_dt = datetime.fromisoformat(str(end).strip()[:10]).date()
+            end_s = end_dt.isoformat()
+            if start and str(start).strip():
+                start_s = str(start).strip()[:10]
+            else:
+                start_s = (end_dt - timedelta(days=max(1, int(float(years) * 365.25)))).isoformat()
+            rows = _agent_price_history(sym, start_s, end_s)
+            return {
+                "symbol": sym,
+                "source": "agent_db",
+                "start": start_s,
+                "end": end_s,
+                "n": len(rows),
+                "rows": rows,
+            }
+
+        return await run_in_threadpool(_run)
 
     @router.get("/watchlist/{user_id}")
     async def watchlist_get(user_id: str) -> Dict[str, Any]:
