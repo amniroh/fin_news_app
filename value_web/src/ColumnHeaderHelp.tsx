@@ -1,5 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
+import { OverlayPanel } from "./OverlayPanel";
 import type { IndicatorDoc } from "./indicatorDocs";
+import { useCoarsePointer } from "./useCoarsePointer";
+import { useDeferredOutsideDismiss } from "./useDeferredOutsideDismiss";
 
 type Props = {
   doc: IndicatorDoc;
@@ -7,39 +10,26 @@ type Props = {
 
 export function ColumnHeaderHelp({ doc }: Props) {
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState({ x: 0, y: 0 });
   const panelId = useId();
-  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent | TouchEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("touchstart", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("touchstart", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  const coarse = useCoarsePointer();
+
+  useDeferredOutsideDismiss(open && !coarse, [panelRef, triggerRef], close);
+
+  const openPanel = () => {
+    const r = triggerRef.current?.getBoundingClientRect();
+    setAnchor({ x: r?.left ?? 0, y: r?.bottom ?? 0 });
+    setOpen(true);
+  };
 
   return (
-    <div
-      ref={rootRef}
-      className="column-help"
-      onMouseEnter={() => {
-        if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) setOpen(true);
-      }}
-      onMouseLeave={() => {
-        if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) setOpen(false);
-      }}
-    >
+    <>
       <button
+        ref={triggerRef}
         type="button"
         className="column-help-trigger"
         aria-expanded={open}
@@ -47,14 +37,34 @@ export function ColumnHeaderHelp({ doc }: Props) {
         aria-label={`About ${doc.label}`}
         onClick={(e) => {
           e.stopPropagation();
-          setOpen((v) => !v);
+          if (open) close();
+          else openPanel();
+        }}
+        onMouseEnter={() => {
+          if (!coarse) openPanel();
+        }}
+        onMouseLeave={() => {
+          if (!coarse) close();
         }}
       >
         ⓘ
       </button>
-      {open && (
-        <div id={panelId} className="column-help-panel" role="tooltip">
-          <strong>{doc.label}</strong>
+      <OverlayPanel
+        ref={panelRef}
+        open={open}
+        onClose={close}
+        title={doc.label}
+        anchor={anchor}
+        backdrop={coarse}
+        className="column-help-overlay"
+      >
+        <div
+          id={panelId}
+          className="column-help-panel-inner"
+          role="tooltip"
+          onMouseEnter={!coarse ? () => setOpen(true) : undefined}
+          onMouseLeave={!coarse ? close : undefined}
+        >
           {doc.formula && (
             <p className="column-help-formula">
               <span className="column-help-kicker">Logic</span>
@@ -70,7 +80,7 @@ export function ColumnHeaderHelp({ doc }: Props) {
             {doc.llmInterpretation}
           </p>
         </div>
-      )}
-    </div>
+      </OverlayPanel>
+    </>
   );
 }

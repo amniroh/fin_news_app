@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { OverlayPanel } from "./OverlayPanel";
+import { useCoarsePointer } from "./useCoarsePointer";
+import { useDeferredOutsideDismiss } from "./useDeferredOutsideDismiss";
 
 type PricePoint = { ts: string; close: number };
 
@@ -51,10 +54,12 @@ export function SymbolPricePopover({ symbol, apiBase, label }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [points, setPoints] = useState<PricePoint[]>([]);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [anchor, setAnchor] = useState({ x: 0, y: 0 });
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const anchorRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const coarse = useCoarsePointer();
 
   const clearHoverTimer = () => {
     if (hoverTimer.current) {
@@ -69,6 +74,12 @@ export function SymbolPricePopover({ symbol, apiBase, label }: Props) {
       leaveTimer.current = null;
     }
   };
+
+  const close = useCallback(() => {
+    clearHoverTimer();
+    clearLeaveTimer();
+    setOpen(false);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,19 +96,10 @@ export function SymbolPricePopover({ symbol, apiBase, label }: Props) {
     }
   }, [apiBase, sym]);
 
-  const showPopover = useCallback(
+  const showPanel = useCallback(
     (clientX: number, clientY: number) => {
       clearLeaveTimer();
-      const pad = 12;
-      const w = 340;
-      const h = 220;
-      let x = clientX + pad;
-      let y = clientY + pad;
-      if (typeof window !== "undefined") {
-        if (x + w > window.innerWidth - pad) x = clientX - w - pad;
-        if (y + h > window.innerHeight - pad) y = Math.max(pad, clientY - h - pad);
-      }
-      setPos({ x, y });
+      setAnchor({ x: clientX, y: clientY });
       setOpen(true);
       void load();
     },
@@ -106,7 +108,7 @@ export function SymbolPricePopover({ symbol, apiBase, label }: Props) {
 
   const scheduleShow = (clientX: number, clientY: number) => {
     clearHoverTimer();
-    hoverTimer.current = setTimeout(() => showPopover(clientX, clientY), 280);
+    hoverTimer.current = setTimeout(() => showPanel(clientX, clientY), 280);
   };
 
   const scheduleHide = () => {
@@ -123,72 +125,74 @@ export function SymbolPricePopover({ symbol, apiBase, label }: Props) {
     [],
   );
 
+  useDeferredOutsideDismiss(open && !coarse, [panelRef, triggerRef], close);
+
   const first = points[0]?.close;
   const last = points[points.length - 1]?.close;
   const chgPct =
     first != null && last != null && first > 0 ? ((last / first - 1) * 100).toFixed(1) : null;
 
+  const openFromTrigger = (clientX?: number, clientY?: number) => {
+    const r = triggerRef.current?.getBoundingClientRect();
+    showPanel(clientX ?? r?.left ?? 0, clientY ?? r?.bottom ?? 0);
+  };
+
   return (
     <>
-      <span
-        ref={anchorRef}
+      <button
+        ref={triggerRef}
+        type="button"
         className="symbol-hover-trigger"
+        aria-expanded={open}
+        aria-label={`${sym} price history`}
         onMouseEnter={(e) => {
-          if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
-            scheduleShow(e.clientX, e.clientY);
-          }
+          if (!coarse) scheduleShow(e.clientX, e.clientY);
         }}
         onMouseLeave={() => {
-          if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) scheduleHide();
+          if (!coarse) scheduleHide();
         }}
         onClick={(e) => {
+          e.stopPropagation();
           e.preventDefault();
-          if (open) {
-            setOpen(false);
-            return;
-          }
-          const r = anchorRef.current?.getBoundingClientRect();
-          showPopover(r ? r.left : e.clientX, r ? r.bottom : e.clientY);
+          if (open) close();
+          else openFromTrigger(e.clientX, e.clientY);
         }}
-        onFocus={() => {
-          const r = anchorRef.current?.getBoundingClientRect();
-          if (r) showPopover(r.left, r.bottom);
+        onPointerEnter={(e) => {
+          if (e.pointerType === "mouse" && !coarse) scheduleShow(e.clientX, e.clientY);
         }}
-        onBlur={scheduleHide}
-        tabIndex={0}
-        role="button"
-        aria-label={`${sym} price history`}
-        aria-expanded={open}
       >
         {label ?? sym}
-      </span>
-      {open && (
+      </button>
+      <OverlayPanel
+        ref={panelRef}
+        open={open}
+        onClose={close}
+        title={sym}
+        subtitle="1Y daily (DB)"
+        anchor={anchor}
+        backdrop={coarse}
+        className="symbol-price-overlay"
+      >
         <div
-          className="symbol-price-popover"
-          style={{ left: pos.x, top: pos.y }}
-          onMouseEnter={clearLeaveTimer}
-          onMouseLeave={scheduleHide}
+          onMouseEnter={!coarse ? clearLeaveTimer : undefined}
+          onMouseLeave={!coarse ? scheduleHide : undefined}
         >
-          <div className="symbol-price-popover-header">
-            <strong>{sym}</strong>
-            <span className="symbol-price-popover-sub">1Y daily (DB)</span>
-            {last != null && !loading && (
-              <span className="symbol-price-popover-last">
-                {formatPrice(last)}
-                {chgPct != null && (
-                  <span className={Number(chgPct) >= 0 ? "up" : "down"}>
-                    {" "}
-                    {Number(chgPct) >= 0 ? "+" : ""}
-                    {chgPct}%
-                  </span>
-                )}
-              </span>
-            )}
-          </div>
+          {last != null && !loading && (
+            <div className="symbol-price-popover-last symbol-price-overlay-summary">
+              {formatPrice(last)}
+              {chgPct != null && (
+                <span className={Number(chgPct) >= 0 ? "up" : "down"}>
+                  {" "}
+                  {Number(chgPct) >= 0 ? "+" : ""}
+                  {chgPct}%
+                </span>
+              )}
+            </div>
+          )}
           {loading && <div className="symbol-price-popover-msg">Loading…</div>}
           {error && !loading && <div className="symbol-price-popover-msg">{error}</div>}
           {!loading && !error && points.length > 0 && (
-            <ResponsiveContainer width="100%" height={160}>
+            <ResponsiveContainer width="100%" height={coarse ? 220 : 160}>
               <LineChart data={points} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis
@@ -213,7 +217,7 @@ export function SymbolPricePopover({ symbol, apiBase, label }: Props) {
             </ResponsiveContainer>
           )}
         </div>
-      )}
+      </OverlayPanel>
     </>
   );
 }

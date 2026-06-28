@@ -4,6 +4,7 @@ import { AddInterestingStock } from "./AddInterestingStock";
 import { ColumnHeaderHelp } from "./ColumnHeaderHelp";
 import { getApiBase } from "./apiBase";
 import { indicatorDocForColumn } from "./indicatorDocs";
+import { CellDetailTrigger } from "./CellDetailTrigger";
 import { SymbolPricePopover } from "./SymbolPricePopover";
 
 type LoadMode = "custom" | "0" | "1" | "2" | "3" | "all";
@@ -518,11 +519,10 @@ function App({ apiBase: apiBaseProp }: { apiBase?: string }) {
                   if (c.key.startsWith("value_pillar_") && v != null) color = pillarColor(Number(v));
                   if (c.key === "debt_to_equity" && v != null) color = Number(v) <= 100 ? "green" : Number(v) >= 200 ? "crimson" : undefined;
                   if (c.key === "operating_margin" && v != null) color = Number(v) >= 0.2 ? "green" : Number(v) <= 0.05 ? "crimson" : undefined;
-                  const title = cellTitle(r, c.key);
+                  const detail = cellTitle(r, c.key);
                   return (
                     <td
                       key={c.key}
-                      title={title}
                       className={colIdx === 0 ? "sticky-col" : undefined}
                       style={{
                         color,
@@ -537,7 +537,9 @@ function App({ apiBase: apiBaseProp }: { apiBase?: string }) {
                       {c.key === "symbol" ? (
                         <SymbolPricePopover symbol={String(r.symbol)} apiBase={apiBase} />
                       ) : (
-                        txt
+                        <CellDetailTrigger detail={detail} title={c.label}>
+                          {txt}
+                        </CellDetailTrigger>
                       )}
                     </td>
                   );

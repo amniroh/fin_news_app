@@ -191,8 +191,173 @@
   text-underline-offset: 2px;
   background: none;
   border: none;
-  padding: 0;
+  padding: 4px 2px;
+  margin: -4px -2px;
   font: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 32px;
+  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cell-detail-trigger {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  margin: -4px -2px;
+  font: inherit;
+  color: inherit;
+  font-weight: inherit;
+  text-align: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cell-detail-trigger--has-detail {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.cell-detail-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+body.overlay-open {
+  overflow: hidden;
+}
+
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1999;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.overlay-panel {
+  position: fixed;
+  z-index: 2000;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
+  pointer-events: auto;
+}
+
+.overlay-panel-popover {
+  border-radius: 8px;
+  max-width: min(340px, calc(100vw - 24px));
+}
+
+.overlay-panel-sheet {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  max-height: min(78vh, 520px);
+  border-radius: 14px 14px 0 0;
+  border-bottom: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.overlay-panel-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.overlay-panel-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.overlay-panel-titles strong {
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.overlay-panel-sub {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.overlay-panel-close {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.overlay-panel-body {
+  padding: 10px 14px 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.overlay-panel-sheet .overlay-panel-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.symbol-price-overlay .symbol-price-overlay-summary {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.symbol-price-popover-last .up {
+  color: #276749;
+}
+
+.symbol-price-popover-last .down {
+  color: #c53030;
+}
+
+.symbol-price-popover-msg {
+  padding: 24px 8px;
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.column-help-panel-inner p {
+  margin: 0 0 10px;
+}
+
+.column-help-panel-inner p:last-child {
+  margin-bottom: 0;
+}
+
+.column-help-overlay .overlay-panel-body {
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .tracker-page {
@@ -220,57 +385,11 @@
     min-height: 88px;
   }
 
-  .column-help-panel {
-    max-width: min(92vw, 320px);
-    right: 0;
-    left: auto;
+  .column-help-trigger {
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
   }
-}
-
-.symbol-price-popover {
-  position: fixed;
-  z-index: 1000;
-  width: min(340px, calc(100vw - 24px));
-  padding: 10px 12px 8px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
-  pointer-events: auto;
-}
-
-.symbol-price-popover-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 10px;
-  margin-bottom: 6px;
-  font-size: 13px;
-}
-
-.symbol-price-popover-sub {
-  color: #64748b;
-  font-size: 11px;
-}
-
-.symbol-price-popover-last {
-  margin-left: auto;
-  font-size: 13px;
-}
-
-.symbol-price-popover-last .up {
-  color: #276749;
-}
-
-.symbol-price-popover-last .down {
-  color: #c53030;
-}
-
-.symbol-price-popover-msg {
-  padding: 24px 8px;
-  text-align: center;
-  color: #64748b;
-  font-size: 13px;
 }
 
 .tracker-scroll {
@@ -344,6 +463,9 @@
   font-size: 12px;
   line-height: 1;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
 
 .column-help-panel {
