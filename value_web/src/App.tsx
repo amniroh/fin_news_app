@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { AddInterestingStock } from "./AddInterestingStock";
 import { ColumnHeaderHelp } from "./ColumnHeaderHelp";
+import { getApiBase } from "./apiBase";
 import { indicatorDocForColumn } from "./indicatorDocs";
 import { SymbolPricePopover } from "./SymbolPricePopover";
 
@@ -121,7 +122,7 @@ function cellTitle(row: Record<string, unknown>, colKey: string): string | undef
   return undefined;
 }
 
-function App() {
+function App({ apiBase: apiBaseProp }: { apiBase?: string }) {
   const [symbolsText, setSymbolsText] = useState("AAPL,MSFT,NVDA,AMZN");
   const [loadMode, setLoadMode] = useState<LoadMode>("0");
   const [rows, setRows] = useState<any[]>([]);
@@ -132,9 +133,7 @@ function App() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [columnFilters, setColumnFilters] = useState<ColumnFilter[]>([{ kind: "numeric", column: "pe" }]);
 
-  const apiBase =
-    (import.meta as any).env?.VITE_API_BASE ??
-    (import.meta.env.DEV ? "http://localhost:8000" : "");
+  const apiBase = apiBaseProp ?? getApiBase();
 
   async function fetchMetrics() {
     setLoading(true);

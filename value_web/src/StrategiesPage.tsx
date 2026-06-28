@@ -1169,7 +1169,7 @@ export function StrategiesPage({ apiBase }: { apiBase: string }) {
   }, [list]);
 
   return (
-    <div style={{ maxWidth: 1280, margin: "0 auto", padding: 16 }}>
+    <div className="strategies-page">
       <h2 style={{ margin: "12px 0" }}>Strategies — Quality, ML, Pred-weighted ML &amp; RSI mean</h2>
       <p style={{ margin: "0 0 12px", fontSize: 13, color: "#555" }}>
         Compare strategies side-by-side at a chosen cadence — each strategy uses its theme color plus a distinct dash
@@ -1186,31 +1186,14 @@ export function StrategiesPage({ apiBase }: { apiBase: string }) {
         <div>Loading…</div>
       ) : (
         <>
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-              padding: 8,
-              background: "#f7fafc",
-              borderRadius: 8,
-              marginBottom: 14,
-            }}
-          >
-            <span style={{ fontSize: 13, color: "#444", marginRight: 6 }}>Cadence:</span>
+          <div className="strategies-cadence-bar">
+            <span className="strategies-cadence-label">Cadence:</span>
             {CADENCES.map((c) => (
               <button
                 key={c.id}
+                type="button"
                 onClick={() => setCadence(c.id)}
-                style={{
-                  padding: "6px 14px",
-                  border: cadence === c.id ? "1px solid #2b6cb0" : "1px solid #cbd5e0",
-                  background: cadence === c.id ? "#2b6cb0" : "#fff",
-                  color: cadence === c.id ? "#fff" : "#2d3748",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontWeight: cadence === c.id ? 600 : 500,
-                }}
+                className={cadence === c.id ? "cadence-btn cadence-btn-active" : "cadence-btn"}
               >
                 {c.label}
               </button>
@@ -1226,8 +1209,8 @@ export function StrategiesPage({ apiBase }: { apiBase: string }) {
             Click any row to see its current top-50 portfolio with weights, plus risk-match vs SPY (when an evaluator
             snapshot has been generated).
           </p>
-          <div style={{ overflowX: "auto", marginBottom: 14 }}>
-            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+          <div className="strategies-table-scroll">
+            <table className="strategies-table">
               <thead>
                 <tr>
                   <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ddd" }}>Variant</th>

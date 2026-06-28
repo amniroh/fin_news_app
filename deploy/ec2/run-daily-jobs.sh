@@ -22,9 +22,14 @@ fi
 # shellcheck source=/dev/null
 source "$REPO_ROOT/.venv/bin/activate"
 
+INGEST_ARGS=()
+if [[ "${SKIP_TELEGRAM_INGEST:-}" == "1" ]]; then
+  INGEST_ARGS=(--skip-ingest)
+fi
+
 {
   echo "======== $(date -u +%Y-%m-%dT%H:%M:%SZ) daily jobs start ========"
-  python "$REPO_ROOT/backend/interesting_stocks_daily_backfill.py"
+  python "$REPO_ROOT/backend/interesting_stocks_daily_backfill.py" "${INGEST_ARGS[@]}"
   python "$REPO_ROOT/backend/daily_market_refresh.py"
   echo "======== $(date -u +%Y-%m-%dT%H:%M:%SZ) daily jobs done ========"
 } >>"$LOG" 2>&1
