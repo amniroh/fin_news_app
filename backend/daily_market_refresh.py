@@ -115,6 +115,11 @@ def main() -> int:
     )
     ap.add_argument("--skip-metrics", action="store_true", help="Skip momentum/RSI standard metrics")
     ap.add_argument("--skip-analyst", action="store_true")
+    ap.add_argument(
+        "--skip-technical",
+        action="store_true",
+        help="Skip extending vm_technical_indicators (EMA, MACD, ADX, RVOL)",
+    )
     ap.add_argument("--json-out", default="")
     args = ap.parse_args()
 
@@ -139,6 +144,17 @@ def main() -> int:
         since = str(args.daily_metrics_since or "").strip() or None
         logger.info("Extending daily vm_metric_points through today (since=%s)", since or "per-symbol last date")
         result["daily_metrics"] = extend_recent_daily_metrics(vm_db, symbols=symbols, since_date=since)
+    if not args.skip_technical:
+        from technical_indicators_backfill import extend_recent_technical_indicators
+
+        agent_db = Path(os.getenv("AGENT_DB_PATH", str(_REPO_ROOT / "telegram_agent" / "data" / "agent.sqlite")))
+        if not agent_db.is_absolute():
+            agent_db = _REPO_ROOT / agent_db
+        since = str(args.daily_metrics_since or "").strip() or None
+        logger.info("Extending technical indicators through today (since=%s)", since or "per-symbol last date")
+        result["technical_indicators"] = extend_recent_technical_indicators(
+            vm_db, agent_db, symbols=symbols, since_date=since
+        )
     if not args.skip_metrics:
         logger.info("Refreshing standard metrics (momentum, RSI, returns)")
         result["standard_metrics"] = _refresh_standard_metrics(symbols, vm_db)
@@ -155,6 +171,7 @@ def main() -> int:
     failed = (
         (result.get("standard_metrics") or {}).get("n_failed", 0)
         + (result.get("daily_metrics") or {}).get("n_failed", 0)
+        + (result.get("technical_indicators") or {}).get("n_failed", 0)
         + len((result.get("prices") or {}).get("failed") or [])
     )
     return 1 if failed else 0

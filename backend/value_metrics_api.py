@@ -32,6 +32,7 @@ from value_metrics_store import (
     set_alert_rule_enabled,
     query_fundamental_points,
     query_latest_daily_metric_points,
+    query_latest_technical_indicators,
     query_metric_points,
     query_standard_metrics,
     query_stock_splits,
@@ -96,6 +97,18 @@ _VALUE_PILLAR_SPECS = (
     ("understandability", "understandability_score"),
     ("valuation", "valuation_score"),
 )
+
+
+def _apply_technical_fields(row: Dict[str, Any], tech: Optional[Dict[str, Any]]) -> None:
+    if not tech:
+        return
+    row["tech_asof_date"] = tech.get("asof_date")
+    row["tech_close"] = tech.get("close")
+    row["ema"] = tech.get("ema")
+    row["macd_line"] = tech.get("macd_line")
+    row["macd_signal"] = tech.get("macd_signal")
+    row["adx"] = tech.get("adx")
+    row["rvol"] = tech.get("rvol")
 
 
 def _apply_analyst_fields(row: Dict[str, Any], ar: Optional[Dict[str, Any]]) -> None:
@@ -179,6 +192,9 @@ def _fetch_tracker_rows(
         str(r["symbol"]): int(r.get("universe_priority", 3))
         for r in list_interesting_stocks(con)
     }
+    tech_map = {
+        str(r["symbol"]): r for r in query_latest_technical_indicators(con, symbols=syms, provider="yfinance")
+    }
     rows: List[Dict[str, Any]] = []
     for sym in syms:
         std = std_map.get(sym)
@@ -188,6 +204,7 @@ def _fetch_tracker_rows(
         else:
             row = {"data_source": "daily_fallback"}
         _merge_daily_fallback(row, daily_map.get(sym))
+        _apply_technical_fields(row, tech_map.get(sym))
         row["symbol"] = sym
         row["universe_priority"] = priority_map.get(sym)
         rows.append(row)

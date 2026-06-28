@@ -133,8 +133,23 @@ export function SymbolPricePopover({ symbol, apiBase, label }: Props) {
       <span
         ref={anchorRef}
         className="symbol-hover-trigger"
-        onMouseEnter={(e) => scheduleShow(e.clientX, e.clientY)}
-        onMouseLeave={scheduleHide}
+        onMouseEnter={(e) => {
+          if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+            scheduleShow(e.clientX, e.clientY);
+          }
+        }}
+        onMouseLeave={() => {
+          if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) scheduleHide();
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          if (open) {
+            setOpen(false);
+            return;
+          }
+          const r = anchorRef.current?.getBoundingClientRect();
+          showPopover(r ? r.left : e.clientX, r ? r.bottom : e.clientY);
+        }}
         onFocus={() => {
           const r = anchorRef.current?.getBoundingClientRect();
           if (r) showPopover(r.left, r.bottom);
@@ -143,6 +158,7 @@ export function SymbolPricePopover({ symbol, apiBase, label }: Props) {
         tabIndex={0}
         role="button"
         aria-label={`${sym} price history`}
+        aria-expanded={open}
       >
         {label ?? sym}
       </span>

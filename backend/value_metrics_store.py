@@ -216,6 +216,22 @@ CREATE TABLE IF NOT EXISTS vm_value_trading_assessments (
   meta_json TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_vm_value_trading_symbol_ts ON vm_value_trading_assessments(symbol, produced_ts_utc DESC);
+
+-- Daily technical indicators (EMA, MACD, ADX, RVOL) from OHLCV.
+CREATE TABLE IF NOT EXISTS vm_technical_indicators (
+  symbol TEXT NOT NULL,
+  asof_date TEXT NOT NULL,
+  provider TEXT NOT NULL DEFAULT 'yfinance',
+  close REAL,
+  ema REAL,
+  macd_line REAL,
+  macd_signal REAL,
+  adx REAL,
+  rvol REAL,
+  fetched_ts_utc TEXT NOT NULL,
+  PRIMARY KEY(symbol, asof_date, provider)
+);
+CREATE INDEX IF NOT EXISTS idx_vm_technical_indicators_symbol_date ON vm_technical_indicators(symbol, asof_date);
 """
 
 
@@ -751,6 +767,91 @@ def query_standard_metrics(
             d["raw"] = {}
         out.append(d)
     return out
+
+
+def upsert_technical_indicators(
+    con: sqlite3.Connection,
+    *,
+    provider: str,
+    points: List[Dict[str, Any]],
+) -> int:
+    if not points:
+        return 0
+    prov = str(provider).strip().lower()
+    rows = []
+    for p in points:
+        sym = str(p.get("symbol") or "").strip().upper()
+        d = str(p.get("asof_date") or "").strip()
+        if not sym or not d:
+            continue
+        rows.append(
+            (
+                sym,
+                d,
+                prov,
+                p.get("close"),
+                p.get("ema"),
+                p.get("macd_line"),
+                p.get("macd_signal"),
+                p.get("adx"),
+                p.get("rvol"),
+                str(p.get("fetched_ts_utc") or _utcnow_iso()),
+            )
+        )
+    if not rows:
+        return 0
+    con.executemany(
+        """
+        INSERT INTO vm_technical_indicators(
+          symbol, asof_date, provider,
+          close, ema, macd_line, macd_signal, adx, rvol,
+          fetched_ts_utc
+        )
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(symbol, asof_date, provider) DO UPDATE SET
+          close=excluded.close,
+          ema=excluded.ema,
+          macd_line=excluded.macd_line,
+          macd_signal=excluded.macd_signal,
+          adx=excluded.adx,
+          rvol=excluded.rvol,
+          fetched_ts_utc=excluded.fetched_ts_utc
+        """,
+        rows,
+    )
+    con.commit()
+    return len(rows)
+
+
+def query_latest_technical_indicators(
+    con: sqlite3.Connection,
+    *,
+    symbols: List[str],
+    provider: str = "yfinance",
+) -> List[Dict[str, Any]]:
+    """Latest technical indicator row per symbol (most recent asof_date)."""
+    prov = str(provider).strip().lower()
+    syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
+    if not syms:
+        return []
+    ph = ",".join("?" * len(syms))
+    sql = f"""
+      SELECT t.symbol, t.asof_date, t.provider,
+             t.close, t.ema, t.macd_line, t.macd_signal, t.adx, t.rvol,
+             t.fetched_ts_utc
+      FROM vm_technical_indicators t
+      JOIN (
+        SELECT symbol, MAX(asof_date) AS dmax
+        FROM vm_technical_indicators
+        WHERE provider = ?
+          AND symbol IN ({ph})
+        GROUP BY symbol
+      ) u ON t.symbol = u.symbol AND t.asof_date = u.dmax
+      WHERE t.provider = ?
+    """
+    params: List[Any] = [prov] + list(syms) + [prov]
+    cur = con.execute(sql, params)
+    return [dict(r) for r in cur.fetchall()]
 
 
 def ensure_user(con: sqlite3.Connection, user_id: str) -> None:

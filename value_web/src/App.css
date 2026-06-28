@@ -184,17 +184,53 @@
 }
 
 .symbol-hover-trigger {
-  cursor: help;
+  cursor: pointer;
   font-weight: 600;
   color: #2563eb;
   text-decoration: underline dotted;
   text-underline-offset: 2px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
+.tracker-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+@media (max-width: 768px) {
+  .tracker-page {
+    padding: 12px 10px;
+  }
+
+  .tracker-scroll {
+    max-height: calc(100vh - 220px);
+  }
+
+  .tracker-table th,
+  .tracker-table td {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .filter-row select[multiple] {
+    min-height: 88px;
+  }
+
+  .column-help-panel {
+    max-width: min(92vw, 320px);
+    right: 0;
+    left: auto;
+  }
 }
 
 .symbol-price-popover {
   position: fixed;
   z-index: 1000;
-  width: 340px;
+  width: min(340px, calc(100vw - 24px));
   padding: 10px 12px 8px;
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -265,9 +301,91 @@
   top: 0;
   z-index: 2;
   border-bottom: 1px solid #ddd;
-  cursor: pointer;
   font-weight: 600;
   box-shadow: 0 1px 0 #ddd;
+  vertical-align: bottom;
+}
+
+.th-inner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.th-sort {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+
+.column-help {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.column-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.column-help-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max-content;
+  max-width: 320px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+}
+
+.column-help-kicker {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.column-help-formula {
+  margin: 6px 0 8px;
+  color: #334155;
+}
+
+.column-help-panel p {
+  margin: 0 0 8px;
+}
+
+.column-help-panel p:last-child {
+  margin-bottom: 0;
 }
 
 .tracker-table .sticky-col {

@@ -18,6 +18,52 @@ npm run dev
 
 Then open the Vite URL (prints in terminal).
 
+## Technical indicators (EMA, MACD, ADX, RVOL)
+
+Daily technical indicators are stored in `vm_technical_indicators` (SQLite) and shown in the tracker table. Tap or hover the **ⓘ** icon on column headers for feature meaning and LLM interpretation (mobile: tap to open/close).
+
+### 1. Exponential Moving Average (EMA, 20-day)
+
+**Logic:** \(EMA_t = (Price_t \times \alpha) + (EMA_{t-1} \times (1 - \alpha))\), where \(\alpha = 2/(N+1)\) and \(N=20\).
+
+**Feature meaning:** Represents the smoothed trend direction.
+
+**LLM interpretation:** If \(Price > EMA\), the trend is bullish; if \(Price < EMA\), it is bearish. The slope of the EMA indicates the acceleration of the trend.
+
+### 2. Moving Average Convergence Divergence (MACD)
+
+**Logic:** MACD Line \(= EMA_{12} - EMA_{26}\). Signal Line \(=\) 9-period EMA of the MACD Line.
+
+**Feature meaning:** Represents momentum magnitude and polarity.
+
+**LLM interpretation:** A bullish crossover occurs when the MACD Line crosses above the Signal Line, indicating that short-term price momentum is shifting upward relative to longer-term trends.
+
+### 3. Average Directional Index (ADX, 14-day)
+
+**Logic:** Calculated from the Plus Directional Indicator (\(+DI\)) and Minus Directional Indicator (\(-DI\)) over a 14-day Wilder window.
+
+**Feature meaning:** Represents trend strength (intensity).
+
+**LLM interpretation:** Non-directional scalar. \(ADX < 20\) suggests a range-bound, noise-heavy environment. \(ADX > 25\) suggests a high-probability directional trend, regardless of whether it is bullish or bearish.
+
+### 4. Relative Volume (RVOL, 20-day average)
+
+**Logic:** \(RVOL = Current\ Volume / Average\ Volume\) over 20 trading days.
+
+**Feature meaning:** Represents conviction or interest level.
+
+**LLM interpretation:** Acts as a validation filter. If a price move occurs with \(RVOL < 1.0\), it is statistically insignificant (retail noise). If \(RVOL > 2.0\), it signifies institutional participation and high conviction behind the price action.
+
+### Backfill
+
+```bash
+# Full history for all symbols with daily prices in agent.sqlite
+.venv/bin/python backend/technical_indicators_backfill.py
+
+# Incremental (daily job also runs this after price refresh)
+.venv/bin/python backend/technical_indicators_backfill.py --extend-only
+```
+
 ## Interesting stocks (MVP)
 
 Nav: **Stocks** (`/stocks`) — universe table, add tickers, **read-only** coverage gaps. Backfills are **not** triggered from the UI.

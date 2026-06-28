@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { AddInterestingStock } from "./AddInterestingStock";
+import { ColumnHeaderHelp } from "./ColumnHeaderHelp";
+import { indicatorDocForColumn } from "./indicatorDocs";
 import { SymbolPricePopover } from "./SymbolPricePopover";
 
 type LoadMode = "custom" | "0" | "1" | "2" | "3" | "all";
@@ -42,6 +44,10 @@ const FILTERABLE_COLUMNS: FilterableColumn[] = [
   { key: "mean_rsi_30d", label: "RSI (30d)", kind: "numeric" },
   { key: "mean_rsi_7d", label: "RSI (7d)", kind: "numeric" },
   { key: "total_return_1y", label: "Momentum (1Y)", kind: "numeric" },
+  { key: "ema", label: "EMA (20)", kind: "numeric" },
+  { key: "macd_line", label: "MACD", kind: "numeric" },
+  { key: "adx", label: "ADX (14)", kind: "numeric" },
+  { key: "rvol", label: "RVOL (20d)", kind: "numeric" },
   { key: "value_trading_score", label: "LLM value score", kind: "numeric" },
   { key: "value_pillar_competitive_edge", label: "Moat score", kind: "numeric" },
   { key: "value_pillar_valuation", label: "Valuation score", kind: "numeric" },
@@ -106,6 +112,12 @@ function cellTitle(row: Record<string, unknown>, colKey: string): string | undef
     const rationale = row[`${colKey}_rationale`];
     if (rationale) return String(rationale);
   }
+  if (colKey === "ema" && row.tech_close != null && row.ema != null) {
+    return `Close ${Number(row.tech_close).toFixed(2)} vs EMA ${Number(row.ema).toFixed(2)}`;
+  }
+  if (colKey === "macd_line" && row.macd_signal != null) {
+    return `Signal ${Number(row.macd_signal).toFixed(3)}`;
+  }
   return undefined;
 }
 
@@ -155,7 +167,7 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadMode]);
 
-  const columns: { key: string; label: string; fmt?: (v: any) => string }[] = [
+  const columns: { key: string; label: string; fmt?: (v: any, row?: any) => string }[] = [
     { key: "symbol", label: "Symbol" },
     { key: "universe_priority", label: "Priority", fmt: (v) => (v == null ? "" : `P${v}`) },
     { key: "pe", label: "Low P/E", fmt: (v) => (v == null ? "" : Number(v).toFixed(2)) },
@@ -169,6 +181,43 @@ function App() {
       key: "total_return_1y",
       label: "Momentum",
       fmt: (v) => (v == null ? "" : (Number(v) * 100).toFixed(2) + "%"),
+    },
+    {
+      key: "ema",
+      label: "EMA (20)",
+      fmt: (v, row) => {
+        if (v == null) return "—";
+        const ema = Number(v);
+        const close = row?.tech_close != null ? Number(row.tech_close) : null;
+        const tag = close != null ? (close > ema ? "▲" : close < ema ? "▼" : "—") : "";
+        return `${ema.toFixed(2)}${tag ? ` ${tag}` : ""}`;
+      },
+    },
+    {
+      key: "macd_line",
+      label: "MACD",
+      fmt: (v, row) => {
+        if (v == null) return "—";
+        const line = Number(v);
+        const sig = row?.macd_signal != null ? Number(row.macd_signal) : null;
+        const bias = sig != null ? (line > sig ? "bull" : line < sig ? "bear" : "flat") : "";
+        return `${line.toFixed(3)}${bias ? ` (${bias})` : ""}`;
+      },
+    },
+    {
+      key: "adx",
+      label: "ADX (14)",
+      fmt: (v) => (v == null ? "—" : Number(v).toFixed(1)),
+    },
+    {
+      key: "rvol",
+      label: "RVOL (20d)",
+      fmt: (v) => (v == null ? "—" : `${Number(v).toFixed(2)}×`),
+    },
+    {
+      key: "tech_asof_date",
+      label: "Technicals as of",
+      fmt: (v) => (v == null || v === "" ? "—" : String(v)),
     },
     {
       key: "value_trading_score",
@@ -276,7 +325,7 @@ function App() {
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: 16 }}>
+    <div className="tracker-page">
       <AddInterestingStock apiBase={apiBase} />
 
       <h2 style={{ margin: "12px 0" }}>Value Metrics Tracker</h2>
@@ -418,15 +467,19 @@ function App() {
         <table className="tracker-table">
           <thead>
             <tr>
-              {columns.map((c, colIdx) => (
-                <th
-                  key={c.key}
-                  onClick={() => toggleSort(c.key)}
-                  className={colIdx === 0 ? "sticky-col" : undefined}
-                >
-                  {c.label} {sortKey === c.key ? (sortDir === "asc" ? "▲" : "▼") : ""}
-                </th>
-              ))}
+              {columns.map((c, colIdx) => {
+                const doc = indicatorDocForColumn(c.key);
+                return (
+                  <th key={c.key} className={colIdx === 0 ? "sticky-col" : undefined}>
+                    <div className="th-inner">
+                      <button type="button" className="th-sort" onClick={() => toggleSort(c.key)}>
+                        {c.label} {sortKey === c.key ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                      </button>
+                      {doc && <ColumnHeaderHelp doc={doc} />}
+                    </div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -434,7 +487,7 @@ function App() {
               <tr key={r.symbol}>
                 {columns.map((c, colIdx) => {
                   const v = r[c.key];
-                  const txt = c.fmt ? c.fmt(v) : v ?? "";
+                  const txt = c.fmt ? c.fmt(v, r) : v ?? "";
                   let color: string | undefined;
                   if (c.key === "pe" && v != null) color = Number(v) <= 15 ? "green" : Number(v) >= 30 ? "crimson" : undefined;
                   if (c.key === "mean_rsi_30d" && v != null) {
@@ -447,6 +500,20 @@ function App() {
                   }
                   if (c.key === "total_return_1y" && v != null) {
                     color = Number(v) > 0 ? "green" : Number(v) < 0 ? "crimson" : undefined;
+                  }
+                  if (c.key === "ema" && r.tech_close != null && v != null) {
+                    color = Number(r.tech_close) > Number(v) ? "green" : Number(r.tech_close) < Number(v) ? "crimson" : undefined;
+                  }
+                  if (c.key === "macd_line" && v != null && r.macd_signal != null) {
+                    color = Number(v) > Number(r.macd_signal) ? "green" : Number(v) < Number(r.macd_signal) ? "crimson" : undefined;
+                  }
+                  if (c.key === "adx" && v != null) {
+                    const adx = Number(v);
+                    color = adx >= 25 ? "#2563eb" : adx < 20 ? "#64748b" : undefined;
+                  }
+                  if (c.key === "rvol" && v != null) {
+                    const rv = Number(v);
+                    color = rv >= 2 ? "green" : rv < 1 ? "#64748b" : undefined;
                   }
                   if (c.key === "value_trading_score" && v != null) color = valueScoreColor(Number(v));
                   if (c.key.startsWith("value_pillar_") && v != null) color = pillarColor(Number(v));
