@@ -34,7 +34,6 @@ if str(_BACKEND) not in sys.path:
 from sp500_return_model import (  # noqa: E402
     CADENCE_HORIZON_DAYS,
     DATA_DIR,
-    _build_estimator,
     _equity_curve_payload,
     _json_default,
     _run_strategy_backtest,
@@ -76,11 +75,96 @@ SHARPE_MIN = 1.0
 MAX_DRAWDOWN_MIN = -0.20  # i.e. drawdown no worse than 20%
 
 SEARCH_GRID: Dict[str, Sequence[Any]] = {
-    "top_n": (15, 25, 40),
-    "pred_smoothing_days": (0, 3, 5),
-    "inverse_vol_blend": (0.0, 0.25, 0.5),
+    "top_n": (15, 25, 35),
+    "pred_smoothing_days": (3, 5, 7, 10),
+    "inverse_vol_blend": (0.25, 0.5),
     "trend_filter_enabled": (False, True),
 }
+
+EARLY_STOPPING_ROUNDS = 60
+
+
+def _build_technicals_estimator(seed: int = 7) -> Any:
+    """Regularized regressor — shallower trees, stronger L1/L2, subsampling."""
+    try:
+        import lightgbm as lgb  # type: ignore
+
+        return lgb.LGBMRegressor(
+            n_estimators=600,
+            learning_rate=0.025,
+            num_leaves=31,
+            max_depth=6,
+            min_child_samples=500,
+            min_split_gain=0.02,
+            feature_fraction=0.75,
+            bagging_fraction=0.75,
+            bagging_freq=1,
+            reg_lambda=5.0,
+            reg_alpha=1.0,
+            random_state=seed,
+            n_jobs=-1,
+            verbosity=-1,
+        )
+    except Exception:
+        from sklearn.ensemble import HistGradientBoostingRegressor
+
+        return HistGradientBoostingRegressor(
+            max_iter=400,
+            learning_rate=0.03,
+            max_leaf_nodes=31,
+            max_depth=6,
+            min_samples_leaf=500,
+            l2_regularization=2.0,
+            early_stopping=True,
+            validation_fraction=0.1,
+            n_iter_no_change=50,
+            random_state=seed,
+        )
+
+
+def _fit_technicals_model(
+    model: Any,
+    train_panel: pd.DataFrame,
+    val_panel: pd.DataFrame,
+) -> Any:
+    """Fit on train with early stopping monitored on validation (no train+val refit)."""
+    Xtr = train_panel[FEATURE_NAMES]
+    ytr = train_panel["y"].values
+    Xva = val_panel[FEATURE_NAMES]
+    yva = val_panel["y"].values
+
+    try:
+        import lightgbm as lgb  # type: ignore
+
+        if isinstance(model, lgb.LGBMRegressor):
+            model.fit(
+                Xtr,
+                ytr,
+                eval_set=[(Xva, yva)],
+                eval_metric="l2",
+                callbacks=[lgb.early_stopping(EARLY_STOPPING_ROUNDS, verbose=False)],
+            )
+            return model
+    except Exception:
+        pass
+
+    try:
+        from sklearn.ensemble import HistGradientBoostingRegressor
+
+        if isinstance(model, HistGradientBoostingRegressor):
+            model.fit(Xtr.values, ytr, X_val=Xva.values, y_val=yva)
+            return model
+    except Exception:
+        pass
+
+    model.fit(Xtr.values, ytr)
+    return model
+
+
+def _predict_panel(model: Any, panel: pd.DataFrame) -> np.ndarray:
+    X = panel[FEATURE_NAMES].values
+    pred = model.predict(X)
+    return np.asarray(pred, dtype=float)
 
 
 @dataclass
@@ -240,18 +324,16 @@ def _meets_constraints(metrics: Dict[str, Any]) -> bool:
 
 
 def _search_backtest_params(
-    model: Any,
     train_panel: pd.DataFrame,
     val_panel: pd.DataFrame,
     prices: Dict[str, pd.DataFrame],
     cadence: str,
-) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
-    Xtr = train_panel[FEATURE_NAMES].values
-    ytr = train_panel["y"].values
-    model.fit(Xtr, ytr)
+    seed: int,
+) -> Tuple[Dict[str, Any], List[Dict[str, Any]], Any]:
+    model = _fit_technicals_model(_build_technicals_estimator(seed=seed), train_panel, val_panel)
 
     val_scored = val_panel.copy()
-    val_scored["pred"] = model.predict(val_panel[FEATURE_NAMES].values)
+    val_scored["pred"] = _predict_panel(model, val_panel)
 
     keys = list(SEARCH_GRID.keys())
     combos = list(itertools.product(*(SEARCH_GRID[k] for k in keys)))
@@ -289,7 +371,7 @@ def _search_backtest_params(
     if chosen is None:
         raise RuntimeError("parameter search produced no valid backtests")
     chosen_params = {k: chosen[k] for k in keys}
-    return chosen_params, trials
+    return chosen_params, trials, model
 
 
 def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> RegressionTechnicalsResult:
@@ -341,16 +423,16 @@ def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> Regressio
     val_panel = panel.iloc[va_idx].reset_index(drop=True)
     test_panel = panel.iloc[te_idx].reset_index(drop=True)
 
-    model = _build_estimator(seed=cfg.seed)
-    chosen_params, trials = _search_backtest_params(model, train_panel, val_panel, prices, cfg.cadence)
+    chosen_params, trials, model = _search_backtest_params(
+        train_panel, val_panel, prices, cfg.cadence, cfg.seed
+    )
 
-    train_val = pd.concat([train_panel, val_panel], axis=0, ignore_index=True)
-    model_full = _build_estimator(seed=cfg.seed)
-    model_full.fit(train_val[FEATURE_NAMES].values, train_val["y"].values)
+    # Refit once more with the same regularized recipe (train + early stop on val).
+    model_full = _fit_technicals_model(_build_technicals_estimator(seed=cfg.seed), train_panel, val_panel)
 
     def _score_and_bt(seg: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         scored = seg.copy()
-        scored["pred"] = model_full.predict(seg[FEATURE_NAMES].values)
+        scored["pred"] = _predict_panel(model_full, seg)
         bt = _run_strategy_backtest(
             scored,
             prices,
@@ -369,7 +451,7 @@ def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> Regressio
     test_scored, test_bt = _score_and_bt(test_panel)
 
     train_scored = train_panel.copy()
-    train_scored["pred"] = model_full.predict(train_panel[FEATURE_NAMES].values)
+    train_scored["pred"] = _predict_panel(model_full, train_panel)
     train_ic = _spearman_ic(train_scored["pred"], train_panel["y"], pd.DatetimeIndex(train_panel["date"]))
     val_ic = _spearman_ic(val_scored["pred"], val_panel["y"], pd.DatetimeIndex(val_panel["date"]))
     test_ic = _spearman_ic(test_scored["pred"], test_panel["y"], pd.DatetimeIndex(test_panel["date"]))
@@ -410,16 +492,13 @@ def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> Regressio
         te_seg = panel[(panel["date"] >= te_s) & (panel["date"] <= te_e)]
         if tr_panel.empty or va_seg.empty or te_seg.empty:
             continue
-        fold_model = _build_estimator(seed=cfg.seed)
         try:
-            fp, _ = _search_backtest_params(fold_model, tr_panel, va_seg, prices, cfg.cadence)
+            fp, _, _ = _search_backtest_params(tr_panel, va_seg, prices, cfg.cadence, cfg.seed)
         except Exception:
             continue
-        tv = pd.concat([tr_panel, va_seg], ignore_index=True)
-        fm = _build_estimator(seed=cfg.seed)
-        fm.fit(tv[FEATURE_NAMES].values, tv["y"].values)
+        fm = _fit_technicals_model(_build_technicals_estimator(seed=cfg.seed), tr_panel, va_seg)
         te_sc = te_seg.copy()
-        te_sc["pred"] = fm.predict(te_seg[FEATURE_NAMES].values)
+        te_sc["pred"] = _predict_panel(fm, te_seg)
         te_bt = _run_strategy_backtest(
             te_sc,
             prices,
@@ -484,6 +563,15 @@ def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> Regressio
             "n_trials": len(trials),
             "n_feasible_trials": feasible_count,
             "constraints_met_on_val": _meets_constraints(_summary_metrics(val_bt["returns"])),
+            "regularization": {
+                "early_stopping_rounds": EARLY_STOPPING_ROUNDS,
+                "fit_policy": "train_only_with_val_early_stop",
+                "reg_lambda": 5.0,
+                "reg_alpha": 1.0,
+                "max_depth": 6,
+                "num_leaves": 31,
+                "min_child_samples": 500,
+            },
             "top_trials": sorted(
                 [t for t in trials if "sharpe" in t],
                 key=lambda x: float(x.get("sharpe", float("-inf"))),
