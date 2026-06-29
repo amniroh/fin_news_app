@@ -881,8 +881,8 @@ function CompareView({
   if (data.variants.length === 0) {
     return (
       <div style={{ color: "#666", padding: 16, background: "#f7fafc", borderRadius: 8 }}>
-        No backtest metrics for cadence <code>{cadence}</code> yet. Train the models with{" "}
-        <code>python backend/sp500_return_model_train.py --cadence {cadence}</code>.
+        No backtest metrics for cadence <code>{cadence}</code> yet. Train with{" "}
+        <code>python backend/trend_v0_train.py --years 1</code>.
       </div>
     );
   }
@@ -1113,7 +1113,7 @@ function StrategyDetail({
 export function StrategiesPage({ apiBase }: { apiBase: string }) {
   const [list, setList] = useState<ListResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cadence, setCadence] = useState<"daily" | "weekly" | "monthly">("weekly");
+  const [cadence, setCadence] = useState<"daily" | "weekly" | "monthly">("daily");
   const [drillIn, setDrillIn] = useState<{ strategy: string; cadence: string } | null>(null);
 
   useEffect(() => {
@@ -1170,15 +1170,12 @@ export function StrategiesPage({ apiBase }: { apiBase: string }) {
 
   return (
     <div className="strategies-page">
-      <h2 style={{ margin: "12px 0" }}>Strategies — Quality, ML, Pred-weighted ML &amp; RSI mean</h2>
+      <h2 style={{ margin: "12px 0" }}>Strategies — Trend v0 &amp; Regression on technicals</h2>
       <p style={{ margin: "0 0 12px", fontSize: 13, color: "#555" }}>
-        Compare strategies side-by-side at a chosen cadence — each strategy uses its theme color plus a distinct dash
-        pattern and marker shape along the line; baselines use their own dashed styles and markers. Click a legend label to
-        hide or show that series. Models are trained on a{" "}
-        <strong>50% / 25% / 25%</strong> chronological split (train / validation / test) of the loaded price history;
-        regression uses SPY–risk–aligned sample weights so fitting emphasizes stocks whose trailing volatility and beta
-        are close to the benchmark. Below the comparison there&apos;s a drill-in for the current portfolio of any
-        individual variant.
+        Compare <strong>Trend v0 (partial exit)</strong> and <strong>Regression on technicals</strong> on all
+        interesting stocks (daily cadence). Trend v0 uses rule-based entries/exits; regression uses LightGBM on
+        EMA/MACD/ADX/RVOL and price features with validation tuning for Sharpe &gt; 1 and max drawdown ≤ 20%.
+        Backtests use a <strong>50% / 25% / 25%</strong> chronological train/validation/test split over the last year.
       </p>
 
       {error && <div style={{ color: "crimson", marginBottom: 12 }}>{error}</div>}

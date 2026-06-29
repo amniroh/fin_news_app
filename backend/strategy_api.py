@@ -45,15 +45,39 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "backend" / "data"
 ML_DIR = DATA_DIR / "sp500_return_models"
 RSI_DIR = DATA_DIR / "rsi_mean_models"
+TREND_DIR = DATA_DIR / "trend_v0_models"
+REGRESSION_DIR = DATA_DIR / "regression_technicals_models"
+
+# Strategies shown on the website (legacy strategies remain on disk but are hidden).
+PUBLIC_STRATEGIES = ("trend_v0_partial_position_exit", "regression_based_on_technicals")
+LEGACY_STRATEGIES = ("quality", "ml", "ml_pred_weighted", "rsi_mean")
+ALL_STRATEGIES = PUBLIC_STRATEGIES + LEGACY_STRATEGIES
 
 _SNAP_RE = re.compile(r"^quality_evaluator_last_run_(?P<strategy>[a-z0-9_]+)_(?P<cadence>[a-z0-9]+)\.json$")
 
 VALID_CADENCES = ("daily", "weekly", "monthly")
 ML_STRATEGIES = ("ml", "ml_pred_weighted")
-ALL_STRATEGIES = ("quality", "ml", "ml_pred_weighted", "rsi_mean")
 
 # Human-friendly metadata used by both /list and /snapshot to keep frontend in sync.
 STRATEGY_META: Dict[str, Dict[str, Any]] = {
+    "trend_v0_partial_position_exit": {
+        "label": "Trend v0 (partial exit)",
+        "description": (
+            "Daily scan of all interesting stocks: buy 10% of cash when RVOL>2, ADX>25, "
+            "bullish MACD, and price>EMA(20). Partial exit at 3:1 R:R (50%), breakeven stop, "
+            "then trailing stop on the remainder."
+        ),
+        "color": "#0d9488",
+    },
+    "regression_based_on_technicals": {
+        "label": "Regression on technicals",
+        "description": (
+            "LightGBM regression on EMA/MACD/ADX/RVOL plus price momentum/vol features over all "
+            "interesting stocks. Top-N daily rebalance; params tuned on validation for Sharpe>1 "
+            "and max drawdown ≤20%."
+        ),
+        "color": "#7c3aed",
+    },
     "quality": {
         "label": "Quality screen",
         "description": "Profitability + stability + value composite rank (ROE/op-margin/FCF + leverage/liquidity/earnings-CV/vol + P/E/P/B/EV-EBITDA).",
@@ -108,6 +132,10 @@ def _metrics_path_for(strategy: str, cadence: str) -> Optional[Path]:
         return ML_DIR / f"sp500_return_model_{cadence}_score_weighted_metrics.json"
     if strategy == "rsi_mean" and cadence in VALID_CADENCES:
         return RSI_DIR / f"rsi_mean_model_{cadence}_metrics.json"
+    if strategy == "trend_v0_partial_position_exit" and cadence in VALID_CADENCES:
+        return TREND_DIR / f"trend_v0_model_{cadence}_metrics.json"
+    if strategy == "regression_based_on_technicals" and cadence in VALID_CADENCES:
+        return REGRESSION_DIR / f"regression_technicals_model_{cadence}_metrics.json"
     return None
 
 
@@ -126,6 +154,8 @@ def _list_snapshots() -> List[Dict[str, Any]]:
             continue
         snap = _load_json(p) or {}
         strat = m.group("strategy")
+        if strat not in PUBLIC_STRATEGIES:
+            continue
         items.append(
             {
                 "strategy": strat,
@@ -143,7 +173,7 @@ def _list_snapshots() -> List[Dict[str, Any]]:
 def _list_metrics_files() -> List[Dict[str, Any]]:
     """Every (strategy, cadence) for which a backtest metrics JSON exists."""
     out: List[Dict[str, Any]] = []
-    for strat in ("ml", "ml_pred_weighted", "rsi_mean"):
+    for strat in PUBLIC_STRATEGIES:
         for cad in VALID_CADENCES:
             p = _metrics_path_for(strat, cad)
             if p is None or not p.is_file():
@@ -163,6 +193,66 @@ def _list_metrics_files() -> List[Dict[str, Any]]:
                 }
             )
     return out
+
+
+def _walkforward_path_for(strategy: str, cadence: str) -> Optional[Path]:
+    if strategy == "trend_v0_partial_position_exit":
+        return TREND_DIR / f"walkforward_{cadence}.json"
+    if strategy == "regression_based_on_technicals":
+        return REGRESSION_DIR / f"walkforward_{cadence}.json"
+    return None
+
+
+def _merged_walkforward(cadence: str) -> Dict[str, Any]:
+    """Merge walk-forward fold JSONs from all public strategies."""
+    folds_by_key: Dict[tuple, Dict[str, Any]] = {}
+    generated: List[str] = []
+    for strat in PUBLIC_STRATEGIES:
+        p = _walkforward_path_for(strat, cadence)
+        if p is None or not p.is_file():
+            continue
+        j = _load_json(p) or {}
+        generated.append(j.get("generated_at") or "")
+        for fold in j.get("folds") or []:
+            key = (fold.get("test_year"), fold.get("test_month"), fold.get("val_year"), fold.get("val_month"))
+            if key not in folds_by_key:
+                folds_by_key[key] = {k: fold.get(k) for k in fold if k != "strategies"}
+                folds_by_key[key]["strategies"] = {}
+            folds_by_key[key]["strategies"].update((fold.get("strategies") or {}))
+
+    folds = sorted(folds_by_key.values(), key=lambda f: (int(f.get("test_year") or 0), int(f.get("test_month") or 0)))
+    aggregate: Dict[str, Dict[str, Any]] = {}
+    for strat in PUBLIC_STRATEGIES:
+        trs: List[float] = []
+        dds: List[float] = []
+        shs: List[float] = []
+        for fold in folds:
+            m = (fold.get("strategies") or {}).get(strat, {}).get("test_metrics") or {}
+            for vals, acc in ((m.get("total_return"), trs), (m.get("max_drawdown"), dds), (m.get("sharpe"), shs)):
+                if vals is not None:
+                    try:
+                        fv = float(vals)
+                        if fv == fv:
+                            acc.append(fv)
+                    except Exception:
+                        pass
+        if trs:
+            aggregate[strat] = {
+                "strategy_total_return": {"mean": float(sum(trs) / len(trs)), "n": len(trs)},
+                "strategy_sharpe": {"mean": float(sum(shs) / len(shs)) if shs else None, "n": len(shs)},
+                "strategy_max_drawdown": {"mean": float(sum(dds) / len(dds)) if dds else None, "n": len(dds)},
+            }
+
+    return {
+        "cadence": cadence,
+        "benchmark": "SPY",
+        "n_folds_completed": len(folds),
+        "n_folds_requested": len(folds),
+        "folds": folds,
+        "aggregate": aggregate,
+        "generated_at": max(generated) if generated else None,
+        "strategies": list(PUBLIC_STRATEGIES),
+    }
 
 
 def _synth_snapshot(strategy: str, cadence: str, metrics: Dict[str, Any]) -> Dict[str, Any]:
@@ -231,8 +321,9 @@ def build_strategy_router() -> APIRouter:
 
     @router.get("/list")
     def list_variants() -> Dict[str, Any]:
+        meta = {k: v for k, v in STRATEGY_META.items() if k in PUBLIC_STRATEGIES}
         return {
-            "strategy_meta": STRATEGY_META,
+            "strategy_meta": meta,
             "snapshots": _list_snapshots(),
             "metrics_files": _list_metrics_files(),
         }
@@ -278,7 +369,7 @@ def build_strategy_router() -> APIRouter:
         baseline_train_metrics: Optional[Dict[str, Any]] = None
         baseline_val_metrics: Optional[Dict[str, Any]] = None
         baseline_test_metrics: Optional[Dict[str, Any]] = None
-        for strat in ("ml", "ml_pred_weighted", "rsi_mean"):
+        for strat in PUBLIC_STRATEGIES:
             mp = _metrics_path_for(strat, c)
             if mp is None or not mp.is_file():
                 continue
@@ -377,19 +468,19 @@ def build_strategy_router() -> APIRouter:
 
     @router.get("/walkforward/{cadence}")
     def walkforward(cadence: str) -> Dict[str, Any]:
-        """Precomputed yearly walk-forward folds + aggregate mean / 95% CI (see walkforward JSON)."""
+        """Precomputed walk-forward folds merged across public strategies."""
         c = (cadence or "").strip().lower()
         if c not in VALID_CADENCES:
             raise HTTPException(status_code=400, detail=f"cadence must be one of {VALID_CADENCES}")
-        p = ML_DIR / f"walkforward_{c}.json"
-        if not p.is_file():
+        merged = _merged_walkforward(c)
+        if not merged.get("folds"):
             raise HTTPException(
                 status_code=404,
-                detail=f"missing {p.name}; run: python backend/sp500_return_model_walkforward.py --cadence {c}",
+                detail=(
+                    f"missing walkforward JSON for cadence {c!r}; "
+                    "run: python backend/trend_v0_train.py && python backend/regression_technicals_train.py"
+                ),
             )
-        j = _load_json(p)
-        if j is None:
-            raise HTTPException(status_code=500, detail="failed to read walkforward JSON")
-        return j
+        return merged
 
     return router
