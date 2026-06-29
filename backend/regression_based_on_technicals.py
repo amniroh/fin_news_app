@@ -162,8 +162,16 @@ def _fit_technicals_model(
 
 
 def _predict_panel(model: Any, panel: pd.DataFrame) -> np.ndarray:
-    X = panel[FEATURE_NAMES].values
-    pred = model.predict(X)
+    Xdf = panel[FEATURE_NAMES]
+    try:
+        import lightgbm as lgb  # type: ignore
+
+        if isinstance(model, lgb.LGBMRegressor):
+            pred = model.predict(Xdf)
+        else:
+            pred = model.predict(Xdf.values)
+    except Exception:
+        pred = model.predict(Xdf.values)
     return np.asarray(pred, dtype=float)
 
 
