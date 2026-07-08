@@ -64,6 +64,34 @@ Daily technical indicators are stored in `vm_technical_indicators` (SQLite) and 
 .venv/bin/python backend/technical_indicators_backfill.py --extend-only
 ```
 
+## Click-to-chart in the tracker table
+
+In the **Value Metrics Tracker** table (route: `/`), you can tap/click certain cells to open a **mobile-friendly history chart** for that ticker + column.
+
+### Columns with historical values available in the DB
+
+These columns are backed by time series tables in SQLite and will open a chart on click:
+
+- **Price**: `symbol` (shows close price history from stored prices)
+- **Daily metric points** (from `vm_metric_points`, `period=daily`, `provider=yfinance`)
+  - `pe`, `pb`, `peg`
+  - `dividend_yield`, `free_cash_flow_yield`
+  - `debt_to_equity`, `roe`, `current_ratio`
+  - `operating_margin`, `ev_to_ebitda`
+- **Daily technical indicators** (from `vm_technical_indicators`)
+  - `ema` (shows EMA + close)
+  - `macd_line` (shows MACD line + signal line)
+  - `adx`, `rvol`
+- **Analyst snapshots** (from `vm_analyst_ratings`)
+  - `analyst_recommendation_key` (charts `recommendation_mean` over time)
+
+### Excluded from click-to-chart
+
+LLM columns still behave as before (click shows the **most recent explanation/rationale**, not a history chart):
+
+- `value_trading_score` ("Value assessed by LLM")
+- `value_pillar_*` columns (Moat, Mgmt, Fortress, Pricing, Understandability, Valuation)
+
 ## Interesting stocks (MVP)
 
 Nav: **Stocks** (`/stocks`) — universe table, add tickers, **read-only** coverage gaps. Backfills are **not** triggered from the UI.

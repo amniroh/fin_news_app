@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from value_metrics_cache import InMemoryTTLCache, get_or_fetch_metrics
 from value_metrics_store import (
     add_to_watchlist,
+    query_analyst_ratings,
     batch_latest_analyst_ratings,
     batch_latest_value_trading_assessments,
     connect,
@@ -33,6 +34,7 @@ from value_metrics_store import (
     query_fundamental_points,
     query_latest_daily_metric_points,
     query_latest_technical_indicators,
+    query_technical_indicators,
     query_metric_points,
     query_standard_metrics,
     query_stock_splits,
@@ -648,6 +650,65 @@ def build_value_router(
         finally:
             con.close()
         return {"provider": prov, "period": per, "n": len(rows), "rows": rows}
+
+    @router.get("/technicals/history")
+    async def get_technicals_history(
+        symbol: str,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        provider: str = "yfinance",
+        limit: int = 2000,
+    ) -> Dict[str, Any]:
+        """
+        Read stored daily technical indicators (EMA/MACD/ADX/RVOL + close) from SQLite.
+        """
+        sym = str(symbol or "").strip().upper()
+        if not sym:
+            raise HTTPException(status_code=400, detail="symbol is required")
+        prov = (provider or "yfinance").strip().lower()
+        con = _con()
+        try:
+            rows = query_technical_indicators(
+                con,
+                symbol=sym,
+                start_date=start,
+                end_date=end,
+                provider=prov,
+                limit=int(limit),
+            )
+        finally:
+            con.close()
+        return {"symbol": sym, "provider": prov, "n": len(rows), "rows": rows}
+
+    @router.get("/analyst/history")
+    async def get_analyst_history(
+        symbol: str,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        provider: str = "yfinance",
+        limit: int = 2000,
+    ) -> Dict[str, Any]:
+        """
+        Analyst consensus snapshots (recommendation + targets) from SQLite.
+        """
+        sym = str(symbol or "").strip().upper()
+        if not sym:
+            raise HTTPException(status_code=400, detail="symbol is required")
+        prov = (provider or "yfinance").strip().lower()
+        con = _con()
+        try:
+            rows = query_analyst_ratings(
+                con,
+                symbol=sym,
+                start_date=start,
+                end_date=end,
+                provider=prov,
+                limit=int(limit),
+            )
+        finally:
+            con.close()
+        rows = list(reversed(rows))  # oldest→newest for charting
+        return {"symbol": sym, "provider": prov, "n": len(rows), "rows": rows}
 
     @router.get("/price/history")
     async def get_price_history(

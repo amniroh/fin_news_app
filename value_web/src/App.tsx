@@ -5,6 +5,7 @@ import { ColumnHeaderHelp } from "./ColumnHeaderHelp";
 import { getApiBase } from "./apiBase";
 import { indicatorDocForColumn } from "./indicatorDocs";
 import { CellDetailTrigger } from "./CellDetailTrigger";
+import { HistoricalCellPopover, type HistoricalSeriesSpec } from "./HistoricalCellPopover";
 import { SymbolPricePopover } from "./SymbolPricePopover";
 
 type LoadMode = "custom" | "0" | "1" | "2" | "3" | "all";
@@ -64,6 +65,33 @@ const FILTERABLE_COLUMNS: FilterableColumn[] = [
     enumOptions: ANALYST_FILTER_OPTIONS,
   },
 ];
+
+const HISTORICAL_SPECS: HistoricalSeriesSpec[] = [
+  // Stored daily metric points (vm_metric_points, period=daily).
+  { key: "pe", label: "P/E", source: "metric_points_daily" },
+  { key: "pb", label: "P/B", source: "metric_points_daily" },
+  { key: "peg", label: "PEG", source: "metric_points_daily" },
+  { key: "dividend_yield", label: "Dividend yield", source: "metric_points_daily", pct: true },
+  { key: "free_cash_flow_yield", label: "FCF yield", source: "metric_points_daily", pct: true },
+  { key: "debt_to_equity", label: "Debt / equity", source: "metric_points_daily" },
+  { key: "roe", label: "ROE", source: "metric_points_daily", pct: true },
+  { key: "current_ratio", label: "Current ratio", source: "metric_points_daily" },
+  { key: "operating_margin", label: "Operating margin", source: "metric_points_daily", pct: true },
+  { key: "ev_to_ebitda", label: "EV / EBITDA", source: "metric_points_daily" },
+
+  // Stored daily technical indicators (vm_technical_indicators).
+  { key: "ema", label: "EMA (20)", source: "technicals_daily" },
+  { key: "macd_line", label: "MACD", source: "technicals_daily" },
+  { key: "adx", label: "ADX (14)", source: "technicals_daily" },
+  { key: "rvol", label: "RVOL (20d)", source: "technicals_daily" },
+
+  // Analyst snapshots (vm_analyst_ratings) — chart recommendation_mean.
+  { key: "analyst_recommendation_key", label: "Analyst rating (mean)", source: "analyst_daily" },
+];
+
+function historicalSpecForColumn(key: string): HistoricalSeriesSpec | undefined {
+  return HISTORICAL_SPECS.find((s) => s.key === key);
+}
 
 function newFilterForColumn(colKey: string): ColumnFilter {
   const col = FILTERABLE_COLUMNS.find((c) => c.key === colKey);
@@ -520,6 +548,7 @@ function App({ apiBase: apiBaseProp }: { apiBase?: string }) {
                   if (c.key === "debt_to_equity" && v != null) color = Number(v) <= 100 ? "green" : Number(v) >= 200 ? "crimson" : undefined;
                   if (c.key === "operating_margin" && v != null) color = Number(v) >= 0.2 ? "green" : Number(v) <= 0.05 ? "crimson" : undefined;
                   const detail = cellTitle(r, c.key);
+                  const histSpec = historicalSpecForColumn(c.key);
                   return (
                     <td
                       key={c.key}
@@ -536,6 +565,20 @@ function App({ apiBase: apiBaseProp }: { apiBase?: string }) {
                     >
                       {c.key === "symbol" ? (
                         <SymbolPricePopover symbol={String(r.symbol)} apiBase={apiBase} />
+                      ) : c.key === "value_trading_score" || c.key.startsWith("value_pillar_") ? (
+                        // Keep LLM-driven columns exactly as they are: click shows latest rationale text.
+                        <CellDetailTrigger detail={detail} title={c.label}>
+                          {txt}
+                        </CellDetailTrigger>
+                      ) : histSpec ? (
+                        <HistoricalCellPopover
+                          symbol={String(r.symbol)}
+                          apiBase={apiBase}
+                          spec={histSpec}
+                          detail={detail}
+                        >
+                          {txt}
+                        </HistoricalCellPopover>
                       ) : (
                         <CellDetailTrigger detail={detail} title={c.label}>
                           {txt}

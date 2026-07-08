@@ -854,6 +854,44 @@ def query_latest_technical_indicators(
     return [dict(r) for r in cur.fetchall()]
 
 
+def query_technical_indicators(
+    con: sqlite3.Connection,
+    *,
+    symbol: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    provider: str = "yfinance",
+    limit: int = 2000,
+) -> List[Dict[str, Any]]:
+    """
+    Time series from vm_technical_indicators.
+
+    Returns ascending by asof_date (oldest→newest) for charting.
+    """
+    sym = str(symbol).strip().upper()
+    prov = str(provider).strip().lower()
+    sql = """
+        SELECT symbol, asof_date, provider,
+               close, ema, macd_line, macd_signal, adx, rvol,
+               fetched_ts_utc
+        FROM vm_technical_indicators
+        WHERE symbol = ? AND provider = ?
+    """
+    params: List[Any] = [sym, prov]
+    if start_date:
+        sql += " AND asof_date >= ?"
+        params.append(str(start_date))
+    if end_date:
+        sql += " AND asof_date <= ?"
+        params.append(str(end_date))
+    sql += " ORDER BY asof_date DESC LIMIT ?"
+    params.append(int(limit))
+    cur = con.execute(sql, params)
+    rows = [dict(r) for r in cur.fetchall()]
+    rows.reverse()
+    return rows
+
+
 def ensure_user(con: sqlite3.Connection, user_id: str) -> None:
     uid = str(user_id).strip()
     con.execute(
