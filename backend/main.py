@@ -57,6 +57,7 @@ import numpy as np
 from pathlib import Path as _Path
 from value_metrics_api import build_value_router
 from strategy_api import build_strategy_router
+from prediction_markets_api import build_prediction_markets_router
 
 # Import unified LLM service
 from llm_service import llm_service
@@ -84,6 +85,9 @@ app.include_router(value_router)
 
 # Strategies (quality + ML) snapshots and backtest metrics for the website.
 app.include_router(build_strategy_router())
+
+# Prediction markets (Polymarket + Kalshi) signal tracker.
+app.include_router(build_prediction_markets_router(db_path=_vm_db))
 
 
 @app.on_event("startup")

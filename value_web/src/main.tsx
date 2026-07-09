@@ -6,6 +6,7 @@ import App from "./App.tsx";
 import { getApiBase } from "./apiBase.ts";
 import { Layout } from "./Layout.tsx";
 import { StrategiesPage } from "./StrategiesPage.tsx";
+import { PredictionMarketsPage } from "./PredictionMarketsPage.tsx";
 
 const apiBase = getApiBase();
 
@@ -16,6 +17,7 @@ createRoot(document.getElementById("root")!).render(
         <Route element={<Layout />}>
           <Route path="/" element={<App apiBase={apiBase} />} />
           <Route path="/strategies" element={<StrategiesPage apiBase={apiBase} />} />
+          <Route path="/prediction-markets" element={<PredictionMarketsPage apiBase={apiBase} />} />
         </Route>
       </Routes>
     </BrowserRouter>

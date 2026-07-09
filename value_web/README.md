@@ -92,6 +92,38 @@ LLM columns still behave as before (click shows the **most recent explanation/ra
 - `value_trading_score` ("Value assessed by LLM")
 - `value_pillar_*` columns (Moat, Mgmt, Fortress, Pricing, Understandability, Valuation)
 
+## Prediction market signals
+
+Route: **`/prediction-markets`**
+
+Syncs open and settled markets from **Polymarket** (Gamma + CLOB + Data API; on-chain condition IDs on Polygon) and **Kalshi** (public Trade API).
+
+### SQL tables (in `value_metrics.sqlite`)
+
+| Table | Purpose |
+|-------|---------|
+| `pm_signals` | One row per market/signal (source, title, status, blockchain ref, close time) |
+| `pm_signal_snapshots` | Price/volume snapshots over time |
+| `pm_signal_analytics` | Time-sensitivity flag + win/loss vs entry implied probability |
+| `pm_source_sync` | Last sync time per source |
+
+### Analytics
+
+- **Time sensitive**: resolves within 7 days of first observation, or YES price moves ≥10% within 24h (edge may decay quickly).
+- **Win/loss** (settled only): follow the side with higher implied probability at entry; win if that side pays out more than entry cost.
+
+### CLI sync
+
+```bash
+.venv/bin/python backend/prediction_markets_sync_cli.py
+```
+
+### API
+
+- `GET /prediction-markets/signals`
+- `POST /prediction-markets/sync`
+- `GET /prediction-markets/sync/status`
+
 ## Interesting stocks (MVP)
 
 Nav: **Stocks** (`/stocks`) — universe table, add tickers, **read-only** coverage gaps. Backfills are **not** triggered from the UI.

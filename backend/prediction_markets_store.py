@@ -1,0 +1,299 @@
+"""SQLite persistence for prediction-market signals (Polymarket, Kalshi)."""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from value_metrics_store import connect, init_db
+
+PREDICTION_MARKETS_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS pm_signals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT NOT NULL,
+  external_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  category TEXT,
+  status TEXT NOT NULL,
+  close_time_utc TEXT,
+  blockchain_ref TEXT,
+  token_ids_json TEXT,
+  event_url TEXT,
+  raw_json TEXT,
+  first_seen_ts_utc TEXT NOT NULL,
+  last_seen_ts_utc TEXT NOT NULL,
+  UNIQUE(source, external_id)
+);
+CREATE INDEX IF NOT EXISTS idx_pm_signals_source_status ON pm_signals(source, status);
+CREATE INDEX IF NOT EXISTS idx_pm_signals_close ON pm_signals(close_time_utc);
+
+CREATE TABLE IF NOT EXISTS pm_signal_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  signal_id INTEGER NOT NULL,
+  asof_ts_utc TEXT NOT NULL,
+  yes_price REAL,
+  no_price REAL,
+  volume REAL,
+  liquidity REAL,
+  FOREIGN KEY(signal_id) REFERENCES pm_signals(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_pm_snapshots_signal_ts ON pm_signal_snapshots(signal_id, asof_ts_utc);
+
+CREATE TABLE IF NOT EXISTS pm_signal_analytics (
+  signal_id INTEGER PRIMARY KEY,
+  is_time_sensitive INTEGER,
+  time_sensitive_reason TEXT,
+  days_to_close_at_first REAL,
+  entry_yes_price REAL,
+  latest_yes_price REAL,
+  settlement_result TEXT,
+  settlement_yes_value REAL,
+  signal_won INTEGER,
+  profit_if_followed REAL,
+  wins INTEGER NOT NULL DEFAULT 0,
+  losses INTEGER NOT NULL DEFAULT 0,
+  pending INTEGER NOT NULL DEFAULT 1,
+  win_rate REAL,
+  updated_ts_utc TEXT NOT NULL,
+  FOREIGN KEY(signal_id) REFERENCES pm_signals(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS pm_source_sync (
+  source TEXT PRIMARY KEY,
+  last_sync_ts_utc TEXT,
+  markets_fetched INTEGER,
+  meta_json TEXT
+);
+"""
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def init_prediction_markets_db(con: sqlite3.Connection) -> None:
+    init_db(con)
+    con.executescript(PREDICTION_MARKETS_SCHEMA_SQL)
+    con.commit()
+
+
+def upsert_signal(con: sqlite3.Connection, row: Dict[str, Any]) -> int:
+    now = _utcnow_iso()
+    source = str(row["source"]).strip().lower()
+    external_id = str(row["external_id"]).strip()
+    title = str(row.get("title") or external_id)
+    existing = con.execute(
+        "SELECT id, first_seen_ts_utc FROM pm_signals WHERE source = ? AND external_id = ?",
+        (source, external_id),
+    ).fetchone()
+    first_seen = str(existing["first_seen_ts_utc"]) if existing else now
+    con.execute(
+        """
+        INSERT INTO pm_signals(
+          source, external_id, title, description, category, status, close_time_utc,
+          blockchain_ref, token_ids_json, event_url, raw_json,
+          first_seen_ts_utc, last_seen_ts_utc
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source, external_id) DO UPDATE SET
+          title=excluded.title,
+          description=excluded.description,
+          category=excluded.category,
+          status=excluded.status,
+          close_time_utc=excluded.close_time_utc,
+          blockchain_ref=excluded.blockchain_ref,
+          token_ids_json=excluded.token_ids_json,
+          event_url=excluded.event_url,
+          raw_json=excluded.raw_json,
+          last_seen_ts_utc=excluded.last_seen_ts_utc
+        """,
+        (
+            source,
+            external_id,
+            title,
+            row.get("description"),
+            row.get("category"),
+            str(row.get("status") or "unknown"),
+            row.get("close_time_utc"),
+            row.get("blockchain_ref"),
+            json.dumps(row.get("token_ids") or []),
+            row.get("event_url"),
+            json.dumps(row.get("raw") or {}),
+            first_seen,
+            now,
+        ),
+    )
+    con.commit()
+    cur = con.execute(
+        "SELECT id FROM pm_signals WHERE source = ? AND external_id = ?",
+        (source, external_id),
+    ).fetchone()
+    return int(cur["id"])
+
+
+def insert_snapshot(con: sqlite3.Connection, *, signal_id: int, snap: Dict[str, Any]) -> None:
+    con.execute(
+        """
+        INSERT INTO pm_signal_snapshots(signal_id, asof_ts_utc, yes_price, no_price, volume, liquidity)
+        VALUES(?, ?, ?, ?, ?, ?)
+        """,
+        (
+            int(signal_id),
+            str(snap.get("asof_ts_utc") or _utcnow_iso()),
+            snap.get("yes_price"),
+            snap.get("no_price"),
+            snap.get("volume"),
+            snap.get("liquidity"),
+        ),
+    )
+    con.commit()
+
+
+def upsert_analytics(con: sqlite3.Connection, signal_id: int, analytics: Dict[str, Any]) -> None:
+    con.execute(
+        """
+        INSERT INTO pm_signal_analytics(
+          signal_id, is_time_sensitive, time_sensitive_reason, days_to_close_at_first,
+          entry_yes_price, latest_yes_price, settlement_result, settlement_yes_value,
+          signal_won, profit_if_followed, wins, losses, pending, win_rate, updated_ts_utc
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(signal_id) DO UPDATE SET
+          is_time_sensitive=excluded.is_time_sensitive,
+          time_sensitive_reason=excluded.time_sensitive_reason,
+          days_to_close_at_first=excluded.days_to_close_at_first,
+          entry_yes_price=excluded.entry_yes_price,
+          latest_yes_price=excluded.latest_yes_price,
+          settlement_result=excluded.settlement_result,
+          settlement_yes_value=excluded.settlement_yes_value,
+          signal_won=excluded.signal_won,
+          profit_if_followed=excluded.profit_if_followed,
+          wins=excluded.wins,
+          losses=excluded.losses,
+          pending=excluded.pending,
+          win_rate=excluded.win_rate,
+          updated_ts_utc=excluded.updated_ts_utc
+        """,
+        (
+            int(signal_id),
+            1 if analytics.get("is_time_sensitive") else 0,
+            analytics.get("time_sensitive_reason"),
+            analytics.get("days_to_close_at_first"),
+            analytics.get("entry_yes_price"),
+            analytics.get("latest_yes_price"),
+            analytics.get("settlement_result"),
+            analytics.get("settlement_yes_value"),
+            1 if analytics.get("signal_won") else (0 if analytics.get("signal_won") is False else None),
+            analytics.get("profit_if_followed"),
+            int(analytics.get("wins") or 0),
+            int(analytics.get("losses") or 0),
+            int(analytics.get("pending") or 0),
+            analytics.get("win_rate"),
+            str(analytics.get("updated_ts_utc") or _utcnow_iso()),
+        ),
+    )
+    con.commit()
+
+
+def record_source_sync(con: sqlite3.Connection, source: str, *, markets_fetched: int, meta: Optional[Dict[str, Any]] = None) -> None:
+    con.execute(
+        """
+        INSERT INTO pm_source_sync(source, last_sync_ts_utc, markets_fetched, meta_json)
+        VALUES(?, ?, ?, ?)
+        ON CONFLICT(source) DO UPDATE SET
+          last_sync_ts_utc=excluded.last_sync_ts_utc,
+          markets_fetched=excluded.markets_fetched,
+          meta_json=excluded.meta_json
+        """,
+        (source, _utcnow_iso(), int(markets_fetched), json.dumps(meta or {})),
+    )
+    con.commit()
+
+
+def query_signals(
+    con: sqlite3.Connection,
+    *,
+    source: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 500,
+    offset: int = 0,
+) -> List[Dict[str, Any]]:
+    where = ["1=1"]
+    params: List[Any] = []
+    if source:
+        where.append("s.source = ?")
+        params.append(str(source).strip().lower())
+    if status:
+        where.append("s.status = ?")
+        params.append(str(status).strip().lower())
+    params.extend([int(limit), int(offset)])
+    sql = f"""
+      SELECT s.*,
+             a.is_time_sensitive, a.time_sensitive_reason, a.days_to_close_at_first,
+             a.entry_yes_price, a.latest_yes_price, a.settlement_result, a.settlement_yes_value,
+             a.signal_won, a.profit_if_followed, a.wins, a.losses, a.pending, a.win_rate,
+             a.updated_ts_utc AS analytics_updated_ts_utc
+      FROM pm_signals s
+      LEFT JOIN pm_signal_analytics a ON a.signal_id = s.id
+      WHERE {' AND '.join(where)}
+      ORDER BY s.last_seen_ts_utc DESC
+      LIMIT ? OFFSET ?
+    """
+    rows = [dict(r) for r in con.execute(sql, params).fetchall()]
+    for r in rows:
+        try:
+            r["token_ids"] = json.loads(r.pop("token_ids_json") or "[]")
+        except Exception:
+            r["token_ids"] = []
+        try:
+            r["raw"] = json.loads(r.pop("raw_json") or "{}")
+        except Exception:
+            r["raw"] = {}
+        r["is_time_sensitive"] = bool(r.get("is_time_sensitive"))
+    return rows
+
+
+def query_sync_status(con: sqlite3.Connection) -> List[Dict[str, Any]]:
+    cur = con.execute("SELECT source, last_sync_ts_utc, markets_fetched, meta_json FROM pm_source_sync ORDER BY source")
+    out = []
+    for r in cur.fetchall():
+        d = dict(r)
+        try:
+            d["meta"] = json.loads(d.pop("meta_json") or "{}")
+        except Exception:
+            d["meta"] = {}
+        out.append(d)
+    return out
+
+
+def count_signals(con: sqlite3.Connection) -> int:
+    row = con.execute("SELECT COUNT(*) AS c FROM pm_signals").fetchone()
+    return int(row["c"]) if row else 0
+
+
+def get_first_snapshot(con: sqlite3.Connection, signal_id: int) -> Optional[Dict[str, Any]]:
+    row = con.execute(
+        """
+        SELECT * FROM pm_signal_snapshots
+        WHERE signal_id = ?
+        ORDER BY asof_ts_utc ASC
+        LIMIT 1
+        """,
+        (int(signal_id),),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def get_snapshots_in_window(con: sqlite3.Connection, signal_id: int, *, hours: int = 24) -> List[Dict[str, Any]]:
+    rows = con.execute(
+        """
+        SELECT * FROM pm_signal_snapshots
+        WHERE signal_id = ?
+        ORDER BY asof_ts_utc ASC
+        LIMIT 500
+        """,
+        (int(signal_id),),
+    ).fetchall()
+    return [dict(r) for r in rows]
