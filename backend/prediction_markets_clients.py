@@ -72,7 +72,11 @@ class NormalizedMarket:
     yes_price: Optional[float]
     no_price: Optional[float]
     volume: Optional[float]
+    volume_24h: Optional[float]
     liquidity: Optional[float]
+    transaction_volume: Optional[float]
+    trade_count: int
+    relevance_score: float
     settlement_result: Optional[str]  # yes | no | pending | void
     settlement_yes_value: Optional[float]
     raw: Dict[str, Any]
@@ -82,6 +86,44 @@ class PolymarketClient:
     def __init__(self, session: Optional[requests.Session] = None) -> None:
         self.session = session or requests.Session()
         self.session.headers.setdefault("User-Agent", "market_analysis/1.0")
+
+    def fetch_market_pool(
+        self,
+        *,
+        pool_size: int = 800,
+        active: Optional[bool] = True,
+        closed: Optional[bool] = False,
+        order: str = "volume24hr",
+    ) -> List[NormalizedMarket]:
+        """Fetch candidates ordered by API (default: 24h volume desc), then re-rank locally."""
+        markets: List[NormalizedMarket] = []
+        offset = 0
+        page_size = 100
+        while len(markets) < pool_size:
+            batch = min(page_size, pool_size - len(markets))
+            params: Dict[str, Any] = {
+                "limit": batch,
+                "offset": offset,
+                "order": order,
+                "ascending": "false",
+            }
+            if active is not None:
+                params["active"] = str(active).lower()
+            if closed is not None:
+                params["closed"] = str(closed).lower()
+            r = self.session.get(f"{POLYMARKET_GAMMA}/markets", params=params, timeout=DEFAULT_TIMEOUT)
+            r.raise_for_status()
+            rows = r.json()
+            if not rows:
+                break
+            for row in rows:
+                markets.append(self._normalize(row))
+            if len(rows) < batch:
+                break
+            offset += batch
+            time.sleep(0.04)
+        markets.sort(key=lambda m: m.relevance_score, reverse=True)
+        return markets
 
     def iter_markets(
         self,
@@ -132,6 +174,21 @@ class PolymarketClient:
             logger.debug("Polymarket trades fetch failed for %s: %s", condition_id, exc)
             return []
 
+    @staticmethod
+    def summarize_trades(trades: List[Dict[str, Any]]) -> tuple[float, int]:
+        total = 0.0
+        n = 0
+        for t in trades:
+            try:
+                size = float(t.get("size") or 0)
+                price = float(t.get("price") or 0)
+                if size > 0 and price > 0:
+                    total += size * price
+                    n += 1
+            except Exception:
+                continue
+        return total, n
+
     def fetch_price_history(self, token_id: str, *, interval: str = "1w") -> List[Dict[str, Any]]:
         try:
             r = self.session.get(
@@ -174,10 +231,30 @@ class PolymarketClient:
 
         slug = row.get("slug")
         event_url = f"https://polymarket.com/event/{slug}" if slug else None
+        vol_total = float(row["volumeNum"]) if row.get("volumeNum") not in (None, "") else (
+            float(row["volume"]) if row.get("volume") not in (None, "") else None
+        )
+        vol_24h = float(row["volume24hr"]) if row.get("volume24hr") not in (None, "") else (
+            float(row.get("volume24hrClob") or 0) or None
+        )
+        liq = float(row["liquidityNum"]) if row.get("liquidityNum") not in (None, "") else (
+            float(row["liquidity"]) if row.get("liquidity") not in (None, "") else None
+        )
+        title = str(row.get("question") or row.get("title") or condition_id)
+        relevance = _trading_relevance_score(
+            source="polymarket",
+            title=title,
+            external_id=condition_id,
+            volume=vol_total,
+            volume_24h=vol_24h,
+            liquidity=liq,
+            yes_price=yes,
+            status=status,
+        )
         return NormalizedMarket(
             source="polymarket",
             external_id=condition_id,
-            title=str(row.get("question") or row.get("title") or condition_id),
+            title=title,
             description=row.get("description"),
             category=row.get("category"),
             status=status,
@@ -187,8 +264,12 @@ class PolymarketClient:
             event_url=event_url,
             yes_price=yes,
             no_price=no,
-            volume=float(row["volume"]) if row.get("volume") not in (None, "") else None,
-            liquidity=float(row["liquidity"]) if row.get("liquidity") not in (None, "") else None,
+            volume=vol_total,
+            volume_24h=vol_24h,
+            liquidity=liq,
+            transaction_volume=None,
+            trade_count=0,
+            relevance_score=relevance,
             settlement_result=settlement_result,
             settlement_yes_value=settlement_yes_value,
             raw=row,
@@ -199,6 +280,38 @@ class KalshiClient:
     def __init__(self, session: Optional[requests.Session] = None) -> None:
         self.session = session or requests.Session()
         self.session.headers.setdefault("User-Agent", "market_analysis/1.0")
+
+    def fetch_market_pool(
+        self,
+        *,
+        pool_size: int = 800,
+        status: Optional[str] = "open",
+        page_size: int = 200,
+    ) -> List[NormalizedMarket]:
+        """Paginate Kalshi markets and rank by trading relevance (24h + total volume)."""
+        markets: List[NormalizedMarket] = []
+        cursor: Optional[str] = None
+        while len(markets) < pool_size:
+            batch = min(page_size, pool_size - len(markets))
+            params: Dict[str, Any] = {"limit": batch, "mve_filter": "exclude"}
+            if status:
+                params["status"] = status
+            if cursor:
+                params["cursor"] = cursor
+            r = self.session.get(f"{KALSHI_API}/markets", params=params, timeout=DEFAULT_TIMEOUT)
+            r.raise_for_status()
+            data = r.json()
+            rows = data.get("markets") or []
+            if not rows:
+                break
+            for row in rows:
+                markets.append(self._normalize(row))
+            cursor = data.get("cursor") or ""
+            if not cursor:
+                break
+            time.sleep(0.04)
+        markets.sort(key=lambda m: m.relevance_score, reverse=True)
+        return markets
 
     def iter_markets(
         self,
@@ -274,10 +387,24 @@ class KalshiClient:
 
         event_ticker = row.get("event_ticker")
         event_url = f"https://kalshi.com/markets/{event_ticker}" if event_ticker else None
+        vol_total = _f("volume_fp")
+        vol_24h = _f("volume_24h_fp")
+        liq = _f("open_interest_fp")
+        title = str(row.get("title") or ticker)
+        relevance = _trading_relevance_score(
+            source="kalshi",
+            title=title,
+            external_id=ticker,
+            volume=vol_total,
+            volume_24h=vol_24h,
+            liquidity=liq,
+            yes_price=yes_price,
+            status=status,
+        )
         return NormalizedMarket(
             source="kalshi",
             external_id=ticker,
-            title=str(row.get("title") or ticker),
+            title=title,
             description=row.get("rules_primary"),
             category=row.get("market_type"),
             status=status,
@@ -287,9 +414,42 @@ class KalshiClient:
             event_url=event_url,
             yes_price=yes_price,
             no_price=no_price,
-            volume=_f("volume_fp"),
-            liquidity=_f("open_interest_fp"),
+            volume=vol_total,
+            volume_24h=vol_24h,
+            liquidity=liq,
+            transaction_volume=vol_24h,
+            trade_count=0,
+            relevance_score=relevance,
             settlement_result=settlement_result,
             settlement_yes_value=settlement_yes_value,
             raw=row,
         )
+
+
+def _trading_relevance_score(
+    *,
+    source: str,
+    title: str,
+    external_id: str,
+    volume: Optional[float],
+    volume_24h: Optional[float],
+    liquidity: Optional[float],
+    yes_price: Optional[float],
+    status: str,
+) -> float:
+    """Higher = more useful for trading (volume, liquidity, simple markets)."""
+    v24 = float(volume_24h or 0)
+    vtot = float(volume or 0)
+    liq = float(liquidity or 0)
+    score = v24 * 4.0 + vtot * 0.0005 + liq * 0.5
+    t = title.lower()
+    eid = external_id.upper()
+    if source == "kalshi" and ("MULTIGAME" in eid or t.count(",") >= 4):
+        score *= 0.02
+    if "up or down" in t and ("5m" in t or "10:30" in t):
+        score *= 0.05
+    if yes_price is not None and (yes_price <= 0.02 or yes_price >= 0.98) and status == "open":
+        score *= 0.5
+    if v24 <= 0 and vtot <= 0:
+        score *= 0.01
+    return score

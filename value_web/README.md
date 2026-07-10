@@ -112,10 +112,22 @@ Syncs open and settled markets from **Polymarket** (Gamma + CLOB + Data API; on-
 - **Time sensitive**: resolves within 7 days of first observation, or YES price moves ≥10% within 24h (edge may decay quickly).
 - **Win/loss** (settled only): follow the side with higher implied probability at entry; win if that side pays out more than entry cost.
 
+Sync scans a **candidate pool** (~800 markets per source), ranks by **24h volume + liquidity + relevance score** (penalizing combo/noise contracts), and stores only the **top ~200 open + ~80 settled** per exchange — not an arbitrary first-N slice.
+
+### Volume fields
+
+| Column | Meaning |
+|--------|---------|
+| Total volume | Lifetime traded notional (USD) |
+| 24h volume | Volume in the last 24 hours |
+| Recent txn volume | Sum of recent on-chain/API trades at sync time (Polymarket Data API) |
+| Recent trades | Count of trades in that sample |
+
 ### CLI sync
 
 ```bash
 .venv/bin/python backend/prediction_markets_sync_cli.py
+# --pool-size 800 --keep 200 --settled-keep 80
 ```
 
 ### API

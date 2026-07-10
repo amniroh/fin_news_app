@@ -38,7 +38,10 @@ CREATE TABLE IF NOT EXISTS pm_signal_snapshots (
   yes_price REAL,
   no_price REAL,
   volume REAL,
+  volume_24h REAL,
   liquidity REAL,
+  transaction_volume REAL,
+  trade_count INTEGER,
   FOREIGN KEY(signal_id) REFERENCES pm_signals(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_pm_snapshots_signal_ts ON pm_signal_snapshots(signal_id, asof_ts_utc);
@@ -58,6 +61,11 @@ CREATE TABLE IF NOT EXISTS pm_signal_analytics (
   losses INTEGER NOT NULL DEFAULT 0,
   pending INTEGER NOT NULL DEFAULT 1,
   win_rate REAL,
+  volume_total REAL,
+  volume_24h REAL,
+  transaction_volume REAL,
+  trade_count INTEGER,
+  relevance_score REAL,
   updated_ts_utc TEXT NOT NULL,
   FOREIGN KEY(signal_id) REFERENCES pm_signals(id) ON DELETE CASCADE
 );
@@ -78,7 +86,30 @@ def _utcnow_iso() -> str:
 def init_prediction_markets_db(con: sqlite3.Connection) -> None:
     init_db(con)
     con.executescript(PREDICTION_MARKETS_SCHEMA_SQL)
+    _migrate_prediction_markets_columns(con)
     con.commit()
+
+
+def _migrate_prediction_markets_columns(con: sqlite3.Connection) -> None:
+    """Add columns introduced after initial deploy (SQLite has no IF NOT EXISTS for columns)."""
+    snap_cols = {r[1] for r in con.execute("PRAGMA table_info(pm_signal_snapshots)").fetchall()}
+    for col, typ in (
+        ("volume_24h", "REAL"),
+        ("transaction_volume", "REAL"),
+        ("trade_count", "INTEGER"),
+    ):
+        if col not in snap_cols:
+            con.execute(f"ALTER TABLE pm_signal_snapshots ADD COLUMN {col} {typ}")
+    ana_cols = {r[1] for r in con.execute("PRAGMA table_info(pm_signal_analytics)").fetchall()}
+    for col, typ in (
+        ("volume_total", "REAL"),
+        ("volume_24h", "REAL"),
+        ("transaction_volume", "REAL"),
+        ("trade_count", "INTEGER"),
+        ("relevance_score", "REAL"),
+    ):
+        if col not in ana_cols:
+            con.execute(f"ALTER TABLE pm_signal_analytics ADD COLUMN {col} {typ}")
 
 
 def upsert_signal(con: sqlite3.Connection, row: Dict[str, Any]) -> int:
@@ -137,8 +168,8 @@ def upsert_signal(con: sqlite3.Connection, row: Dict[str, Any]) -> int:
 def insert_snapshot(con: sqlite3.Connection, *, signal_id: int, snap: Dict[str, Any]) -> None:
     con.execute(
         """
-        INSERT INTO pm_signal_snapshots(signal_id, asof_ts_utc, yes_price, no_price, volume, liquidity)
-        VALUES(?, ?, ?, ?, ?, ?)
+        INSERT INTO pm_signal_snapshots(signal_id, asof_ts_utc, yes_price, no_price, volume, volume_24h, liquidity, transaction_volume, trade_count)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             int(signal_id),
@@ -146,7 +177,10 @@ def insert_snapshot(con: sqlite3.Connection, *, signal_id: int, snap: Dict[str, 
             snap.get("yes_price"),
             snap.get("no_price"),
             snap.get("volume"),
+            snap.get("volume_24h"),
             snap.get("liquidity"),
+            snap.get("transaction_volume"),
+            snap.get("trade_count"),
         ),
     )
     con.commit()
@@ -158,8 +192,10 @@ def upsert_analytics(con: sqlite3.Connection, signal_id: int, analytics: Dict[st
         INSERT INTO pm_signal_analytics(
           signal_id, is_time_sensitive, time_sensitive_reason, days_to_close_at_first,
           entry_yes_price, latest_yes_price, settlement_result, settlement_yes_value,
-          signal_won, profit_if_followed, wins, losses, pending, win_rate, updated_ts_utc
-        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          signal_won, profit_if_followed, wins, losses, pending, win_rate,
+          volume_total, volume_24h, transaction_volume, trade_count, relevance_score,
+          updated_ts_utc
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(signal_id) DO UPDATE SET
           is_time_sensitive=excluded.is_time_sensitive,
           time_sensitive_reason=excluded.time_sensitive_reason,
@@ -174,6 +210,11 @@ def upsert_analytics(con: sqlite3.Connection, signal_id: int, analytics: Dict[st
           losses=excluded.losses,
           pending=excluded.pending,
           win_rate=excluded.win_rate,
+          volume_total=excluded.volume_total,
+          volume_24h=excluded.volume_24h,
+          transaction_volume=excluded.transaction_volume,
+          trade_count=excluded.trade_count,
+          relevance_score=excluded.relevance_score,
           updated_ts_utc=excluded.updated_ts_utc
         """,
         (
@@ -191,6 +232,11 @@ def upsert_analytics(con: sqlite3.Connection, signal_id: int, analytics: Dict[st
             int(analytics.get("losses") or 0),
             int(analytics.get("pending") or 0),
             analytics.get("win_rate"),
+            analytics.get("volume_total"),
+            analytics.get("volume_24h"),
+            analytics.get("transaction_volume"),
+            analytics.get("trade_count"),
+            analytics.get("relevance_score"),
             str(analytics.get("updated_ts_utc") or _utcnow_iso()),
         ),
     )
@@ -234,11 +280,12 @@ def query_signals(
              a.is_time_sensitive, a.time_sensitive_reason, a.days_to_close_at_first,
              a.entry_yes_price, a.latest_yes_price, a.settlement_result, a.settlement_yes_value,
              a.signal_won, a.profit_if_followed, a.wins, a.losses, a.pending, a.win_rate,
+             a.volume_total, a.volume_24h, a.transaction_volume, a.trade_count, a.relevance_score,
              a.updated_ts_utc AS analytics_updated_ts_utc
       FROM pm_signals s
       LEFT JOIN pm_signal_analytics a ON a.signal_id = s.id
       WHERE {' AND '.join(where)}
-      ORDER BY s.last_seen_ts_utc DESC
+      ORDER BY COALESCE(a.relevance_score, 0) DESC, COALESCE(a.volume_24h, 0) DESC, s.last_seen_ts_utc DESC
       LIMIT ? OFFSET ?
     """
     rows = [dict(r) for r in con.execute(sql, params).fetchall()]

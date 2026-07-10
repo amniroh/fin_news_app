@@ -24,7 +24,7 @@ def build_prediction_markets_router(*, db_path: Path) -> APIRouter:
     async def list_signals(
         source: Optional[str] = None,
         status: Optional[str] = None,
-        limit: int = 500,
+        limit: int = 1000,
         offset: int = 0,
     ) -> Dict[str, Any]:
         def _run() -> Dict[str, Any]:
@@ -55,8 +55,9 @@ def build_prediction_markets_router(*, db_path: Path) -> APIRouter:
 
     @router.post("/sync")
     async def run_sync(
-        polymarket_limit: int = 400,
-        kalshi_limit: int = 400,
+        pool_size: int = 800,
+        keep_per_source: int = 200,
+        settled_keep: int = 80,
         include_settled: bool = True,
     ) -> Dict[str, Any]:
         def _run() -> Dict[str, Any]:
@@ -64,8 +65,9 @@ def build_prediction_markets_router(*, db_path: Path) -> APIRouter:
             try:
                 return sync_prediction_markets(
                     con,
-                    polymarket_limit=int(polymarket_limit),
-                    kalshi_limit=int(kalshi_limit),
+                    pool_size=int(pool_size),
+                    keep_per_source=int(keep_per_source),
+                    settled_keep=int(settled_keep),
                     include_settled=bool(include_settled),
                 )
             finally:

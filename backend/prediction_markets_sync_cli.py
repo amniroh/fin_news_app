@@ -24,8 +24,9 @@ def _db_path() -> Path:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Sync prediction market signals (Polymarket + Kalshi)")
-    ap.add_argument("--polymarket-limit", type=int, default=400)
-    ap.add_argument("--kalshi-limit", type=int, default=400)
+    ap.add_argument("--pool-size", type=int, default=800, help="Candidate markets to scan per source")
+    ap.add_argument("--keep", type=int, default=200, help="Top tradeable open markets to keep per source")
+    ap.add_argument("--settled-keep", type=int, default=80, help="Top settled markets to keep per source")
     ap.add_argument("--no-settled", action="store_true", help="Skip settled/closed markets")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -36,8 +37,9 @@ def main() -> int:
     try:
         stats = sync_prediction_markets(
             con,
-            polymarket_limit=int(args.polymarket_limit),
-            kalshi_limit=int(args.kalshi_limit),
+            pool_size=int(args.pool_size),
+            keep_per_source=int(args.keep),
+            settled_keep=int(args.settled_keep),
             include_settled=not bool(args.no_settled),
         )
     finally:

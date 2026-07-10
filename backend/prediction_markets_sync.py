@@ -23,6 +23,11 @@ logger = logging.getLogger(__name__)
 TIME_SENSITIVE_DAYS = 7.0
 PRICE_SWING_THRESHOLD = 0.10
 
+# Default sync: scan a large pool, keep only the most tradeable markets.
+DEFAULT_POOL_SIZE = 800
+DEFAULT_KEEP_PER_SOURCE = 200
+DEFAULT_SETTLED_KEEP = 80
+
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -52,6 +57,11 @@ def compute_analytics(
     settlement_result: Optional[str],
     settlement_yes_value: Optional[float],
     latest_yes_price: Optional[float],
+    volume_total: Optional[float] = None,
+    volume_24h: Optional[float] = None,
+    transaction_volume: Optional[float] = None,
+    trade_count: int = 0,
+    relevance_score: float = 0.0,
 ) -> Dict[str, Any]:
     first = get_first_snapshot(con, signal_id)
     entry_yes = float(first["yes_price"]) if first and first.get("yes_price") is not None else latest_yes_price
@@ -119,11 +129,38 @@ def compute_analytics(
         "losses": losses,
         "pending": pending,
         "win_rate": win_rate,
+        "volume_total": volume_total,
+        "volume_24h": volume_24h,
+        "transaction_volume": transaction_volume,
+        "trade_count": trade_count,
+        "relevance_score": relevance_score,
         "updated_ts_utc": _utcnow_iso(),
     }
 
 
-def _persist_market(con: sqlite3.Connection, m: NormalizedMarket, *, fetch_trades: bool = False, poly_client: Optional[PolymarketClient] = None) -> int:
+def _enrich_polymarket_trades(m: NormalizedMarket, poly: PolymarketClient) -> NormalizedMarket:
+    if not m.blockchain_ref:
+        return m
+    trades = poly.fetch_onchain_trades(m.blockchain_ref, limit=50)
+    txn_vol, trade_n = poly.summarize_trades(trades)
+    if txn_vol > 0:
+        m.transaction_volume = txn_vol
+        m.trade_count = trade_n
+    elif m.volume_24h:
+        m.transaction_volume = m.volume_24h
+    return m
+
+
+def _persist_market(
+    con: sqlite3.Connection,
+    m: NormalizedMarket,
+    *,
+    fetch_trades: bool = False,
+    poly_client: Optional[PolymarketClient] = None,
+) -> int:
+    if fetch_trades and poly_client and m.source == "polymarket":
+        m = _enrich_polymarket_trades(m, poly_client)
+
     signal_id = upsert_signal(
         con,
         {
@@ -148,30 +185,12 @@ def _persist_market(con: sqlite3.Connection, m: NormalizedMarket, *, fetch_trade
             "yes_price": m.yes_price,
             "no_price": m.no_price,
             "volume": m.volume,
+            "volume_24h": m.volume_24h,
             "liquidity": m.liquidity,
+            "transaction_volume": m.transaction_volume,
+            "trade_count": m.trade_count,
         },
     )
-    if fetch_trades and poly_client and m.source == "polymarket" and m.blockchain_ref:
-        trades = poly_client.fetch_onchain_trades(m.blockchain_ref, limit=20)
-        if trades:
-            raw = m.raw.copy()
-            raw["_recent_trades"] = trades[:5]
-            upsert_signal(
-                con,
-                {
-                    "source": m.source,
-                    "external_id": m.external_id,
-                    "title": m.title,
-                    "description": m.description,
-                    "category": m.category,
-                    "status": m.status,
-                    "close_time_utc": m.close_time_utc,
-                    "blockchain_ref": m.blockchain_ref,
-                    "token_ids": m.token_ids,
-                    "event_url": m.event_url,
-                    "raw": raw,
-                },
-            )
     analytics = compute_analytics(
         con,
         signal_id,
@@ -179,6 +198,11 @@ def _persist_market(con: sqlite3.Connection, m: NormalizedMarket, *, fetch_trade
         settlement_result=m.settlement_result,
         settlement_yes_value=m.settlement_yes_value,
         latest_yes_price=m.yes_price,
+        volume_total=m.volume,
+        volume_24h=m.volume_24h,
+        transaction_volume=m.transaction_volume,
+        trade_count=m.trade_count,
+        relevance_score=m.relevance_score,
     )
     upsert_analytics(con, signal_id, analytics)
     return signal_id
@@ -187,38 +211,74 @@ def _persist_market(con: sqlite3.Connection, m: NormalizedMarket, *, fetch_trade
 def sync_prediction_markets(
     con: sqlite3.Connection,
     *,
-    polymarket_limit: int = 400,
-    kalshi_limit: int = 400,
+    pool_size: int = DEFAULT_POOL_SIZE,
+    keep_per_source: int = DEFAULT_KEEP_PER_SOURCE,
+    settled_keep: int = DEFAULT_SETTLED_KEEP,
     include_settled: bool = True,
     fetch_polymarket_trades: bool = True,
 ) -> Dict[str, Any]:
+    """
+    Fetch a large candidate pool per source, rank by trading relevance (24h volume,
+    liquidity, penalize combo/noise markets), and persist only the top signals.
+    """
     init_prediction_markets_db(con)
     poly = PolymarketClient()
     kalshi = KalshiClient()
-    stats: Dict[str, Any] = {"polymarket": 0, "kalshi": 0, "errors": []}
+    stats: Dict[str, Any] = {
+        "polymarket": 0,
+        "kalshi": 0,
+        "pool_polymarket": 0,
+        "pool_kalshi": 0,
+        "keep_per_source": keep_per_source,
+        "pool_size": pool_size,
+        "errors": [],
+    }
 
     try:
-        for m in poly.iter_markets(limit=polymarket_limit, active=True, closed=False):
+        open_pool = poly.fetch_market_pool(pool_size=pool_size, active=True, closed=False, order="volume24hr")
+        stats["pool_polymarket"] = len(open_pool)
+        for m in open_pool[:keep_per_source]:
             _persist_market(con, m, fetch_trades=fetch_polymarket_trades, poly_client=poly)
             stats["polymarket"] += 1
         if include_settled:
-            for m in poly.iter_markets(limit=max(100, polymarket_limit // 4), active=None, closed=True):
+            settled_pool = poly.fetch_market_pool(
+                pool_size=max(settled_keep * 3, 200),
+                active=None,
+                closed=True,
+                order="volume",
+            )
+            stats["pool_polymarket_settled"] = len(settled_pool)
+            for m in settled_pool[:settled_keep]:
                 _persist_market(con, m, fetch_trades=False, poly_client=poly)
                 stats["polymarket"] += 1
-        record_source_sync(con, "polymarket", markets_fetched=stats["polymarket"], meta={"limit": polymarket_limit})
+        record_source_sync(
+            con,
+            "polymarket",
+            markets_fetched=stats["polymarket"],
+            meta={"pool_size": pool_size, "keep": keep_per_source, "ranked_by": "volume24hr+relevance"},
+        )
     except Exception as exc:
         logger.exception("Polymarket sync failed: %s", exc)
         stats["errors"].append(f"polymarket: {exc}")
 
     try:
-        for m in kalshi.iter_markets(limit=kalshi_limit, status="open"):
+        open_pool = kalshi.fetch_market_pool(pool_size=pool_size, status="open")
+        stats["pool_kalshi"] = len(open_pool)
+        for m in open_pool[:keep_per_source]:
             _persist_market(con, m)
             stats["kalshi"] += 1
         if include_settled:
-            for m in kalshi.iter_markets(limit=max(100, kalshi_limit // 4), status="settled"):
+            settled_pool = kalshi.fetch_market_pool(pool_size=max(settled_keep * 3, 200), status="settled")
+            stats["pool_kalshi_settled"] = len(settled_pool)
+            for m in settled_pool[:settled_keep]:
                 _persist_market(con, m)
                 stats["kalshi"] += 1
-        record_source_sync(con, "kalshi", markets_fetched=stats["kalshi"], meta={"limit": kalshi_limit})
+        record_source_sync(
+            con,
+            "kalshi",
+            markets_fetched=stats["kalshi"],
+            meta={"pool_size": pool_size, "keep": keep_per_source, "ranked_by": "volume24h+relevance"},
+        )
     except Exception as exc:
         logger.exception("Kalshi sync failed: %s", exc)
         stats["errors"].append(f"kalshi: {exc}")
