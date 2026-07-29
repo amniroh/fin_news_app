@@ -319,6 +319,10 @@ def main() -> None:
             "anthropic/claude-3-haiku",
             # Legacy 200k context
             "anthropic/claude-2.1",
+            # Cost/quality balance for daily research
+            "openai/gpt-4o-mini",
+            "google/gemini-2.5-flash",
+            "google/gemini-2.5-pro",
         ],
         help="Override the research LLM model for this run (OpenRouter model id).",
     )

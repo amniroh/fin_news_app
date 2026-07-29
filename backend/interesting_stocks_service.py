@@ -282,6 +282,10 @@ def list_stocks_with_coverage(vm_db: Path) -> List[Dict[str, Any]]:
                 },
             }
         out.append(row)
+
+    news_map = batch_recent_news_for_symbols([str(r["symbol"]) for r in out], limit_per=20)
+    for row in out:
+        row["recent_news"] = news_map.get(str(row["symbol"]), [])
     return out
 
 
@@ -891,6 +895,111 @@ def _agent_news_for_symbol(symbol: str, limit: int = 40) -> List[Dict[str, Any]]
         return rows
     finally:
         con.close()
+
+
+def batch_recent_news_for_symbols(
+    symbols: List[str],
+    *,
+    limit_per: int = 20,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Latest ``limit_per`` linked news items per symbol (single query)."""
+    syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
+    if not syms:
+        return {}
+    try:
+        con = _agent_connect()
+    except Exception:
+        return {s: [] for s in syms}
+    try:
+        placeholders = ",".join("?" for _ in syms)
+        # SQLite 3.25+ window functions (Amazon Linux / modern macOS).
+        sql = f"""
+            SELECT * FROM (
+              SELECT
+                l.symbol AS symbol,
+                n.id AS id,
+                n.ts_utc AS ts_utc,
+                n.source_type AS source_type,
+                n.source_name AS source_name,
+                n.title AS title,
+                n.url AS url,
+                n.content AS content,
+                n.condensed AS condensed,
+                ROW_NUMBER() OVER (PARTITION BY l.symbol ORDER BY n.ts_utc DESC) AS rn
+              FROM news_items n
+              INNER JOIN symbol_news_linkage l ON l.news_id = n.id
+              WHERE l.symbol IN ({placeholders})
+            ) WHERE rn <= ?
+            ORDER BY symbol, ts_utc DESC
+        """
+        cur = con.execute(sql, (*syms, int(limit_per)))
+        out: Dict[str, List[Dict[str, Any]]] = {s: [] for s in syms}
+        for r in cur.fetchall():
+            body = (r["condensed"] or r["content"] or "") or ""
+            out.setdefault(str(r["symbol"]).upper(), []).append(
+                {
+                    "id": r["id"],
+                    "ts_utc": r["ts_utc"],
+                    "source_type": r["source_type"],
+                    "source_name": r["source_name"],
+                    "title": r["title"],
+                    "url": r["url"],
+                    "snippet": body[:500] if body else None,
+                }
+            )
+        return out
+    except Exception:
+        # Fallback without window functions.
+        out = {}
+        for s in syms:
+            out[s] = _agent_news_for_symbol(s, limit=limit_per)
+        return out
+    finally:
+        con.close()
+
+
+def format_interesting_stocks_for_research_prompt(
+    vm_db: Path,
+    *,
+    max_priority: Optional[int] = None,
+    max_rows: int = 80,
+    news_per: int = 3,
+) -> str:
+    """Compact text of the website Interesting Stocks table for the research agent."""
+    rows = list_stocks_with_coverage(vm_db)
+    if max_priority is not None:
+        rows = [r for r in rows if int(r.get("universe_priority") or 99) <= int(max_priority)]
+    rows = sorted(rows, key=lambda r: (int(r.get("universe_priority") or 99), str(r.get("symbol") or "")))[
+        : int(max_rows)
+    ]
+    if not rows:
+        return "(no interesting stocks in scope)"
+
+    news_map = batch_recent_news_for_symbols(
+        [str(r["symbol"]) for r in rows],
+        limit_per=int(news_per),
+    )
+    lines: List[str] = []
+    for r in rows:
+        sym = str(r["symbol"])
+        gaps = ",".join(r.get("gaps") or []) or "none"
+        la = r.get("latest_analyst") or {}
+        analyst = la.get("recommendation_key") or "—"
+        vt = r.get("latest_value_trading") or {}
+        score = vt.get("total_score")
+        score_s = f"{score}/30" if score is not None else "—"
+        assessed = str(vt.get("produced_ts_utc") or "")[:10] or "—"
+        headlines = []
+        for n in (news_map.get(sym) or [])[:news_per]:
+            t = str(n.get("title") or "").strip()
+            if t:
+                headlines.append(t[:100])
+        news_s = " | ".join(headlines) if headlines else "(no recent linked headlines)"
+        lines.append(
+            f"- {sym} prio={r.get('universe_priority')} gaps={gaps} analyst={analyst} "
+            f"value={score_s} assessed={assessed} news={news_s}"
+        )
+    return "\n".join(lines)
 
 
 def _agent_recommendations_for_symbol(symbol: str, limit: int = 30) -> List[Dict[str, Any]]:

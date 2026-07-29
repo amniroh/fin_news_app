@@ -10,10 +10,12 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL_PRICING = {
     "gemini-1.5-flash": (0.075, 0.30),
     "gemini-2.0-flash": (0.10, 0.40),
+    "google/gemini-2.5-flash": (0.30, 2.50),
     "openai/gpt-4o-mini": (0.15, 0.60),
     "anthropic/claude-3-haiku": (0.25, 1.25),
     "anthropic/claude-3.5-sonnet": (3.0, 15.0),
     "anthropic/claude-3.5-haiku": (1.0, 5.0),
+    "anthropic/claude-sonnet-4.5": (3.0, 15.0),
 }
 
 

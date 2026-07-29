@@ -15,6 +15,8 @@ sudo cp "$REPO_ROOT/deploy/ec2/weekly-value-trading.service" /etc/systemd/system
 sudo cp "$REPO_ROOT/deploy/ec2/weekly-value-trading.timer" /etc/systemd/system/
 sudo cp "$REPO_ROOT/deploy/ec2/prediction-markets-hourly.service" /etc/systemd/system/
 sudo cp "$REPO_ROOT/deploy/ec2/prediction-markets-hourly.timer" /etc/systemd/system/
+sudo cp "$REPO_ROOT/deploy/ec2/research-daily.service" /etc/systemd/system/
+sudo cp "$REPO_ROOT/deploy/ec2/research-daily.timer" /etc/systemd/system/
 
 sudo cp "$REPO_ROOT/deploy/ec2/nginx-value-web.conf" /etc/nginx/conf.d/value-web.conf
 # Drop default server block if present (Amazon Linux nginx package).
@@ -33,6 +35,7 @@ sudo systemctl restart nginx
 sudo systemctl enable --now daily-jobs.timer
 sudo systemctl enable --now weekly-value-trading.timer
 sudo systemctl enable --now prediction-markets-hourly.timer
+sudo systemctl enable --now research-daily.timer
 
 echo ""
 echo "Services installed."
@@ -41,9 +44,11 @@ echo "  Backend:  systemd value-web-backend (port 8000, proxied via nginx :80)"
 echo "  Daily:    daily-jobs.timer (06:00 UTC)"
 echo "  Weekly:   weekly-value-trading.timer (Sun 07:00 UTC)"
 echo "  Hourly:   prediction-markets-hourly.timer (Polymarket + Kalshi)"
+echo "  Research: research-daily.timer (07:30 UTC; respects deploy/ec2/research-trial-end-date.txt)"
 echo ""
 echo "Ensure EC2 security group allows inbound TCP 80 (and 22 for SSH)."
 echo "Logs: $REPO_ROOT/logs/daily-jobs.log  $REPO_ROOT/logs/weekly-value-trading.log"
 echo "      $REPO_ROOT/logs/prediction-markets-hourly.log"
+echo "      $REPO_ROOT/logs/research-daily.log"
 echo "      journalctl -u value-web-backend -f"
 echo ""

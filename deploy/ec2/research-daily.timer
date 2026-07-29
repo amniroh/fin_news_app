@@ -1,0 +1,10 @@
+[Unit]
+Description=Run research agent daily at 07:30 UTC (10-day trial via end-date file)
+
+[Timer]
+OnCalendar=*-*-* 07:30:00 UTC
+Persistent=true
+RandomizedDelaySec=180
+
+[Install]
+WantedBy=timers.target

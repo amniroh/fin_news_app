@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily research agent (interesting-stocks table + news)
+Requires=research-daily.timer
+
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/home/ec2-user/market_analysis
+Environment=HOME=/home/ec2-user
+ExecStart=/bin/bash /home/ec2-user/market_analysis/deploy/ec2/run-research-daily.sh
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

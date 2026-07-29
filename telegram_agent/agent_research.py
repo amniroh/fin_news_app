@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone, timedelta
@@ -258,6 +259,48 @@ def _format_price_context_line(sym: str, pct_by_horizon: Dict[str, float]) -> st
     return f"{sym}: {body}"
 
 
+def _interesting_stocks_table_for_prompt(cfg: dict) -> str:
+    """Load the website Interesting Stocks table into the research user prompt."""
+    try:
+        import sys
+
+        root = Path(__file__).resolve().parent.parent
+        backend = root / "backend"
+        if str(backend) not in sys.path:
+            sys.path.insert(0, str(backend))
+        if str(root) not in sys.path:
+            sys.path.insert(0, str(root))
+
+        from interesting_stocks_service import format_interesting_stocks_for_research_prompt
+
+        vm = Path(
+            os.getenv(
+                "VALUE_METRICS_DB_PATH",
+                str(backend / "data" / "value_metrics.sqlite"),
+            )
+        ).expanduser()
+        if not vm.is_absolute():
+            vm = (root / vm).resolve()
+
+        max_prio = cfg.get("agent_research_max_priority")
+        if max_prio is None:
+            max_prio = cfg.get("max_priority")
+        try:
+            max_prio_i = int(max_prio) if max_prio is not None else None
+        except Exception:
+            max_prio_i = None
+
+        return format_interesting_stocks_for_research_prompt(
+            vm,
+            max_priority=max_prio_i,
+            max_rows=int(cfg.get("agent_research_table_max_rows", 80) or 80),
+            news_per=int(cfg.get("agent_research_table_news_per", 3) or 3),
+        )
+    except Exception as exc:
+        logger.warning("interesting stocks table for research unavailable: %s", exc)
+        return f"(interesting stocks table unavailable: {exc})"
+
+
 def _cfg_for_research_universe(cfg: dict) -> dict:
     """
     Research-only universe priority override.
@@ -507,12 +550,33 @@ Rules:
             "(duplicates and unrelated headlines are dropped relative to the raw ingest stream).\n\n"
         )
 
+    news_block = "\n".join(lines) if lines else "(no news rows in scope)"
+    px_block = "\n".join(px_lines) if px_lines else "(no price context rows)"
+    universe_block = ""
+    if universe_prompt_txt:
+        universe_block = (
+            "=== SYMBOL UNIVERSE ALLOWLIST (use ONLY these tickers in suggestions[].symbol) ===\n"
+            + universe_prompt_txt
+            + "\n\n"
+        )
+    universe_mode_line = (
+        "ACTIVE — `suggestions[].symbol` must be chosen **only** from the allowlist block above "
+        "(same set as price pipeline / extract)."
+        if allowed_syms is not None
+        else "OFF — you may suggest other liquid names if justified."
+    )
+
+    table_snapshot = _interesting_stocks_table_for_prompt(cfg)
+
     user = f"""Simulated current time (UTC) for this run: {sim_now.isoformat()}
 News scope: {news_scope}
 
 Research memory depth (snapshots completed **before** this run, used for calibration): **{n_snapshots}**
 
 {epistemic_user}
+
+=== INTERESTING STOCKS TABLE (website snapshot — coverage, analyst, value pillars, recent headlines) ===
+{table_snapshot}
 
 === SUGGESTION BACKTESTS (tester — realized outcomes vs plan; use to validate or downgrade confidence) ===
 {tester_txt}
@@ -524,14 +588,14 @@ Prior structured memory (baseline — compare every idea against this; for daily
 {mem_txt}
 
 News sample for this run:
-{news_filter_note}{chr(10).join(lines) if lines else "(no news rows in scope)"}
+{news_filter_note}{news_block}
 
-{"=== SYMBOL UNIVERSE ALLOWLIST (use ONLY these tickers in suggestions[].symbol) ===\n" + universe_prompt_txt + "\n\n" if universe_prompt_txt else ""}{px_title}
+{universe_block}{px_title}
 - Values are **total return in percent** vs the prior close for each horizon (1d/5d/30d). Only horizons with price history are shown; symbols with no usable closes are omitted.
 {px_order}
-{chr(10).join(px_lines) if px_lines else "(no price context rows)"}
+{px_block}
 
-Symbol universe mode: {"ACTIVE — `suggestions[].symbol` must be chosen **only** from the allowlist block above (same set as price pipeline / extract)." if allowed_syms is not None else "OFF — you may suggest other liquid names if justified."}
+Symbol universe mode: {universe_mode_line}
 
 Produce JSON only."""
 
