@@ -111,6 +111,9 @@ Syncs open and settled markets from **Polymarket** (Gamma + CLOB + Data API; on-
 
 - **Time sensitive**: resolves within 7 days of first observation, or YES price moves ≥10% within 24h (edge may decay quickly).
 - **Win/loss** (settled only): follow the side with higher implied probability at entry; win if that side pays out more than entry cost.
+- **Amount won / amount lost**: same hypothetical stake split into two columns (won fraction vs lost fraction).
+
+Sync stores **all categories** from both exchanges. The website Category filter defaults to politics / finance / crypto / economy / tech / elections / iran — clear or edit it to browse others. Optional fetch restrict: env `PM_CATEGORY_ALLOWLIST` or CLI `--categories`.
 
 Sync scans a **candidate pool** (~800 markets per source), ranks by **24h volume + liquidity + relevance score** (penalizing combo/noise contracts), and stores only the **top ~200 open + ~80 settled** per exchange — not an arbitrary first-N slice.
 
@@ -126,9 +129,19 @@ Sync scans a **candidate pool** (~800 markets per source), ranks by **24h volume
 ### CLI sync
 
 ```bash
-.venv/bin/python backend/prediction_markets_sync_cli.py
-# --pool-size 800 --keep 200 --settled-keep 80
+# Hourly-style sync (all categories)
+.venv/bin/python backend/prediction_markets_sync_cli.py --pool-size 2000 --keep 500 --settled-keep 150
+
+# Optional: only fetch certain categories
+.venv/bin/python backend/prediction_markets_sync_cli.py \
+  --categories politics,finance,crypto,economy,tech,elections,iran
+
+# Sync + backfill last 10 days of YES prices
+.venv/bin/python backend/prediction_markets_sync_cli.py \
+  --pool-size 5000 --keep 2000 --settled-keep 500 --backfill-days 10
 ```
+
+On the EC2 host, **`prediction-markets-hourly.timer`** runs the sync every hour (see `deploy/ec2/run-prediction-markets-hourly.sh`).
 
 ### API
 

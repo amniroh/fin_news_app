@@ -24,7 +24,7 @@ def build_prediction_markets_router(*, db_path: Path) -> APIRouter:
     async def list_signals(
         source: Optional[str] = None,
         status: Optional[str] = None,
-        limit: int = 1000,
+        limit: int = 5000,
         offset: int = 0,
     ) -> Dict[str, Any]:
         def _run() -> Dict[str, Any]:
@@ -36,10 +36,17 @@ def build_prediction_markets_router(*, db_path: Path) -> APIRouter:
                 settled = [r for r in rows if r.get("status") == "settled" and not r.get("pending")]
                 wins = sum(1 for r in settled if r.get("signal_won"))
                 losses = sum(1 for r in settled if r.get("signal_won") is False)
+                categories: set[str] = set()
+                for r in rows:
+                    for part in str(r.get("category") or "").split(","):
+                        c = part.strip().lower()
+                        if c:
+                            categories.add(c)
                 return {
                     "n": len(rows),
                     "total": total,
                     "rows": rows,
+                    "categories": sorted(categories),
                     "sync": sync,
                     "aggregate": {
                         "settled_n": len(settled),
@@ -59,16 +66,23 @@ def build_prediction_markets_router(*, db_path: Path) -> APIRouter:
         keep_per_source: int = 200,
         settled_keep: int = 80,
         include_settled: bool = True,
+        wipe_disallowed: bool = False,
+        categories: Optional[str] = None,
     ) -> Dict[str, Any]:
         def _run() -> Dict[str, Any]:
+            from prediction_markets_categories import load_category_allowlist
+
             con = _con()
             try:
+                allowlist = load_category_allowlist(categories)
                 return sync_prediction_markets(
                     con,
                     pool_size=int(pool_size),
                     keep_per_source=int(keep_per_source),
                     settled_keep=int(settled_keep),
                     include_settled=bool(include_settled),
+                    category_allowlist=allowlist,
+                    wipe_disallowed=bool(wipe_disallowed) and bool(allowlist),
                 )
             finally:
                 con.close()

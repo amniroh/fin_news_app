@@ -19,8 +19,11 @@ type SignalRow = {
   relevance_score?: number | null;
   is_time_sensitive?: boolean;
   time_sensitive_reason?: string | null;
+  category?: string | null;
   signal_won?: boolean | null;
   profit_if_followed?: number | null;
+  amount_won?: number | null;
+  amount_lost?: number | null;
   pending?: number;
   settlement_result?: string | null;
 };
@@ -29,6 +32,7 @@ type ApiResponse = {
   n: number;
   total: number;
   rows: SignalRow[];
+  categories?: string[];
   sync: { source: string; last_sync_ts_utc?: string; markets_fetched?: number; meta?: Record<string, unknown> }[];
   aggregate: { settled_n: number; wins: number; losses: number; win_rate?: number | null };
 };
@@ -47,6 +51,9 @@ type EnumFilter = { kind: "enum"; column: string; values: string[] };
 type BoolFilter = { kind: "bool"; column: string; value?: boolean };
 type ColumnFilter = NumericFilter | EnumFilter | BoolFilter;
 
+/** Default website view: focus categories (DB still stores all). */
+const DEFAULT_UI_CATEGORIES = ["politics", "finance", "crypto", "economy", "tech", "elections", "iran"];
+
 const STATUS_OPTIONS = [
   { value: "open", label: "Open" },
   { value: "settled", label: "Settled" },
@@ -61,18 +68,22 @@ const SOURCE_OPTIONS = [
 const FILTERABLE_COLUMNS: FilterableColumn[] = [
   { key: "source", label: "Source", kind: "enum", enumOptions: SOURCE_OPTIONS },
   { key: "status", label: "Status", kind: "enum", enumOptions: STATUS_OPTIONS },
+  { key: "category", label: "Category", kind: "enum", enumOptions: [] },
   { key: "volume_total", label: "Total volume", kind: "numeric" },
   { key: "volume_24h", label: "24h volume", kind: "numeric" },
   { key: "transaction_volume", label: "Recent txn volume", kind: "numeric" },
   { key: "latest_yes_price", label: "Yes price", kind: "numeric" },
   { key: "relevance_score", label: "Relevance", kind: "numeric" },
   { key: "profit_if_followed", label: "Profit", kind: "numeric" },
+  { key: "amount_won", label: "Amount won", kind: "numeric" },
+  { key: "amount_lost", label: "Amount lost", kind: "numeric" },
   { key: "is_time_sensitive", label: "Time sensitive", kind: "bool" },
 ];
 
 const TABLE_COLUMNS: { key: string; label: string; fmt?: (v: unknown, row?: SignalRow) => string }[] = [
   { key: "source", label: "Source" },
   { key: "title", label: "Signal" },
+  { key: "category", label: "Category" },
   { key: "status", label: "Status" },
   { key: "close_time_utc", label: "Close", fmt: (v) => fmtDate(String(v ?? "")) },
   { key: "latest_yes_price", label: "Yes price", fmt: (v) => fmtPrice(v as number | null) },
@@ -83,6 +94,8 @@ const TABLE_COLUMNS: { key: string; label: string; fmt?: (v: unknown, row?: Sign
   { key: "is_time_sensitive", label: "Time sensitive?", fmt: (v) => (v ? "Yes" : "No") },
   { key: "signal_won", label: "Outcome", fmt: (_v, row) => (row ? outcomeLabel(row) : "—") },
   { key: "profit_if_followed", label: "Profit", fmt: (v) => (v == null ? "—" : fmtPct(v as number)) },
+  { key: "amount_won", label: "Amount won", fmt: (v) => (v == null ? "—" : fmtPct(v as number)) },
+  { key: "amount_lost", label: "Amount lost", fmt: (v) => (v == null ? "—" : fmtPct(v as number)) },
   { key: "relevance_score", label: "Relevance", fmt: (v) => (v == null ? "—" : Number(v).toFixed(0)) },
   { key: "blockchain_ref", label: "Blockchain / ID" },
 ];
@@ -110,7 +123,23 @@ function rowPassesFilter(row: SignalRow, f: ColumnFilter): boolean {
   }
   if (!f.values.length) return true;
   if (raw == null || raw === "") return false;
+  // Category can be comma-separated; match if any selected value appears.
+  if (f.column === "category") {
+    const parts = String(raw)
+      .split(",")
+      .map((p) => p.trim().toLowerCase())
+      .filter(Boolean);
+    return f.values.some((v) => parts.includes(v.toLowerCase()));
+  }
   return f.values.includes(String(raw).toLowerCase());
+}
+
+function titleCaseCategory(c: string): string {
+  if (!c) return c;
+  return c
+    .split(/[-_]/)
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
 }
 
 function filterIsActive(f: ColumnFilter): boolean {
@@ -158,20 +187,29 @@ export function PredictionMarketsPage({ apiBase: apiBaseProp }: Props) {
   const [aggregate, setAggregate] = useState<ApiResponse["aggregate"] | null>(null);
   const [sync, setSync] = useState<ApiResponse["sync"]>([]);
   const [total, setTotal] = useState(0);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([...DEFAULT_UI_CATEGORIES]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<string>("relevance_score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [columnFilters, setColumnFilters] = useState<ColumnFilter[]>([
+    { kind: "enum", column: "category", values: [...DEFAULT_UI_CATEGORIES] },
     { kind: "numeric", column: "volume_24h", min: 1000 },
   ]);
+
+  const filterableColumns = useMemo((): FilterableColumn[] => {
+    const catOpts = availableCategories.map((c) => ({ value: c, label: titleCaseCategory(c) }));
+    return FILTERABLE_COLUMNS.map((col) =>
+      col.key === "category" ? { ...col, enumOptions: catOpts } : col
+    );
+  }, [availableCategories]);
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ limit: "1000" });
+      const params = new URLSearchParams({ limit: "5000" });
       const r = await fetch(`${apiBase}/prediction-markets/signals?${params}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j: ApiResponse = await r.json();
@@ -179,6 +217,16 @@ export function PredictionMarketsPage({ apiBase: apiBaseProp }: Props) {
       setAggregate(j.aggregate || null);
       setSync(j.sync || []);
       setTotal(j.total || 0);
+      const fromApi = (j.categories || []).map((c) => c.toLowerCase());
+      const fromRows = new Set<string>();
+      for (const row of j.rows || []) {
+        for (const part of String(row.category || "").split(",")) {
+          const c = part.trim().toLowerCase();
+          if (c) fromRows.add(c);
+        }
+      }
+      const merged = Array.from(new Set([...DEFAULT_UI_CATEGORIES, ...fromApi, ...fromRows])).sort();
+      setAvailableCategories(merged);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -219,7 +267,7 @@ export function PredictionMarketsPage({ apiBase: apiBaseProp }: Props) {
 
   function addFilter() {
     const used = new Set(columnFilters.map((f) => f.column));
-    const nextCol = FILTERABLE_COLUMNS.find((c) => !used.has(c.key))?.key ?? "volume_24h";
+    const nextCol = filterableColumns.find((c) => !used.has(c.key))?.key ?? "volume_24h";
     setColumnFilters((prev) => [...prev, newFilterForColumn(nextCol)]);
   }
 
@@ -270,9 +318,9 @@ export function PredictionMarketsPage({ apiBase: apiBaseProp }: Props) {
     <div className="tracker-page">
       <h2 style={{ margin: "12px 0" }}>Prediction Market Signals</h2>
       <p style={{ color: "#64748b", fontSize: 14, marginTop: 0, maxWidth: 900 }}>
-        Sync scans up to <strong>800 candidates per source</strong>, ranks by 24h volume, liquidity, and trading
-        relevance, then keeps the <strong>top ~200 open + ~80 settled</strong> markets per exchange. Combo/noise
-        contracts are deprioritized.
+        Sync stores markets from <strong>all categories</strong> (Polymarket + Kalshi), ranked by volume and
+        relevance. Use the <strong>Category</strong> filter to focus the table (defaults to politics, finance,
+        crypto, economy, tech, elections, iran — clear it to see everything).
       </p>
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end", marginBottom: 12 }}>
@@ -302,7 +350,7 @@ export function PredictionMarketsPage({ apiBase: apiBaseProp }: Props) {
           </div>
         )}
         {columnFilters.map((f, idx) => {
-          const meta = FILTERABLE_COLUMNS.find((c) => c.key === f.column) ?? FILTERABLE_COLUMNS[0];
+          const meta = filterableColumns.find((c) => c.key === f.column) ?? filterableColumns[0];
           return (
             <div key={idx} className="filter-row">
               <div>
@@ -312,14 +360,13 @@ export function PredictionMarketsPage({ apiBase: apiBaseProp }: Props) {
                   onChange={(e) => changeFilterColumn(idx, e.target.value)}
                   style={{ minWidth: 180 }}
                 >
-                  {FILTERABLE_COLUMNS.map((c) => (
+                  {filterableColumns.map((c) => (
                     <option key={c.key} value={c.key}>
                       {c.label}
                     </option>
                   ))}
                 </select>
-              </div>
-              {f.kind === "numeric" ? (
+              </div>              {f.kind === "numeric" ? (
                 <>
                   <div>
                     <label>Min</label>
@@ -446,6 +493,8 @@ export function PredictionMarketsPage({ apiBase: apiBaseProp }: Props) {
                   if (c.key === "profit_if_followed" && r.profit_if_followed != null) {
                     color = r.profit_if_followed > 0 ? "green" : r.profit_if_followed < 0 ? "crimson" : undefined;
                   }
+                  if (c.key === "amount_won" && r.amount_won != null && r.amount_won > 0) color = "green";
+                  if (c.key === "amount_lost" && r.amount_lost != null && r.amount_lost > 0) color = "crimson";
                   return (
                     <td
                       key={c.key}

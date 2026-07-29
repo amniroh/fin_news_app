@@ -16,6 +16,11 @@ export const PREDICTION_MARKET_COLUMN_DOCS: PredictionColumnDoc[] = [
     description: "The market question or contract title. Click to open the live market on the source site.",
   },
   {
+    key: "category",
+    label: "Category",
+    description:
+      "Topic bucket(s) inferred from exchange labels/tags/title. Sync stores all categories; use the Category filter to focus (defaults to politics, finance, crypto, economy, tech, elections, iran).",
+  },  {
     key: "status",
     label: "Status",
     description: "open = still tradeable; settled = resolved with a final outcome; closed = no longer trading but may be unresolved.",
@@ -65,6 +70,18 @@ export const PREDICTION_MARKET_COLUMN_DOCS: PredictionColumnDoc[] = [
     key: "profit_if_followed",
     label: "Profit",
     description: "Hypothetical return if you bought the favored side at entry and held to settlement (as a fraction, e.g. 0.12 = +12%).",
+  },
+  {
+    key: "amount_won",
+    label: "Amount won",
+    description:
+      "For settled markets: profit fraction when following the favored side at entry won (0 if that trade lost). Same stake basis as Profit.",
+  },
+  {
+    key: "amount_lost",
+    label: "Amount lost",
+    description:
+      "For settled markets: loss fraction when following the favored side at entry lost (0 if that trade won). Same stake basis as Profit.",
   },
   {
     key: "relevance_score",

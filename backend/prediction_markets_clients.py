@@ -112,6 +112,12 @@ class PolymarketClient:
             if closed is not None:
                 params["closed"] = str(closed).lower()
             r = self.session.get(f"{POLYMARKET_GAMMA}/markets", params=params, timeout=DEFAULT_TIMEOUT)
+            if r.status_code == 422:
+                logger.info("Polymarket pool pagination stopped at offset=%s (HTTP 422)", offset)
+                break
+            if r.status_code >= 500:
+                logger.warning("Polymarket Gamma HTTP %s at offset=%s; stopping this scan", r.status_code, offset)
+                break
             r.raise_for_status()
             rows = r.json()
             if not rows:
@@ -121,7 +127,7 @@ class PolymarketClient:
             if len(rows) < batch:
                 break
             offset += batch
-            time.sleep(0.04)
+            time.sleep(0.08)
         markets.sort(key=lambda m: m.relevance_score, reverse=True)
         return markets
 
@@ -189,11 +195,29 @@ class PolymarketClient:
                 continue
         return total, n
 
-    def fetch_price_history(self, token_id: str, *, interval: str = "1w") -> List[Dict[str, Any]]:
+    def fetch_price_history(
+        self,
+        token_id: str,
+        *,
+        interval: str = "1w",
+        fidelity: int = 60,
+        start_ts: Optional[int] = None,
+        end_ts: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """CLOB YES-token mid history. ``interval`` in {1h,1d,1w,1m,max}; fidelity in minutes."""
         try:
+            params: Dict[str, Any] = {
+                "market": token_id,
+                "interval": interval,
+                "fidelity": int(fidelity),
+            }
+            if start_ts is not None:
+                params["startTs"] = int(start_ts)
+            if end_ts is not None:
+                params["endTs"] = int(end_ts)
             r = self.session.get(
                 f"{POLYMARKET_CLOB}/prices-history",
-                params={"market": token_id, "interval": interval, "fidelity": 60},
+                params=params,
                 timeout=DEFAULT_TIMEOUT,
             )
             r.raise_for_status()
@@ -229,8 +253,19 @@ class PolymarketClient:
                 settlement_result = "void"
                 settlement_yes_value = yes
 
-        slug = row.get("slug")
-        event_url = f"https://polymarket.com/event/{slug}" if slug else None
+        slug = str(row.get("slug") or "").strip() or None
+        events = row.get("events") if isinstance(row.get("events"), list) else []
+        event0 = events[0] if events and isinstance(events[0], dict) else {}
+        event_slug = str(event0.get("slug") or "").strip() or None
+        # Prefer /market/{marketSlug} (redirects correctly). /event/{marketSlug} alone 404s
+        # when the market belongs to a multi-outcome event with a different event slug.
+        if slug:
+            event_url = f"https://polymarket.com/market/{slug}"
+        elif event_slug:
+            event_url = f"https://polymarket.com/event/{event_slug}"
+        else:
+            event_url = None
+
         vol_total = float(row["volumeNum"]) if row.get("volumeNum") not in (None, "") else (
             float(row["volume"]) if row.get("volume") not in (None, "") else None
         )
@@ -241,6 +276,19 @@ class PolymarketClient:
             float(row["liquidity"]) if row.get("liquidity") not in (None, "") else None
         )
         title = str(row.get("question") or row.get("title") or condition_id)
+
+        tag_labels: List[str] = []
+        for t in event0.get("tags") or []:
+            if isinstance(t, dict) and t.get("label"):
+                tag_labels.append(str(t["label"]))
+            elif isinstance(t, str):
+                tag_labels.append(t)
+        raw_category = row.get("category") or event0.get("category")
+        from prediction_markets_categories import infer_categories
+
+        cats = infer_categories(title=title, category=raw_category, tags=tag_labels)
+        category = ",".join(cats) if cats else (str(raw_category).strip() if raw_category else None)
+
         relevance = _trading_relevance_score(
             source="polymarket",
             title=title,
@@ -256,7 +304,7 @@ class PolymarketClient:
             external_id=condition_id,
             title=title,
             description=row.get("description"),
-            category=row.get("category"),
+            category=category,
             status=status,
             close_time_utc=_iso_from_ts(row.get("endDate") or row.get("endDateIso")),
             blockchain_ref=condition_id,
@@ -280,6 +328,8 @@ class KalshiClient:
     def __init__(self, session: Optional[requests.Session] = None) -> None:
         self.session = session or requests.Session()
         self.session.headers.setdefault("User-Agent", "market_analysis/1.0")
+        self._series_cache: Dict[str, Optional[str]] = {}
+        self._series_meta_cache: Dict[str, Dict[str, Any]] = {}
 
     def fetch_market_pool(
         self,
@@ -298,9 +348,19 @@ class KalshiClient:
                 params["status"] = status
             if cursor:
                 params["cursor"] = cursor
-            r = self.session.get(f"{KALSHI_API}/markets", params=params, timeout=DEFAULT_TIMEOUT)
-            r.raise_for_status()
-            data = r.json()
+            data: Dict[str, Any] = {}
+            for attempt in range(6):
+                r = self.session.get(f"{KALSHI_API}/markets", params=params, timeout=DEFAULT_TIMEOUT)
+                if r.status_code == 429:
+                    wait = min(60.0, 1.5 * (2 ** attempt))
+                    logger.warning("Kalshi rate-limited; sleeping %.1fs (attempt %d)", wait, attempt + 1)
+                    time.sleep(wait)
+                    continue
+                r.raise_for_status()
+                data = r.json()
+                break
+            else:
+                raise RuntimeError("Kalshi markets pagination exhausted retries after HTTP 429")
             rows = data.get("markets") or []
             if not rows:
                 break
@@ -309,7 +369,7 @@ class KalshiClient:
             cursor = data.get("cursor") or ""
             if not cursor:
                 break
-            time.sleep(0.04)
+            time.sleep(0.12)
         markets.sort(key=lambda m: m.relevance_score, reverse=True)
         return markets
 
@@ -344,6 +404,102 @@ class KalshiClient:
             if not cursor:
                 break
             time.sleep(0.05)
+
+    def resolve_series_ticker(self, event_ticker: str) -> Optional[str]:
+        """Look up series ticker for an event (needed for candlestick paths)."""
+        meta = self.resolve_series_meta(event_ticker=event_ticker)
+        return str(meta["series_ticker"]) if meta.get("series_ticker") else None
+
+    def resolve_series_meta(
+        self,
+        *,
+        event_ticker: Optional[str] = None,
+        series_ticker: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Return ``{series_ticker, category, tags}`` for an event/series."""
+        st = (series_ticker or "").strip()
+        et = (event_ticker or "").strip()
+        cache_key = st or et
+        if cache_key and cache_key in self._series_meta_cache:
+            return self._series_meta_cache[cache_key]
+
+        out: Dict[str, Any] = {"series_ticker": st or None, "category": None, "tags": []}
+        if et and not st:
+            try:
+                r = self.session.get(f"{KALSHI_API}/events/{et}", timeout=DEFAULT_TIMEOUT)
+                if r.status_code != 404:
+                    r.raise_for_status()
+                    ev = r.json().get("event") or {}
+                    st = str(ev.get("series_ticker") or "").strip() or None
+                    out["series_ticker"] = st
+                    self._series_cache[et] = st
+            except Exception as exc:
+                logger.debug("Kalshi event lookup failed for %s: %s", et, exc)
+                self._series_cache[et] = None
+
+        if st:
+            try:
+                r = self.session.get(f"{KALSHI_API}/series/{st}", timeout=DEFAULT_TIMEOUT)
+                if r.status_code != 404:
+                    r.raise_for_status()
+                    data = r.json()
+                    series = data.get("series") if isinstance(data.get("series"), dict) else data
+                    out["series_ticker"] = st
+                    out["category"] = series.get("category")
+                    tags = series.get("tags") or []
+                    out["tags"] = [str(t) for t in tags] if isinstance(tags, list) else []
+            except Exception as exc:
+                logger.debug("Kalshi series lookup failed for %s: %s", st, exc)
+
+        if cache_key:
+            self._series_meta_cache[cache_key] = out
+        if st:
+            self._series_meta_cache[st] = out
+        return out
+
+    def fetch_candlesticks(
+        self,
+        ticker: str,
+        *,
+        series_ticker: Optional[str] = None,
+        event_ticker: Optional[str] = None,
+        start_ts: Optional[int] = None,
+        end_ts: Optional[int] = None,
+        period_interval: int = 60,
+    ) -> List[Dict[str, Any]]:
+        """Hourly (or 1/1440-min) YES price candles for a Kalshi market."""
+        series = series_ticker
+        if not series and event_ticker:
+            series = self.resolve_series_ticker(event_ticker)
+        if not series:
+            # Heuristic: series is often the prefix before the first date segment.
+            parts = str(ticker).split("-")
+            series = parts[0] if parts else None
+        if not series:
+            return []
+        end = int(end_ts if end_ts is not None else time.time())
+        start = int(start_ts if start_ts is not None else end - 30 * 86400)
+        params = {
+            "start_ts": start,
+            "end_ts": end,
+            "period_interval": int(period_interval),
+        }
+        urls = [
+            f"{KALSHI_API}/series/{series}/markets/{ticker}/candlesticks",
+            f"{KALSHI_API}/historical/markets/{ticker}/candlesticks",
+        ]
+        for url in urls:
+            try:
+                r = self.session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+                if r.status_code in (404, 429):
+                    continue
+                r.raise_for_status()
+                sticks = r.json().get("candlesticks") or []
+                if sticks:
+                    return list(sticks)
+            except Exception as exc:
+                logger.debug("Kalshi candlesticks failed %s: %s", ticker, exc)
+        return []
 
     def _normalize(self, row: Dict[str, Any]) -> NormalizedMarket:
         ticker = str(row.get("ticker") or "")
@@ -391,6 +547,15 @@ class KalshiClient:
         vol_24h = _f("volume_24h_fp")
         liq = _f("open_interest_fp")
         title = str(row.get("title") or ticker)
+        from prediction_markets_categories import infer_categories
+
+        # Fast path: title/keywords only. Series category enrichment happens in sync.
+        cats = infer_categories(
+            title=title,
+            category=row.get("category"),
+            extra_labels=[str(row.get("market_type") or "")],
+        )
+        category = ",".join(cats) if cats else None
         relevance = _trading_relevance_score(
             source="kalshi",
             title=title,
@@ -406,7 +571,7 @@ class KalshiClient:
             external_id=ticker,
             title=title,
             description=row.get("rules_primary"),
-            category=row.get("market_type"),
+            category=category,
             status=status,
             close_time_utc=_iso_from_ts(row.get("close_time") or row.get("latest_expiration_time")),
             blockchain_ref=ticker,

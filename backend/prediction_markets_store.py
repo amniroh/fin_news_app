@@ -6,7 +6,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from value_metrics_store import connect, init_db
 
@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS pm_signal_snapshots (
   FOREIGN KEY(signal_id) REFERENCES pm_signals(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_pm_snapshots_signal_ts ON pm_signal_snapshots(signal_id, asof_ts_utc);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pm_snapshots_unique_ts ON pm_signal_snapshots(signal_id, asof_ts_utc);
 
 CREATE TABLE IF NOT EXISTS pm_signal_analytics (
   signal_id INTEGER PRIMARY KEY,
@@ -57,6 +58,8 @@ CREATE TABLE IF NOT EXISTS pm_signal_analytics (
   settlement_yes_value REAL,
   signal_won INTEGER,
   profit_if_followed REAL,
+  amount_won REAL,
+  amount_lost REAL,
   wins INTEGER NOT NULL DEFAULT 0,
   losses INTEGER NOT NULL DEFAULT 0,
   pending INTEGER NOT NULL DEFAULT 1,
@@ -107,9 +110,31 @@ def _migrate_prediction_markets_columns(con: sqlite3.Connection) -> None:
         ("transaction_volume", "REAL"),
         ("trade_count", "INTEGER"),
         ("relevance_score", "REAL"),
+        ("amount_won", "REAL"),
+        ("amount_lost", "REAL"),
     ):
         if col not in ana_cols:
             con.execute(f"ALTER TABLE pm_signal_analytics ADD COLUMN {col} {typ}")
+    # Backfill won/lost split from existing profit_if_followed when columns are empty.
+    con.execute(
+        """
+        UPDATE pm_signal_analytics
+        SET
+          amount_won = CASE
+            WHEN profit_if_followed IS NULL THEN amount_won
+            WHEN profit_if_followed > 0 THEN profit_if_followed
+            ELSE 0
+          END,
+          amount_lost = CASE
+            WHEN profit_if_followed IS NULL THEN amount_lost
+            WHEN profit_if_followed < 0 THEN ABS(profit_if_followed)
+            ELSE 0
+          END
+        WHERE profit_if_followed IS NOT NULL
+          AND (amount_won IS NULL OR amount_lost IS NULL)
+        """
+    )
+    con.commit()
 
 
 def upsert_signal(con: sqlite3.Connection, row: Dict[str, Any]) -> int:
@@ -165,10 +190,13 @@ def upsert_signal(con: sqlite3.Connection, row: Dict[str, Any]) -> int:
     return int(cur["id"])
 
 
-def insert_snapshot(con: sqlite3.Connection, *, signal_id: int, snap: Dict[str, Any]) -> None:
-    con.execute(
+def insert_snapshot(con: sqlite3.Connection, *, signal_id: int, snap: Dict[str, Any]) -> bool:
+    """Insert a snapshot. Returns False if (signal_id, asof_ts_utc) already exists."""
+    cur = con.execute(
         """
-        INSERT INTO pm_signal_snapshots(signal_id, asof_ts_utc, yes_price, no_price, volume, volume_24h, liquidity, transaction_volume, trade_count)
+        INSERT OR IGNORE INTO pm_signal_snapshots(
+          signal_id, asof_ts_utc, yes_price, no_price, volume, volume_24h, liquidity, transaction_volume, trade_count
+        )
         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
@@ -184,6 +212,7 @@ def insert_snapshot(con: sqlite3.Connection, *, signal_id: int, snap: Dict[str, 
         ),
     )
     con.commit()
+    return int(cur.rowcount or 0) > 0
 
 
 def upsert_analytics(con: sqlite3.Connection, signal_id: int, analytics: Dict[str, Any]) -> None:
@@ -192,10 +221,11 @@ def upsert_analytics(con: sqlite3.Connection, signal_id: int, analytics: Dict[st
         INSERT INTO pm_signal_analytics(
           signal_id, is_time_sensitive, time_sensitive_reason, days_to_close_at_first,
           entry_yes_price, latest_yes_price, settlement_result, settlement_yes_value,
-          signal_won, profit_if_followed, wins, losses, pending, win_rate,
+          signal_won, profit_if_followed, amount_won, amount_lost,
+          wins, losses, pending, win_rate,
           volume_total, volume_24h, transaction_volume, trade_count, relevance_score,
           updated_ts_utc
-        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(signal_id) DO UPDATE SET
           is_time_sensitive=excluded.is_time_sensitive,
           time_sensitive_reason=excluded.time_sensitive_reason,
@@ -206,6 +236,8 @@ def upsert_analytics(con: sqlite3.Connection, signal_id: int, analytics: Dict[st
           settlement_yes_value=excluded.settlement_yes_value,
           signal_won=excluded.signal_won,
           profit_if_followed=excluded.profit_if_followed,
+          amount_won=excluded.amount_won,
+          amount_lost=excluded.amount_lost,
           wins=excluded.wins,
           losses=excluded.losses,
           pending=excluded.pending,
@@ -228,6 +260,8 @@ def upsert_analytics(con: sqlite3.Connection, signal_id: int, analytics: Dict[st
             analytics.get("settlement_yes_value"),
             1 if analytics.get("signal_won") else (0 if analytics.get("signal_won") is False else None),
             analytics.get("profit_if_followed"),
+            analytics.get("amount_won"),
+            analytics.get("amount_lost"),
             int(analytics.get("wins") or 0),
             int(analytics.get("losses") or 0),
             int(analytics.get("pending") or 0),
@@ -279,7 +313,8 @@ def query_signals(
       SELECT s.*,
              a.is_time_sensitive, a.time_sensitive_reason, a.days_to_close_at_first,
              a.entry_yes_price, a.latest_yes_price, a.settlement_result, a.settlement_yes_value,
-             a.signal_won, a.profit_if_followed, a.wins, a.losses, a.pending, a.win_rate,
+             a.signal_won, a.profit_if_followed, a.amount_won, a.amount_lost,
+             a.wins, a.losses, a.pending, a.win_rate,
              a.volume_total, a.volume_24h, a.transaction_volume, a.trade_count, a.relevance_score,
              a.updated_ts_utc AS analytics_updated_ts_utc
       FROM pm_signals s
@@ -344,3 +379,83 @@ def get_snapshots_in_window(con: sqlite3.Connection, signal_id: int, *, hours: i
         (int(signal_id),),
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def repair_polymarket_event_urls(con: sqlite3.Connection) -> int:
+    """Rewrite broken ``/event/{market_slug}`` URLs using market slug from ``raw_json``."""
+    rows = con.execute(
+        "SELECT id, event_url, raw_json FROM pm_signals WHERE source = 'polymarket'"
+    ).fetchall()
+    fixed = 0
+    for row in rows:
+        try:
+            raw = json.loads(row["raw_json"] or "{}")
+        except Exception:
+            continue
+        slug = str(raw.get("slug") or "").strip() or None
+        events = raw.get("events") if isinstance(raw.get("events"), list) else []
+        event0 = events[0] if events and isinstance(events[0], dict) else {}
+        event_slug = str(event0.get("slug") or "").strip() or None
+        # /market/{slug} redirects to the correct event page; /event/{marketSlug} often 404s.
+        if slug:
+            new_url = f"https://polymarket.com/market/{slug}"
+        elif event_slug:
+            new_url = f"https://polymarket.com/event/{event_slug}"
+        else:
+            continue
+        old = str(row["event_url"] or "")
+        if old != new_url:
+            con.execute("UPDATE pm_signals SET event_url = ? WHERE id = ?", (new_url, int(row["id"])))
+            fixed += 1
+    con.commit()
+    return fixed
+
+
+def delete_signals_not_in_categories(con: sqlite3.Connection, allowlist: Sequence[str]) -> Dict[str, int]:
+    """Delete signals whose category/title do not match the allowlist (cascades snapshots)."""
+    from prediction_markets_categories import infer_categories, matches_allowlist
+
+    rows = con.execute("SELECT id, title, category, raw_json FROM pm_signals").fetchall()
+    drop_ids: List[int] = []
+    keep = 0
+    for row in rows:
+        tags: List[str] = []
+        raw_category = row["category"]
+        try:
+            raw = json.loads(row["raw_json"] or "{}")
+            if isinstance(raw, dict):
+                events = raw.get("events") if isinstance(raw.get("events"), list) else []
+                event0 = events[0] if events and isinstance(events[0], dict) else {}
+                for t in event0.get("tags") or []:
+                    if isinstance(t, dict) and t.get("label"):
+                        tags.append(str(t["label"]))
+                    elif isinstance(t, str):
+                        tags.append(t)
+                if not raw_category:
+                    raw_category = raw.get("category") or event0.get("category")
+                # Kalshi series-style fields sometimes on the market payload.
+                if raw.get("category") and not tags:
+                    tags.append(str(raw.get("category")))
+        except Exception:
+            pass
+        cats = infer_categories(title=str(row["title"] or ""), category=raw_category, tags=tags)
+        if row["category"]:
+            for part in str(row["category"]).split(","):
+                cats = sorted(set(cats) | set(infer_categories(category=part)))
+        if matches_allowlist(cats, allowlist):
+            # Persist inferred categories for display/filtering.
+            if cats:
+                con.execute(
+                    "UPDATE pm_signals SET category = ? WHERE id = ?",
+                    (",".join(cats), int(row["id"])),
+                )
+            keep += 1
+        else:
+            drop_ids.append(int(row["id"]))
+    for sid in drop_ids:
+        con.execute("DELETE FROM pm_signal_analytics WHERE signal_id = ?", (sid,))
+        con.execute("DELETE FROM pm_signal_snapshots WHERE signal_id = ?", (sid,))
+        con.execute("DELETE FROM pm_signals WHERE id = ?", (sid,))
+    con.commit()
+    return {"deleted_signals": len(drop_ids), "kept_signals": keep}
+

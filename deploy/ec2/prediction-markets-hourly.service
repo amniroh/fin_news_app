@@ -1,0 +1,9 @@
+[Unit]
+Description=Hourly prediction-market signal sync (Polymarket + Kalshi)
+Requires=prediction-markets-hourly.timer
+
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/home/ec2-user/market_analysis
+ExecStart=/bin/bash /home/ec2-user/market_analysis/deploy/ec2/run-prediction-markets-hourly.sh
