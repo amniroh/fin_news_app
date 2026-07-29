@@ -11,8 +11,6 @@ STATE="${REPO_ROOT}/deploy/ec2/research-trial-end-date.txt"
 
 export MPLBACKEND=Agg
 export VALUE_METRICS_DB_PATH="${VALUE_METRICS_DB_PATH:-$REPO_ROOT/backend/data/value_metrics.sqlite}"
-# Reasonable quality/cost default for structured research JSON.
-export AGENT_RESEARCH_MODEL="${AGENT_RESEARCH_MODEL:-google/gemini-2.5-flash}"
 export AGENT_RESEARCH_PUBLISH="${AGENT_RESEARCH_PUBLISH:-false}"
 
 if [[ -f "$REPO_ROOT/.env" ]]; then
@@ -27,6 +25,9 @@ if [[ -f "$REPO_ROOT/telegram_agent/.env" ]]; then
   source "$REPO_ROOT/telegram_agent/.env"
   set +a
 fi
+
+# Trial default: quality/cost balance. Allow RESEARCH_DAILY_MODEL to override without changing global AGENT_RESEARCH_MODEL.
+export AGENT_RESEARCH_MODEL="${RESEARCH_DAILY_MODEL:-google/gemini-2.5-flash}"
 
 # shellcheck source=/dev/null
 source "$REPO_ROOT/.venv/bin/activate"
