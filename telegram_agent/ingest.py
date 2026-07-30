@@ -332,18 +332,26 @@ async def run_ingest(
         from telethon import TelegramClient
 
         client = TelegramClient(session_path, int(api_id), api_hash)
-        await client.start()
         try:
-            tg_items = await collect_telegram_backfill(
-                client,
-                cfg.get("telegram_channels", []),
-                since=since,
-                until=now,
-                max_messages_per_channel=max_tg,
+            await client.start()
+            try:
+                tg_items = await collect_telegram_backfill(
+                    client,
+                    cfg.get("telegram_channels", []),
+                    since=since,
+                    until=now,
+                    max_messages_per_channel=max_tg,
+                )
+                all_items.extend(tg_items)
+            finally:
+                await client.disconnect()
+        except (EOFError, OSError) as e:
+            logger.warning(
+                "Telegram ingest skipped (session needs interactive login on this host): %s",
+                e,
             )
-            all_items.extend(tg_items)
-        finally:
-            await client.disconnect()
+        except Exception as e:
+            logger.warning("Telegram ingest failed; continuing with other sources: %s", e)
     elif include_telegram:
         logger.warning("Telegram ingest skipped: TELEGRAM_API_ID / TELEGRAM_API_HASH not set.")
 

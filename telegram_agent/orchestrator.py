@@ -208,8 +208,12 @@ async def run_orchestration_live(cfg: dict) -> OrchestratorResult:
     ingest_n = 0
     if not _has_any_news_for_utc_day(con, day_start_utc=day_start):
         logger.info("Orchestrator: ingest START (no news present for %s UTC)", day.isoformat())
-        ingest_n = await run_ingest(cfg, mode="incremental", source_mode=cfg.get("source_mode"))
-        logger.info("Orchestrator: ingest DONE (upserted=%s)", ingest_n)
+        try:
+            ingest_n = await run_ingest(cfg, mode="incremental", source_mode=cfg.get("source_mode"))
+            logger.info("Orchestrator: ingest DONE (upserted=%s)", ingest_n)
+        except Exception as exc:
+            logger.exception("Orchestrator: ingest FAILED (continuing): %s", exc)
+            ingest_n = 0
     else:
         logger.info("Orchestrator: ingest SKIP (news already present for %s UTC)", day.isoformat())
 
