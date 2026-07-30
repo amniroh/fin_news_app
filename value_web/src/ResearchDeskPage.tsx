@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-type TrendItem = { text?: string; confidence?: number };
+type TrendItem = { text?: string; confidence?: number; symbol?: string };
 type MemoryStructured = {
   strongest_trends?: TrendItem[];
   recent_trends?: TrendItem[];
   suggestions_log?: TrendItem[];
   version?: number;
+};
+
+type SignalInsightBlock = {
+  observations?: TrendItem[];
+  buying_opportunities?: TrendItem[];
 };
 
 type MemoryRow = {
@@ -15,6 +20,11 @@ type MemoryRow = {
   horizon_months?: number | null;
   structured?: MemoryStructured | null;
   text?: string;
+  model?: string | null;
+  signal_insights?: {
+    value_analyst?: SignalInsightBlock;
+    momentum_fundamentals?: SignalInsightBlock;
+  } | null;
 };
 
 type RecommendationRow = {
@@ -29,6 +39,7 @@ type RecommendationRow = {
   entry_window_end_utc?: string | null;
   execute_review_utc?: string | null;
   plan?: unknown;
+  model?: string | null;
 };
 
 type Overview = {
@@ -75,7 +86,10 @@ function TrendList({ title, items }: { title: string; items: TrendItem[] }) {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-              <div style={{ fontSize: 14, lineHeight: 1.4, color: "#2d3748" }}>{t.text || "—"}</div>
+              <div style={{ fontSize: 14, lineHeight: 1.4, color: "#2d3748" }}>
+                {t.symbol ? <strong>{t.symbol}: </strong> : null}
+                {t.text || "—"}
+              </div>
               <span
                 style={{
                   flexShrink: 0,
@@ -90,6 +104,18 @@ function TrendList({ title, items }: { title: string; items: TrendItem[] }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function InsightSection({ title, block }: { title: string; block?: SignalInsightBlock | null }) {
+  const obs = block?.observations || [];
+  const buys = block?.buying_opportunities || [];
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <h3 style={{ margin: "0 0 8px", fontSize: 15 }}>{title}</h3>
+      <TrendList title="Observations" items={obs} />
+      <TrendList title="Buying opportunities" items={buys} />
     </div>
   );
 }
@@ -141,6 +167,7 @@ export function ResearchDeskPage({ apiBase }: { apiBase: string }) {
   const strongest = structured.strongest_trends || [];
   const recent = structured.recent_trends || [];
   const sugLog = structured.suggestions_log || [];
+  const insights = selectedMemory?.signal_insights || {};
   const recs = data?.recommendations || [];
 
   return (
@@ -149,8 +176,9 @@ export function ResearchDeskPage({ apiBase }: { apiBase: string }) {
         <div>
           <h1 style={{ margin: "0 0 6px", fontSize: 22 }}>Research & memory</h1>
           <p style={{ margin: 0, color: "#4a5568", fontSize: 14, maxWidth: 720 }}>
-            Latest structured memory from the research agent (strongest / recent trends) and concrete
-            recommendations persisted to the agent database. Runs via the daily orchestrator after US market close.
+            Consolidated memory and recommendations from news plus Interesting Stocks table signals
+            (value/analyst, momentum/fundamentals). Data-quality notes live on{" "}
+            <Link to="/internal-logs">Internal logs</Link>.
           </p>
         </div>
         <button type="button" onClick={() => void load()} disabled={loading} style={{ padding: "8px 12px" }}>
@@ -171,6 +199,9 @@ export function ResearchDeskPage({ apiBase }: { apiBase: string }) {
         </span>
         <span>
           Showing memory: <strong>{selectedMemory ? fmtTs(selectedMemory.ts_utc) : "—"}</strong>
+        </span>
+        <span>
+          Model: <strong>{selectedMemory?.model || "—"}</strong>
         </span>
       </div>
 
@@ -220,6 +251,7 @@ export function ResearchDeskPage({ apiBase }: { apiBase: string }) {
                         <div style={{ color: "#718096", fontSize: 12 }}>
                           {(m.structured?.strongest_trends || []).length} strong ·{" "}
                           {(m.structured?.recent_trends || []).length} recent
+                          {m.model ? ` · ${m.model}` : ""}
                         </div>
                       </button>
                     </li>
@@ -236,6 +268,14 @@ export function ResearchDeskPage({ apiBase }: { apiBase: string }) {
             <p style={{ color: "#a0aec0" }}>No memory selected.</p>
           ) : (
             <>
+              <p style={{ margin: "0 0 12px", fontSize: 13, color: "#4a5568" }}>
+                Model: <code>{selectedMemory.model || "—"}</code>
+              </p>
+              <InsightSection title="Value / analyst insights" block={insights.value_analyst} />
+              <InsightSection
+                title="Momentum / fundamentals insights"
+                block={insights.momentum_fundamentals}
+              />
               <TrendList title="Strongest trends" items={strongest} />
               <TrendList title="Recent trends" items={recent} />
               <TrendList title="Suggestions log" items={sugLog} />
@@ -259,10 +299,11 @@ export function ResearchDeskPage({ apiBase }: { apiBase: string }) {
           </button>
         </div>
         <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 720 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 800 }}>
             <thead>
               <tr style={{ background: "#edf2f7", textAlign: "left" }}>
                 <th style={{ padding: 8 }}>When</th>
+                <th style={{ padding: 8 }}>Model</th>
                 <th style={{ padding: 8 }}>Symbol</th>
                 <th style={{ padding: 8 }}>Conf</th>
                 <th style={{ padding: 8 }}>Forecast</th>
@@ -275,7 +316,7 @@ export function ResearchDeskPage({ apiBase }: { apiBase: string }) {
             <tbody>
               {recs.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: 12, color: "#a0aec0" }}>
+                  <td colSpan={9} style={{ padding: 12, color: "#a0aec0" }}>
                     No recommendations yet.
                   </td>
                 </tr>
@@ -283,6 +324,9 @@ export function ResearchDeskPage({ apiBase }: { apiBase: string }) {
                 recs.map((r) => (
                   <tr key={r.id} style={{ borderBottom: "1px solid #e2e8f0", verticalAlign: "top" }}>
                     <td style={{ padding: 8, whiteSpace: "nowrap" }}>{fmtTs(r.ts_utc)}</td>
+                    <td style={{ padding: 8, fontSize: 11, maxWidth: 140, wordBreak: "break-all" }}>
+                      {r.model || "—"}
+                    </td>
                     <td style={{ padding: 8, fontWeight: 700 }}>{r.symbol}</td>
                     <td style={{ padding: 8, color: confColor(r.confidence, "1"), fontWeight: 600 }}>
                       {r.confidence != null ? Number(r.confidence).toFixed(2) : "—"}

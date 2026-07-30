@@ -23,11 +23,24 @@ def _agent_db_path() -> Path:
     return p
 
 
+def _meta_dict(meta_raw: Any) -> Dict[str, Any]:
+    if isinstance(meta_raw, dict):
+        return meta_raw
+    if not meta_raw:
+        return {}
+    try:
+        out = json.loads(meta_raw)
+        return out if isinstance(out, dict) else {}
+    except Exception:
+        return {}
+
+
 def _parse_memory_row(row) -> Dict[str, Any]:
     from telegram_agent.memory_structured import parse_memory_payload
 
     text = row["text"] if "text" in row.keys() else ""
     meta_raw = row["meta_json"] if "meta_json" in row.keys() else None
+    meta = _meta_dict(meta_raw)
     structured = parse_memory_payload(text or "", meta_raw)
     return {
         "id": int(row["id"]),
@@ -36,15 +49,13 @@ def _parse_memory_row(row) -> Dict[str, Any]:
         "text": text,
         "structured": structured,
         "meta_json": meta_raw,
+        "model": meta.get("model"),
+        "signal_insights": meta.get("signal_insights") if isinstance(meta.get("signal_insights"), dict) else {},
     }
 
 
 def _parse_recommendation_row(row) -> Dict[str, Any]:
-    meta: Dict[str, Any] = {}
-    try:
-        meta = json.loads(row["meta_json"] or "{}")
-    except Exception:
-        meta = {}
+    meta = _meta_dict(row["meta_json"] if "meta_json" in row.keys() else None)
     return {
         "id": int(row["id"]),
         "ts_utc": row["ts_utc"],
@@ -60,7 +71,22 @@ def _parse_recommendation_row(row) -> Dict[str, Any]:
         "execute_review_utc": row["execute_review_utc"] if "execute_review_utc" in row.keys() else None,
         "plan": meta.get("plan"),
         "tester": meta.get("tester"),
+        "model": meta.get("model"),
         "meta": meta,
+    }
+
+
+def _parse_internal_log_row(row) -> Dict[str, Any]:
+    payload = _meta_dict(row["payload_json"] if "payload_json" in row.keys() else None)
+    issues = payload.get("issues") if isinstance(payload.get("issues"), list) else []
+    return {
+        "id": int(row["id"]),
+        "ts_utc": row["ts_utc"],
+        "category": row["category"],
+        "model": row["model"] if "model" in row.keys() else None,
+        "source_run_ts_utc": row["source_run_ts_utc"] if "source_run_ts_utc" in row.keys() else None,
+        "payload": payload,
+        "issues": issues,
     }
 
 
@@ -143,5 +169,33 @@ def build_agent_research_router() -> APIRouter:
             "rows": data.get("recommendations") or [],
             "counts": data.get("counts"),
         }
+
+    @router.get("/internal-logs")
+    async def internal_logs(limit: int = 100, category: Optional[str] = None) -> Dict[str, Any]:
+        def _run() -> Dict[str, Any]:
+            from telegram_agent.agent_db import connect, init_db, list_research_internal_logs
+
+            db = _agent_db_path()
+            if not db.exists():
+                raise HTTPException(status_code=404, detail=f"agent DB not found: {db}")
+            con = connect(db)
+            init_db(con)
+            try:
+                rows = list_research_internal_logs(
+                    con,
+                    limit=max(1, min(500, int(limit))),
+                    category=category,
+                )
+                parsed = [_parse_internal_log_row(r) for r in rows]
+                n = con.execute("SELECT COUNT(*) AS c FROM research_internal_logs").fetchone()["c"]
+                return {
+                    "n": len(parsed),
+                    "total": int(n),
+                    "rows": parsed,
+                }
+            finally:
+                con.close()
+
+        return await run_in_threadpool(_run)
 
     return router

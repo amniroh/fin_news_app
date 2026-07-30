@@ -36,6 +36,8 @@ from value_metrics_store import (
     list_interesting_stocks,
     query_analyst_ratings,
     query_fundamental_points,
+    query_latest_daily_metric_points,
+    query_latest_technical_indicators,
     query_metric_points,
     query_value_trading_assessments,
     remove_interesting_stock,
@@ -958,14 +960,28 @@ def batch_recent_news_for_symbols(
         con.close()
 
 
+def _fmt_num(v: Any, *, digits: int = 2) -> str:
+    if v is None:
+        return "—"
+    try:
+        return f"{float(v):.{digits}f}"
+    except (TypeError, ValueError):
+        return "—"
+
+
 def format_interesting_stocks_for_research_prompt(
     vm_db: Path,
     *,
     max_priority: Optional[int] = None,
     max_rows: int = 80,
     news_per: int = 3,
+    metrics_provider: str = "yfinance",
 ) -> str:
-    """Compact text of the website Interesting Stocks table for the research agent."""
+    """Compact text of the website Interesting Stocks table for the research agent.
+
+    Includes value/analyst, momentum (technicals), fundamentals/metrics, and coverage gaps
+    so one research pass can synthesize holistic insights.
+    """
     rows = list_stocks_with_coverage(vm_db)
     if max_priority is not None:
         rows = [r for r in rows if int(r.get("universe_priority") or 99) <= int(max_priority)]
@@ -975,29 +991,81 @@ def format_interesting_stocks_for_research_prompt(
     if not rows:
         return "(no interesting stocks in scope)"
 
-    news_map = batch_recent_news_for_symbols(
-        [str(r["symbol"]) for r in rows],
-        limit_per=int(news_per),
-    )
+    syms = [str(r["symbol"]) for r in rows]
+    news_map = batch_recent_news_for_symbols(syms, limit_per=int(news_per))
+
+    tech_by_sym: Dict[str, Dict[str, Any]] = {}
+    metrics_by_sym: Dict[str, Dict[str, Any]] = {}
+    con = connect(vm_db)
+    init_db(con)
+    try:
+        for t in query_latest_technical_indicators(con, symbols=syms, provider=metrics_provider):
+            tech_by_sym[str(t.get("symbol") or "").upper()] = t
+        for m in query_latest_daily_metric_points(con, symbols=syms, provider=metrics_provider):
+            metrics_by_sym[str(m.get("symbol") or "").upper()] = m
+    finally:
+        con.close()
+
     lines: List[str] = []
     for r in rows:
         sym = str(r["symbol"])
         gaps = ",".join(r.get("gaps") or []) or "none"
         la = r.get("latest_analyst") or {}
         analyst = la.get("recommendation_key") or "—"
+        target = la.get("target_mean")
+        target_s = _fmt_num(target, digits=1)
         vt = r.get("latest_value_trading") or {}
         score = vt.get("total_score")
         score_s = f"{score}/30" if score is not None else "—"
         assessed = str(vt.get("produced_ts_utc") or "")[:10] or "—"
+        name = str(vt.get("investment_name") or "").strip()
+        pillars = vt.get("pillar_scores") or {}
+        pillar_s = (
+            f"ce={pillars.get('competitive_edge')} mgmt={pillars.get('management_competence')} "
+            f"ff={pillars.get('financial_fortress')} pp={pillars.get('pricing_power')} "
+            f"und={pillars.get('understandability')} val={pillars.get('valuation')}"
+        )
+        summary = str(vt.get("overall_summary") or "").strip().replace("\n", " ")
+        if len(summary) > 160:
+            summary = summary[:157] + "..."
+
+        tech = tech_by_sym.get(sym.upper()) or {}
+        close = tech.get("close")
+        ema = tech.get("ema")
+        ema_vs = "—"
+        try:
+            if close is not None and ema is not None and float(ema) != 0:
+                ema_vs = f"{(float(close) / float(ema) - 1.0) * 100:.1f}%"
+        except (TypeError, ValueError, ZeroDivisionError):
+            ema_vs = "—"
+        mom_s = (
+            f"adx={_fmt_num(tech.get('adx'), digits=1)} rvol={_fmt_num(tech.get('rvol'), digits=2)} "
+            f"macd={_fmt_num(tech.get('macd_line'), digits=2)}/{_fmt_num(tech.get('macd_signal'), digits=2)} "
+            f"close_vs_ema={ema_vs} tech_asof={str(tech.get('asof_date') or '—')[:10]}"
+        )
+
+        met = metrics_by_sym.get(sym.upper()) or {}
+        fund_s = (
+            f"pe={_fmt_num(met.get('pe'))} pb={_fmt_num(met.get('pb'))} peg={_fmt_num(met.get('peg'))} "
+            f"dy={_fmt_num(met.get('dividend_yield'), digits=3)} fcfy={_fmt_num(met.get('free_cash_flow_yield'), digits=3)} "
+            f"de={_fmt_num(met.get('debt_to_equity'))} roe={_fmt_num(met.get('roe'), digits=3)} "
+            f"om={_fmt_num(met.get('operating_margin'), digits=3)} metrics_asof={str(met.get('asof_date') or '—')[:10]}"
+        )
+
         headlines = []
         for n in (news_map.get(sym) or [])[:news_per]:
             t = str(n.get("title") or "").strip()
             if t:
                 headlines.append(t[:100])
         news_s = " | ".join(headlines) if headlines else "(no recent linked headlines)"
+
+        name_bit = f" name={name}" if name else ""
+        sum_bit = f" summary={summary}" if summary else ""
         lines.append(
-            f"- {sym} prio={r.get('universe_priority')} gaps={gaps} analyst={analyst} "
-            f"value={score_s} assessed={assessed} news={news_s}"
+            f"- {sym} prio={r.get('universe_priority')} gaps={gaps} "
+            f"analyst={analyst} target={target_s} "
+            f"value={score_s} pillars=[{pillar_s}] assessed={assessed}{name_bit}{sum_bit} "
+            f"momentum=[{mom_s}] fundamentals=[{fund_s}] news={news_s}"
         )
     return "\n".join(lines)
 

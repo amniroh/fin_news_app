@@ -28,6 +28,12 @@ export function Layout() {
               Research
             </NavLink>
             <NavLink
+              to="/internal-logs"
+              className={({ isActive }) => (isActive ? "nav-link nav-link-active" : "nav-link")}
+            >
+              Internal logs
+            </NavLink>
+            <NavLink
               to="/prediction-markets"
               className={({ isActive }) => (isActive ? "nav-link nav-link-active" : "nav-link")}
             >

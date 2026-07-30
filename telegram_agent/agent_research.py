@@ -24,6 +24,7 @@ from telegram_agent.agent_db import (
     top_mentioned_symbols_linkage_range,
     get_close_at_or_before,
     insert_recommendation,
+    insert_research_internal_log,
     latest_memory,
     latest_memory_before,
     upsert_memory,
@@ -487,7 +488,20 @@ def _build_research_prompts(
 Use plain language suitable for a smart general reader with no investing background — minimize jargon, define any unavoidable terms briefly, and keep trends/suggestions easy to understand.
 You MUST output ONLY valid JSON (no markdown fences) with exactly this shape:
 {{
-  "thinking": "<string: your reasoning. Include (1) rising or emerging trends visible in the news sample, (2) for each important theme already in prior memory, whether evidence suggests it is STRENGTHENING, FADING, or UNCHANGED, (3) cross-check vs price context, (4) how **per-leg backtests** and **aggregate strategy metrics** (if any in the user prompt) support or undermine prior themes and suggestion quality.>",
+  "thinking": "<string: your reasoning. Include (1) rising or emerging trends visible in the news sample, (2) for each important theme already in prior memory, whether evidence suggests it is STRENGTHENING, FADING, or UNCHANGED, (3) cross-check vs price context and the Interesting Stocks table (value/analyst + momentum/fundamentals), (4) how signal_insights categories 1–2 feed into memory_update, (5) how **per-leg backtests** and **aggregate strategy metrics** (if any in the user prompt) support or undermine prior themes and suggestion quality.>",
+  "signal_insights": {{
+    "value_analyst": {{
+      "observations": [{{ "text": "<general observation from value-trading + analyst table signals>", "confidence": <integer 0-10> }}],
+      "buying_opportunities": [{{ "symbol": "TICKER", "text": "<why this may be a buy based on value/analyst signals>", "confidence": <integer 0-10> }}]
+    }},
+    "momentum_fundamentals": {{
+      "observations": [{{ "text": "<general observation from momentum/technicals + fundamentals/metrics table signals>", "confidence": <integer 0-10> }}],
+      "buying_opportunities": [{{ "symbol": "TICKER", "text": "<why this may be a buy based on momentum/fundamentals>", "confidence": <integer 0-10> }}]
+    }},
+    "data_quality": {{
+      "issues": [{{ "symbol": "TICKER_OR_EMPTY", "gap": "<gap key from table e.g. fundamentals|prices|news|analyst_ratings>", "text": "<concrete coverage/data-quality problem>", "severity": "low" | "medium" | "high" }}]
+    }}
+  }},
   "memory_update": {{
     "strongest_trends": [
       {{ "text": "<concise trend line>", "confidence": <integer 0-10 — calibrated per rules below> }}
@@ -518,17 +532,22 @@ You MUST output ONLY valid JSON (no markdown fences) with exactly this shape:
 }}
 
 Rules:
-- **Trend / observation confidence (0–10 integer)** applies to `memory_update` entries only. **0–3**: early, weakly supported, or single-source. **4–6**: plausible, some corroboration. **7–8**: well supported across news + memory + prices and/or tester outcomes. **9**: strong multi-window validation. **10**: **rare** — reserve for themes validated repeatedly over time with little contradiction; do not hand out 10s on sparse history.
+- **One consolidated view**: produce a single `memory_update` and `suggestions` list that synthesize **news + Interesting Stocks table (value/analyst, momentum/fundamentals, gaps) + prices + tester**. Do **not** maintain parallel news-only vs table-only memories or suggestion sets.
+- **signal_insights.value_analyst** (category 1): general observations from value-trading pillar scores/summaries and analyst signals in the table; list any potential buying opportunities grounded in those signals.
+- **signal_insights.momentum_fundamentals** (category 2): general observations from momentum/technicals and fundamentals/metrics in the table; list any potential buying opportunities grounded in those signals.
+- **signal_insights.data_quality** (category 3): operational coverage/gap issues only (from `gaps=` and missing fields). Do **not** turn data-quality issues into investment theses. Empty `issues` if nothing material.
+- Categories **1 and 2 must influence** `memory_update` strongest/recent trends (and may seed `suggestions` when they meet novelty/confidence thresholds below). Explicitly reflect that synthesis in `thinking`.
+- **Trend / observation confidence (0–10 integer)** applies to `memory_update` and signal_insights observation/opportunity confidence. **0–3**: early, weakly supported, or single-source. **4–6**: plausible, some corroboration. **7–8**: well supported across news + memory + table + prices and/or tester outcomes. **9**: strong multi-window validation. **10**: **rare** — reserve for themes validated repeatedly over time with little contradiction; do not hand out 10s on sparse history.
 - **Suggestion `confidence` (0..1 float)** must align with the same epistemics: use **lower** values when few memory snapshots exist or tester data contradicts similar past ideas; raise only when evidence stacks.
-- **Thinking** must explicitly compare NEWS vs MEMORY vs TESTER BACKTESTS (when listed), not only headlines.
+- **Thinking** must explicitly compare NEWS vs MEMORY vs TABLE SIGNALS vs TESTER BACKTESTS (when listed), not only headlines.
 - **memory_update** feeds a capped store: aim for up to ~{cap_s} strongest and ~{cap_r} recent trend objects; suggestions_log entries should be dated and compact (last ~{sug_d} days are retained by the system). When updating an existing theme, adjust **confidence** up or down with explicit justification in `thinking`.
 - **No duration field** — use the four timestamps instead (backtests use entry_window and execute_review).
 - **Concrete suggestions only**: every suggestion must have all timestamp fields AND what_to_acquire filled so a tester can simulate fills.
 - **Novelty**: set novel_vs_memory true only for ideas you would persist; omit weak duplicates.
 - **Persistence threshold**: only persist suggestion rows with confidence >= {min_confidence} (still obey calibration — if nothing meets the bar, return an empty suggestions array).
 - **Ranking / limit**: sort `suggestions` by `confidence` (descending) and return **at most 5** suggestions total, all meeting the persistence threshold.
-- **Symbols**: When **symbol universe mode is active** (see user prompt), every `suggestions[].symbol` MUST be **exactly** one ticker from the **allowlist** printed there — not merely “mentioned in news”. Prefer names that also appear in the news sample when relevant; if news is thin, you may still propose universe names supported by price/tester context.
-- If nothing qualifies, return an empty suggestions array and still refresh memory_update + thinking.{mode_extra}"""
+- **Symbols**: When **symbol universe mode is active** (see user prompt), every `suggestions[].symbol` MUST be **exactly** one ticker from the **allowlist** printed there — not merely “mentioned in news”. Prefer names that also appear in the news sample when relevant; if news is thin, you may still propose universe names supported by price/tester/table context.
+- If nothing qualifies, return an empty suggestions array and still refresh memory_update + thinking + signal_insights.{mode_extra}"""
 
     if allowed_syms is not None:
         px_title = (
@@ -575,7 +594,8 @@ Research memory depth (snapshots completed **before** this run, used for calibra
 
 {epistemic_user}
 
-=== INTERESTING STOCKS TABLE (website snapshot — coverage, analyst, value pillars, recent headlines) ===
+=== INTERESTING STOCKS TABLE (website snapshot — value/analyst, momentum/technicals, fundamentals/metrics, coverage gaps, headlines) ===
+Use this block for signal_insights categories 1–3. Categories 1–2 must also shape memory_update trends together with news.
 {table_snapshot}
 
 === SUGGESTION BACKTESTS (tester — realized outcomes vs plan; use to validate or downgrade confidence) ===
@@ -925,13 +945,43 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
         suggestion_days=int(cfg.get("agent_memory_suggestion_days", 30)),
     )
     mem_text = json.dumps(merged, ensure_ascii=False, indent=2)
+    raw_insights = data.get("signal_insights") if isinstance(data.get("signal_insights"), dict) else {}
+    value_analyst = raw_insights.get("value_analyst") if isinstance(raw_insights.get("value_analyst"), dict) else {}
+    momentum_fundamentals = (
+        raw_insights.get("momentum_fundamentals")
+        if isinstance(raw_insights.get("momentum_fundamentals"), dict)
+        else {}
+    )
+    data_quality = raw_insights.get("data_quality") if isinstance(raw_insights.get("data_quality"), dict) else {}
+    signal_insights_for_memory = {
+        "value_analyst": value_analyst,
+        "momentum_fundamentals": momentum_fundamentals,
+    }
     upsert_memory(
         con,
         horizon_months=int(cfg.get("agent_memory_months", 6)),
         text=mem_text[:50000],
-        meta=memory_meta_wrapper(merged),
+        meta=memory_meta_wrapper(
+            merged,
+            model=str(model),
+            signal_insights=signal_insights_for_memory,
+        ),
         ts_utc=sim_now,
     )
+
+    dq_issues = data_quality.get("issues") if isinstance(data_quality.get("issues"), list) else []
+    if dq_issues:
+        try:
+            insert_research_internal_log(
+                con,
+                category="data_quality",
+                payload={"issues": dq_issues, "run_thinking_excerpt": (str(data.get("thinking") or ""))[:500]},
+                model=str(model),
+                source_run_ts_utc=sim_now,
+                ts_utc=sim_now,
+            )
+        except Exception as e:
+            logger.warning("Failed to persist data_quality internal log: %s", e)
 
     allowed_syms = symbol_universe_set(cfg)
     suggestions = data.get("suggestions") or []
@@ -991,6 +1041,7 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
             "priced_in": str(o.get("priced_in") or ""),
             "novel_vs_memory": True,
             "raw": o,
+            "model": str(model),
         }
         if ctx.daily_mode:
             meta["backfill"] = {
@@ -1040,6 +1091,8 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
                 merged_memory=merged,
                 new_suggestions=stored_summaries,
                 run_ts=sim_now,
+                model=str(model),
+                signal_insights=signal_insights_for_memory,
             )
             publish_research_to_target(cfg, msg)
         except Exception as e:

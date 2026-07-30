@@ -17,15 +17,56 @@ def format_research_telegram_message(
     merged_memory: Dict[str, Any],
     new_suggestions: List[Dict[str, Any]],
     run_ts: Optional[datetime] = None,
+    model: Optional[str] = None,
+    signal_insights: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Single message or first chunk; caller may split further if needed."""
     ts = run_ts or datetime.now(timezone.utc)
     parts: List[str] = []
     parts.append(f"📊 Research run — {ts.strftime('%Y-%m-%d %H:%M UTC')}")
+    if model:
+        parts.append(f"Model: {model}")
     parts.append("")
-    parts.append("🧠 Thinking (news + memory)")
-    parts.append((thinking or "").strip() or "(none)")
+    parts.append("🧠 Thinking (news + table signals + memory)")
+    think = (thinking or "").strip() or "(none)"
+    if len(think) > 1800:
+        think = think[:1797] + "..."
+    parts.append(think)
     parts.append("")
+
+    si = signal_insights or {}
+    va = si.get("value_analyst") if isinstance(si.get("value_analyst"), dict) else {}
+    mf = si.get("momentum_fundamentals") if isinstance(si.get("momentum_fundamentals"), dict) else {}
+
+    def _append_insight_block(title: str, block: Dict[str, Any], *, max_obs: int = 4, max_buys: int = 4) -> None:
+        parts.append(title)
+        obs = block.get("observations") if isinstance(block.get("observations"), list) else []
+        buys = block.get("buying_opportunities") if isinstance(block.get("buying_opportunities"), list) else []
+        if not obs and not buys:
+            parts.append("(none)")
+            return
+        for item in obs[:max_obs]:
+            if not isinstance(item, dict):
+                continue
+            conf = item.get("confidence")
+            conf_s = f" [{conf}/10]" if conf is not None else ""
+            text = str(item.get("text") or "").strip()
+            if text:
+                parts.append(f"• {text}{conf_s}")
+        for item in buys[:max_buys]:
+            if not isinstance(item, dict):
+                continue
+            sym = str(item.get("symbol") or "?").strip() or "?"
+            conf = item.get("confidence")
+            conf_s = f" [{conf}/10]" if conf is not None else ""
+            text = str(item.get("text") or "").strip()
+            if text:
+                parts.append(f"→ {sym}: {text}{conf_s}")
+        parts.append("")
+
+    _append_insight_block("📈 Value / analyst insights", va)
+    _append_insight_block("📉 Momentum / fundamentals insights", mf)
+
     parts.append("🆕 New concrete suggestions (this run)")
     if not new_suggestions:
         parts.append("(none)")

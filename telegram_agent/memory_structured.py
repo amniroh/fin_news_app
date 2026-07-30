@@ -230,5 +230,22 @@ def merge_memory_state(
     }
 
 
-def memory_meta_wrapper(structured: Dict[str, Any]) -> Dict[str, Any]:
-    return {"structured": _ensure_v3_structured(structured), "format": "structured_v3"}
+def memory_meta_wrapper(
+    structured: Dict[str, Any],
+    *,
+    model: Optional[str] = None,
+    signal_insights: Optional[Dict[str, Any]] = None,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    out: Dict[str, Any] = {
+        "structured": _ensure_v3_structured(structured),
+        "format": "structured_v3",
+    }
+    if model:
+        out["model"] = str(model)
+    if signal_insights is not None:
+        out["signal_insights"] = signal_insights
+    if extra:
+        out.update(extra)
+    return out
+

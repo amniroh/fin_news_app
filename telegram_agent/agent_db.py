@@ -197,6 +197,90 @@ def init_db(con: sqlite3.Connection) -> None:
     _migrate_competitive_bot_runs_schema(con)
     _migrate_intraday_price_tables(con)
     _migrate_stock_splits_table(con)
+    _migrate_research_internal_logs_table(con)
+
+
+def _migrate_research_internal_logs_table(con: sqlite3.Connection) -> None:
+    """Operator-facing research logs (e.g. data-quality / coverage gap insights)."""
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS research_internal_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ts_utc TEXT NOT NULL,
+          category TEXT NOT NULL,
+          model TEXT,
+          payload_json TEXT NOT NULL,
+          source_run_ts_utc TEXT
+        )
+        """
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_research_internal_logs_ts ON research_internal_logs(ts_utc)"
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_research_internal_logs_category ON research_internal_logs(category)"
+    )
+    con.commit()
+
+
+def insert_research_internal_log(
+    con: sqlite3.Connection,
+    *,
+    category: str,
+    payload: Dict[str, Any],
+    model: Optional[str] = None,
+    source_run_ts_utc: Optional[datetime] = None,
+    ts_utc: Optional[datetime] = None,
+) -> int:
+    run_ts = ts_utc if ts_utc is not None else datetime.now(timezone.utc)
+    src = _utc_iso(source_run_ts_utc) if source_run_ts_utc is not None else None
+    con.execute(
+        """
+        INSERT INTO research_internal_logs(ts_utc, category, model, payload_json, source_run_ts_utc)
+        VALUES(?, ?, ?, ?, ?)
+        """,
+        (
+            _utc_iso(run_ts),
+            str(category or "").strip() or "unknown",
+            (str(model).strip() if model else None),
+            json.dumps(payload or {}, ensure_ascii=False),
+            src,
+        ),
+    )
+    con.commit()
+    return int(con.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+
+def list_research_internal_logs(
+    con: sqlite3.Connection,
+    *,
+    limit: int = 100,
+    category: Optional[str] = None,
+) -> List[sqlite3.Row]:
+    lim = max(1, min(500, int(limit)))
+    if category and str(category).strip():
+        cur = con.execute(
+            """
+            SELECT id, ts_utc, category, model, payload_json, source_run_ts_utc
+            FROM research_internal_logs
+            WHERE category = ?
+            ORDER BY ts_utc DESC, id DESC
+            LIMIT ?
+            """,
+            (str(category).strip(), lim),
+        )
+    else:
+        cur = con.execute(
+            """
+            SELECT id, ts_utc, category, model, payload_json, source_run_ts_utc
+            FROM research_internal_logs
+            ORDER BY ts_utc DESC, id DESC
+            LIMIT ?
+            """,
+            (lim,),
+        )
+    return list(cur.fetchall())
+
 
 
 def _migrate_stock_splits_table(con: sqlite3.Connection) -> None:
