@@ -109,7 +109,15 @@ export function ResearchDeskPage({ apiBase }: { apiBase: string }) {
       if (symFilter.trim()) params.set("symbol", symFilter.trim().toUpperCase());
       const r = await fetch(`${apiBase}/agent/research/overview?${params}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = (await r.json()) as Overview;
+      const raw = await r.text();
+      let j: Overview;
+      try {
+        j = JSON.parse(raw) as Overview;
+      } catch {
+        throw new Error(
+          "Research API returned non-JSON (is /agent/ proxied by nginx?). Hard-refresh after deploy."
+        );
+      }
       setData(j);
       if (j.latest_memory?.id != null) setSelectedMemId(j.latest_memory.id);
     } catch (e) {

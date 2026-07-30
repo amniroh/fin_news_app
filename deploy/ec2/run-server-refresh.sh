@@ -59,6 +59,12 @@ echo "==> deploy static files"
 sudo rsync -a --delete "$REPO_ROOT/value_web/dist/" /var/www/value-web/
 sudo chown -R nginx:nginx /var/www/value-web
 
+if [[ -f "$REPO_ROOT/deploy/ec2/value-web.conf" ]]; then
+  echo "==> install nginx value-web.conf"
+  sudo cp "$REPO_ROOT/deploy/ec2/value-web.conf" /etc/nginx/conf.d/value-web.conf
+  sudo nginx -t
+fi
+
 echo "==> restart services"
 sudo systemctl restart value-web-backend
 sudo systemctl reload nginx
