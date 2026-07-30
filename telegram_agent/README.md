@@ -244,12 +244,22 @@ python -m telegram_agent.agent run-all --mode incremental --skip-memory --skip-r
 
 ### Daily orchestrator (`orchestrate`)
 
-Skips ingest/prices for the current UTC day if data already exists; then preprocess → test concluded legs → research. Supports backfill by calendar day.
+Single daily desk for live runs:
+
+1. **News ingest** (skip if today’s news already present)
+2. **Prices** (skip if today’s 1d bars already present)
+3. **Interesting-stocks enrich** — gap backfill (fundamentals / Finnhub news / analyst) + daily market refresh (metrics, technicals, analyst) — formerly `run-daily-jobs.sh`
+4. **Universe preprocess** — link news to tickers
+5. **Tester** — score concluded research suggestions
+6. **Research** — LLM research + memory update (skip if today’s memory already present)
+7. **Value-trading** — Sundays UTC by default (`ORCHESTRATOR_VALUE_TRADING=auto`)
 
 ```bash
 python -m telegram_agent.agent orchestrate
 python -m telegram_agent.agent orchestrate --backfill-from 2024-01-01 --backfill-to 2024-01-31
 ```
+
+On EC2, **`orchestrator-daily.timer`** (06:00 UTC) runs this via `deploy/ec2/run-orchestrator-daily.sh`.
 
 ### Interesting stocks — daily gap backfill (web universe)
 

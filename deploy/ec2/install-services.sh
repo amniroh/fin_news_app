@@ -9,14 +9,18 @@ cd "$REPO_ROOT"
 chmod +x "$REPO_ROOT/deploy/ec2/"*.sh
 
 sudo cp "$REPO_ROOT/deploy/ec2/value-web-backend.service" /etc/systemd/system/
-sudo cp "$REPO_ROOT/deploy/ec2/daily-jobs.service" /etc/systemd/system/
-sudo cp "$REPO_ROOT/deploy/ec2/daily-jobs.timer" /etc/systemd/system/
-sudo cp "$REPO_ROOT/deploy/ec2/weekly-value-trading.service" /etc/systemd/system/
-sudo cp "$REPO_ROOT/deploy/ec2/weekly-value-trading.timer" /etc/systemd/system/
+sudo cp "$REPO_ROOT/deploy/ec2/orchestrator-daily.service" /etc/systemd/system/
+sudo cp "$REPO_ROOT/deploy/ec2/orchestrator-daily.timer" /etc/systemd/system/
 sudo cp "$REPO_ROOT/deploy/ec2/prediction-markets-hourly.service" /etc/systemd/system/
 sudo cp "$REPO_ROOT/deploy/ec2/prediction-markets-hourly.timer" /etc/systemd/system/
-sudo cp "$REPO_ROOT/deploy/ec2/research-daily.service" /etc/systemd/system/
-sudo cp "$REPO_ROOT/deploy/ec2/research-daily.timer" /etc/systemd/system/
+
+# Keep legacy unit files on disk for rollback, but do not enable them.
+sudo cp "$REPO_ROOT/deploy/ec2/daily-jobs.service" /etc/systemd/system/ 2>/dev/null || true
+sudo cp "$REPO_ROOT/deploy/ec2/daily-jobs.timer" /etc/systemd/system/ 2>/dev/null || true
+sudo cp "$REPO_ROOT/deploy/ec2/weekly-value-trading.service" /etc/systemd/system/ 2>/dev/null || true
+sudo cp "$REPO_ROOT/deploy/ec2/weekly-value-trading.timer" /etc/systemd/system/ 2>/dev/null || true
+sudo cp "$REPO_ROOT/deploy/ec2/research-daily.service" /etc/systemd/system/ 2>/dev/null || true
+sudo cp "$REPO_ROOT/deploy/ec2/research-daily.timer" /etc/systemd/system/ 2>/dev/null || true
 
 sudo cp "$REPO_ROOT/deploy/ec2/nginx-value-web.conf" /etc/nginx/conf.d/value-web.conf
 # Drop default server block if present (Amazon Linux nginx package).
@@ -32,23 +36,27 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now value-web-backend.service
 sudo systemctl enable --now nginx.service
 sudo systemctl restart nginx
-sudo systemctl enable --now daily-jobs.timer
-sudo systemctl enable --now weekly-value-trading.timer
+
+# Consolidated daily desk (replaces daily-jobs + research-daily + weekly-value-trading).
+sudo systemctl enable --now orchestrator-daily.timer
 sudo systemctl enable --now prediction-markets-hourly.timer
-sudo systemctl enable --now research-daily.timer
+
+# Disable redundant timers if previously enabled.
+sudo systemctl disable --now daily-jobs.timer 2>/dev/null || true
+sudo systemctl disable --now research-daily.timer 2>/dev/null || true
+sudo systemctl disable --now weekly-value-trading.timer 2>/dev/null || true
 
 echo ""
 echo "Services installed."
 echo "  Website:  http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo 'YOUR_EC2_PUBLIC_IP')"
 echo "  Backend:  systemd value-web-backend (port 8000, proxied via nginx :80)"
-echo "  Daily:    daily-jobs.timer (06:00 UTC)"
-echo "  Weekly:   weekly-value-trading.timer (Sun 07:00 UTC)"
+echo "  Daily:    orchestrator-daily.timer (06:00 UTC)"
+echo "            ingest → prices → stocks enrich → preprocess → tester → research"
+echo "            (+ value-trading on Sundays UTC)"
 echo "  Hourly:   prediction-markets-hourly.timer (Polymarket + Kalshi)"
-echo "  Research: research-daily.timer (07:30 UTC; respects deploy/ec2/research-trial-end-date.txt)"
 echo ""
 echo "Ensure EC2 security group allows inbound TCP 80 (and 22 for SSH)."
-echo "Logs: $REPO_ROOT/logs/daily-jobs.log  $REPO_ROOT/logs/weekly-value-trading.log"
+echo "Logs: $REPO_ROOT/logs/orchestrator-daily.log"
 echo "      $REPO_ROOT/logs/prediction-markets-hourly.log"
-echo "      $REPO_ROOT/logs/research-daily.log"
 echo "      journalctl -u value-web-backend -f"
 echo ""

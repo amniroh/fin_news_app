@@ -1,0 +1,16 @@
+[Unit]
+Description=Daily market orchestrator (ingest, prices, enrich, research, optional value-trading)
+Requires=orchestrator-daily.timer
+
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/home/ec2-user/market_analysis
+Environment=HOME=/home/ec2-user
+# Long-running: gap backfills + LLM research + occasional value-trading.
+TimeoutStartSec=6h
+Nice=10
+ExecStart=/bin/bash /home/ec2-user/market_analysis/deploy/ec2/run-orchestrator-daily.sh
+
+[Install]
+WantedBy=multi-user.target

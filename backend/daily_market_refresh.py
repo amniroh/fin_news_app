@@ -19,6 +19,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _BACKEND = _REPO_ROOT / "backend"
@@ -93,6 +94,55 @@ def _refresh_analyst_ratings(symbols: list[str], vm_db: Path) -> dict:
     return fetch_analyst_ratings_for_symbols(vm_db, symbols)
 
 
+def run_daily_market_refresh(
+    vm_db: Path,
+    *,
+    symbols: Optional[list[str]] = None,
+    price_days: int = 7,
+    skip_prices: bool = False,
+    skip_daily_metrics: bool = False,
+    skip_technical: bool = False,
+    skip_metrics: bool = False,
+    skip_analyst: bool = False,
+    daily_metrics_since: Optional[str] = None,
+) -> dict:
+    """Library entry used by CLI and the daily orchestrator."""
+    from interesting_stocks_service import seed_interesting_stocks_from_universe
+
+    seed_interesting_stocks_from_universe(vm_db)
+    syms = list(symbols) if symbols is not None else _interesting_symbols(vm_db)
+    logger.info("Refreshing %s interesting stock(s)", len(syms))
+
+    result: dict = {"n_symbols": len(syms), "symbols_sample": syms[:12]}
+    if not skip_prices:
+        logger.info("Fetching recent daily prices (%s-day window)", price_days)
+        result["prices"] = _refresh_prices(syms, days=int(price_days))
+    if not skip_daily_metrics:
+        from interesting_stocks_service import extend_recent_daily_metrics
+
+        since = (daily_metrics_since or "").strip() or None
+        logger.info("Extending daily vm_metric_points through today (since=%s)", since or "per-symbol last date")
+        result["daily_metrics"] = extend_recent_daily_metrics(vm_db, symbols=syms, since_date=since)
+    if not skip_technical:
+        from technical_indicators_backfill import extend_recent_technical_indicators
+
+        agent_db = Path(os.getenv("AGENT_DB_PATH", str(_REPO_ROOT / "telegram_agent" / "data" / "agent.sqlite")))
+        if not agent_db.is_absolute():
+            agent_db = _REPO_ROOT / agent_db
+        since = (daily_metrics_since or "").strip() or None
+        logger.info("Extending technical indicators through today (since=%s)", since or "per-symbol last date")
+        result["technical_indicators"] = extend_recent_technical_indicators(
+            vm_db, agent_db, symbols=syms, since_date=since
+        )
+    if not skip_metrics:
+        logger.info("Refreshing standard metrics (momentum, RSI, returns)")
+        result["standard_metrics"] = _refresh_standard_metrics(syms, vm_db)
+    if not skip_analyst:
+        logger.info("Fetching analyst rating snapshots")
+        result["analyst_ratings"] = _refresh_analyst_ratings(syms, vm_db)
+    return result
+
+
 def main() -> int:
     _load_env()
 
@@ -128,39 +178,16 @@ def main() -> int:
         vm_db = _REPO_ROOT / vm_db
     vm_db.parent.mkdir(parents=True, exist_ok=True)
 
-    from interesting_stocks_service import seed_interesting_stocks_from_universe
-
-    seed_interesting_stocks_from_universe(vm_db)
-    symbols = _interesting_symbols(vm_db)
-    logger.info("Refreshing %s interesting stock(s)", len(symbols))
-
-    result: dict = {"n_symbols": len(symbols), "symbols_sample": symbols[:12]}
-    if not args.skip_prices:
-        logger.info("Fetching recent daily prices (%s-day window)", args.price_days)
-        result["prices"] = _refresh_prices(symbols, days=int(args.price_days))
-    if not args.skip_daily_metrics:
-        from interesting_stocks_service import extend_recent_daily_metrics
-
-        since = str(args.daily_metrics_since or "").strip() or None
-        logger.info("Extending daily vm_metric_points through today (since=%s)", since or "per-symbol last date")
-        result["daily_metrics"] = extend_recent_daily_metrics(vm_db, symbols=symbols, since_date=since)
-    if not args.skip_technical:
-        from technical_indicators_backfill import extend_recent_technical_indicators
-
-        agent_db = Path(os.getenv("AGENT_DB_PATH", str(_REPO_ROOT / "telegram_agent" / "data" / "agent.sqlite")))
-        if not agent_db.is_absolute():
-            agent_db = _REPO_ROOT / agent_db
-        since = str(args.daily_metrics_since or "").strip() or None
-        logger.info("Extending technical indicators through today (since=%s)", since or "per-symbol last date")
-        result["technical_indicators"] = extend_recent_technical_indicators(
-            vm_db, agent_db, symbols=symbols, since_date=since
-        )
-    if not args.skip_metrics:
-        logger.info("Refreshing standard metrics (momentum, RSI, returns)")
-        result["standard_metrics"] = _refresh_standard_metrics(symbols, vm_db)
-    if not args.skip_analyst:
-        logger.info("Fetching analyst rating snapshots")
-        result["analyst_ratings"] = _refresh_analyst_ratings(symbols, vm_db)
+    result = run_daily_market_refresh(
+        vm_db,
+        price_days=int(args.price_days),
+        skip_prices=bool(args.skip_prices),
+        skip_daily_metrics=bool(args.skip_daily_metrics),
+        skip_technical=bool(args.skip_technical),
+        skip_metrics=bool(args.skip_metrics),
+        skip_analyst=bool(args.skip_analyst),
+        daily_metrics_since=str(args.daily_metrics_since or "").strip() or None,
+    )
 
     if args.json_out:
         out_path = Path(args.json_out).expanduser()

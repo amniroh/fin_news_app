@@ -31,29 +31,25 @@ sudo systemctl reload nginx
 
 ### Daily pipeline (recommended every deploy)
 
-Runs gap backfills, prices, daily fundamentals metrics, technical indicators (incremental), standard metrics, analyst ratings.
+Runs the consolidated orchestrator (news/prices ingest, interesting-stocks enrich, preprocess, tester, research; value-trading on Sundays).
 
 ```bash
 cd ~/market_analysis
 mkdir -p logs
-bash deploy/ec2/run-daily-jobs.sh
-tail -f logs/daily-jobs.log
+bash deploy/ec2/run-orchestrator-daily.sh
+tail -f logs/orchestrator-daily.log
 ```
 
 Or trigger the systemd unit manually:
 
 ```bash
-sudo systemctl start daily-jobs.service
-journalctl -u daily-jobs.service -f
+sudo systemctl start orchestrator-daily.service
+journalctl -u orchestrator-daily.service -f
 ```
 
-**Headless / no Telethon session:** set `SKIP_TELEGRAM_INGEST=1` so the daily script skips interactive Telegram login:
+**Headless / no Telethon session:** set `SKIP_TELEGRAM_INGEST=1` only affects standalone gap-backfill helpers; orchestrator live ingest still uses agent config. Prefer copying a Telethon session for production.
 
-```bash
-SKIP_TELEGRAM_INGEST=1 bash deploy/ec2/run-daily-jobs.sh
-```
-
-`run-server-refresh.sh` sets this automatically.
+`run-server-refresh.sh` may still call the deprecated `run-daily-jobs.sh` wrapper, which forwards to the orchestrator.
 
 ### Technical indicators — full backfill (first deploy or after schema change)
 
@@ -96,7 +92,7 @@ Public site: `http://<EC2_PUBLIC_IP>/` — hard refresh (Cmd+Shift+R) after depl
 
 | Log | Path |
 |-----|------|
-| Daily jobs | `~/market_analysis/logs/daily-jobs.log` |
+| Daily orchestrator | `~/market_analysis/logs/orchestrator-daily.log` |
 | Technical backfill | `~/market_analysis/logs/technical-indicators-backfill.log` |
 | Backend API | `journalctl -u value-web-backend -f` |
 | Nginx | `/var/log/nginx/error.log` |

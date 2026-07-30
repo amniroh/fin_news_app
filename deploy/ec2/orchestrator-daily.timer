@@ -1,0 +1,10 @@
+[Unit]
+Description=Run consolidated market orchestrator daily at 06:00 UTC
+
+[Timer]
+OnCalendar=*-*-* 06:00:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

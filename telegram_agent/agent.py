@@ -434,7 +434,11 @@ def main() -> None:
 
     po = sub.add_parser(
         "orchestrate",
-        help="Daily orchestrator: ingest → prices → preprocess → test concluded legs → research (supports backfill)",
+        help=(
+            "Daily orchestrator: ingest → prices → interesting-stocks enrich "
+            "(fundamentals/analyst/metrics) → preprocess → test concluded legs → research "
+            "(+ optional Sunday value-trading). Supports historical backfill."
+        ),
     )
     po.add_argument(
         "--backfill-from",

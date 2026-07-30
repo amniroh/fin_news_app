@@ -36,23 +36,52 @@ scp -i your-key.pem -r telegram_agent/data telegram_agent/sessions ec2-user@INST
 
 For **live** orchestration with Telegram ingest, copy `telegram_agent/sessions/*.session` (and matching `.session-journal` if present).
 
-## 4. Run
+## 4. Daily schedule (consolidated)
+
+One timer owns the daily desk:
+
+```text
+orchestrator-daily.timer  →  06:00 UTC
+  ingest → prices → interesting-stocks enrich → preprocess → tester → research
+  (+ value-trading on Sundays UTC)
+```
+
+Install / refresh units:
+
+```bash
+bash deploy/ec2/install-services.sh
+```
+
+Manual run:
 
 ```bash
 cd ~/market_analysis
-source .venv/bin/activate
+bash deploy/ec2/run-orchestrator-daily.sh
+# or:
+bash deploy/ec2/run-orchestrator.sh orchestrate
+```
+
+Historical backfill (agent pipeline only — does not re-fetch live fundamentals):
+
+```bash
 bash deploy/ec2/run-orchestrator.sh orchestrate --backfill-from 2026-01-01 --backfill-to 2026-01-31
 ```
 
-Or rely on `run-orchestrator.sh` activating `.venv` when present:
+Logs: `logs/orchestrator-daily.log` and `ORCHESTRATOR_LOG_PATH` (see `.env`).
 
-```bash
-bash deploy/ec2/run-orchestrator.sh orchestrate --backfill-from 2026-01-01 --backfill-to 2026-01-31 --cadence 3
-```
+### Env knobs
 
-Logs go to stderr and to **`ORCHESTRATOR_LOG_PATH`** (see `.env`).
+| Variable | Default | Meaning |
+|---|---|---|
+| `RESEARCH_DAILY_MODEL` | `google/gemini-2.5-flash` | Research model for the daily desk |
+| `ORCHESTRATOR_VALUE_TRADING` | `auto` | `auto`=Sundays, `always`, `never` |
+| `ORCHESTRATOR_SKIP_MARKET_DATA` | off | Skip gap backfill + daily refresh |
+| `ORCHESTRATOR_SKIP_RESEARCH` | off | Skip research/memory step |
+| `SKIP_TELEGRAM_INGEST` | — | Used by gap-backfill helpers when invoked standalone |
 
-## 5. Optional: systemd
+Legacy wrappers (`run-daily-jobs.sh`, `run-research-daily.sh`, `run-weekly-value-trading.sh`) forward to the orchestrator / value-trading CLI and should not be scheduled separately.
+
+## 5. Optional: one-shot backfill systemd
 
 See `orchestrator-backfill.service.example`: set `User`, `WorkingDirectory`, and `ExecStart` dates, then enable the unit.
 
@@ -61,3 +90,4 @@ See `orchestrator-backfill.service.example`: set `User`, `WorkingDirectory`, and
 - **`MPLBACKEND=Agg`** is set by the scripts to avoid headless matplotlib issues.
 - **`AGENT_RESEARCH_PUBLISH=false`** in `env.template` avoids Telethon channel posts from the server unless you want them.
 - If `pip install` fails building wheels, the bootstrap script already installs `gcc` and `python3.11-devel`.
+- Prediction markets stay on **`prediction-markets-hourly.timer`** (separate from the equities desk).

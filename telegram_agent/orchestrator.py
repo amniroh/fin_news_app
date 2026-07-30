@@ -1,14 +1,20 @@
-"""Daily orchestrator: ingest → prices → preprocess → test concluded legs → research.
+"""Daily orchestrator: ingest → prices → market-data enrich → preprocess → tester → research → (optional) value-trading.
 
 Designed for accurate backfills: each simulated day uses a deterministic `current_runtime`
 and ensures the tester only evaluates concluded suggestions as-of that time (no future leakage).
+
+Live mode also runs the interesting-stocks / value-metrics daily fetchers that used to live in
+``deploy/ec2/run-daily-jobs.sh`` so there is a single scheduled pipeline.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+import os
+import subprocess
+import sys
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -21,6 +27,9 @@ from telegram_agent.news_universe_preprocess import run_news_universe_preprocess
 from telegram_agent.prices import incremental_prices
 
 logger = logging.getLogger(__name__)
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_BACKEND = _REPO_ROOT / "backend"
 
 
 def _utc_day_start(d: date) -> datetime:
@@ -73,6 +82,106 @@ def _has_any_memory_for_utc_day(con, *, day_start_utc: datetime) -> bool:
     return cur.fetchone() is not None
 
 
+def _value_metrics_db_path() -> Path:
+    p = Path(
+        os.getenv(
+            "VALUE_METRICS_DB_PATH",
+            str(_BACKEND / "data" / "value_metrics.sqlite"),
+        )
+    ).expanduser()
+    if not p.is_absolute():
+        p = (_REPO_ROOT / p).resolve()
+    return p
+
+
+def _ensure_backend_on_path() -> None:
+    for path in (_REPO_ROOT, _BACKEND):
+        s = str(path)
+        if s not in sys.path:
+            sys.path.insert(0, s)
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
+def run_interesting_stocks_market_data(*, skip_gap_backfill: bool = False) -> Dict[str, Any]:
+    """
+    Coverage gap fills + daily metrics/analyst/technical refresh for interesting stocks.
+
+    News ingest is owned by the orchestrator live path; this step always uses ``run_ingest=False``.
+    """
+    _ensure_backend_on_path()
+    from daily_market_refresh import run_daily_market_refresh
+    from interesting_stocks_service import run_daily_backfill_pipeline
+
+    vm_db = _value_metrics_db_path()
+    out: Dict[str, Any] = {"vm_db": str(vm_db)}
+    if not skip_gap_backfill:
+        logger.info("Orchestrator: interesting-stocks gap backfill START (skip ingest; already handled upstream)")
+        out["gap_backfill"] = run_daily_backfill_pipeline(vm_db, run_ingest=False)
+        logger.info(
+            "Orchestrator: interesting-stocks gap backfill DONE (n_with_gaps_after=%s)",
+            (out["gap_backfill"].get("coverage_after") or {}).get("n_with_gaps"),
+        )
+    else:
+        out["gap_backfill"] = {"skipped": True}
+
+    logger.info("Orchestrator: daily market refresh START")
+    out["market_refresh"] = run_daily_market_refresh(vm_db)
+    logger.info("Orchestrator: daily market refresh DONE")
+    return out
+
+
+def _should_run_value_trading(now: datetime) -> bool:
+    mode = (os.getenv("ORCHESTRATOR_VALUE_TRADING") or "auto").strip().lower()
+    if mode in ("0", "false", "no", "never", "off"):
+        return False
+    if mode in ("1", "true", "yes", "always", "on"):
+        return True
+    # auto: Sundays UTC (replaces weekly-value-trading.timer)
+    return now.astimezone(timezone.utc).weekday() == 6
+
+
+def run_value_trading_step() -> Dict[str, Any]:
+    """Run value-trading assessments (subprocess so CLI flags/env stay consistent)."""
+    script = _BACKEND / "value_trading_agent_run.py"
+    batch = os.getenv("VALUE_TRADING_BATCH_SIZE", "10")
+    cmd = [
+        sys.executable,
+        str(script),
+        "--batch-size",
+        str(batch),
+    ]
+    logger.info("Orchestrator: value-trading START (%s)", " ".join(cmd))
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(_REPO_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=int(os.getenv("ORCHESTRATOR_VALUE_TRADING_TIMEOUT_SEC", "7200")),
+            check=False,
+        )
+        out = {
+            "ok": proc.returncode == 0,
+            "returncode": proc.returncode,
+            "stdout_tail": (proc.stdout or "")[-4000:],
+            "stderr_tail": (proc.stderr or "")[-4000:],
+        }
+        if proc.returncode != 0:
+            logger.warning("Orchestrator: value-trading FAILED rc=%s", proc.returncode)
+        else:
+            logger.info("Orchestrator: value-trading DONE")
+        return out
+    except Exception as exc:
+        logger.exception("Orchestrator: value-trading error")
+        return {"ok": False, "error": str(exc)}
+
+
 @dataclass
 class OrchestratorResult:
     day: str
@@ -81,6 +190,8 @@ class OrchestratorResult:
     preprocess: Dict[str, Any]
     tester_updated: int
     research_new_recs: int
+    market_data: Dict[str, Any] = field(default_factory=dict)
+    value_trading: Dict[str, Any] = field(default_factory=dict)
 
 
 async def run_orchestration_live(cfg: dict) -> OrchestratorResult:
@@ -109,7 +220,20 @@ async def run_orchestration_live(cfg: dict) -> OrchestratorResult:
     else:
         logger.info("Orchestrator: prices SKIP (1d bars already present for %s UTC)", day.isoformat())
 
-    # 2) preprocess pending news up to now
+    # 2) Interesting-stocks / value-metrics enrichment (was run-daily-jobs.sh)
+    market_data: Dict[str, Any] = {"skipped": True}
+    if _env_flag("ORCHESTRATOR_SKIP_MARKET_DATA", False):
+        logger.info("Orchestrator: market-data SKIP (ORCHESTRATOR_SKIP_MARKET_DATA)")
+    else:
+        try:
+            market_data = run_interesting_stocks_market_data(
+                skip_gap_backfill=_env_flag("ORCHESTRATOR_SKIP_GAP_BACKFILL", False)
+            )
+        except Exception as exc:
+            logger.exception("Orchestrator: market-data failed")
+            market_data = {"ok": False, "error": str(exc)}
+
+    # 3) preprocess pending news up to now
     logger.info("Orchestrator: preprocess START (pending news -> linkage; max_ts=%s)", now.isoformat())
     preprocess_out = run_news_universe_preprocess(cfg, con, max_ts_utc_inclusive=now)
     if preprocess_out.get("skipped"):
@@ -120,19 +244,32 @@ async def run_orchestration_live(cfg: dict) -> OrchestratorResult:
             preprocess_out.get("processed"),
             preprocess_out.get("batches"),
         )
-    # 3) tester: concluded-only as-of now
+    # 4) tester: concluded-only as-of now
     logger.info("Orchestrator: tester START (concluded_only=True asof=%s)", now.isoformat())
     tester_n = run_suggestion_tests(cfg, asof_utc=now, concluded_only=True)
     logger.info("Orchestrator: tester DONE (updated=%s)", tester_n)
-    # 4) research
+    # 5) research (+ memory update inside research)
     recs = 0
-    if _has_any_memory_for_utc_day(con, day_start_utc=day_start):
+    if _env_flag("ORCHESTRATOR_SKIP_RESEARCH", False):
+        logger.info("Orchestrator: research SKIP (ORCHESTRATOR_SKIP_RESEARCH)")
+    elif _has_any_memory_for_utc_day(con, day_start_utc=day_start):
         logger.info("Orchestrator: research SKIP (memory already present for %s UTC)", day.isoformat())
     else:
         logger.info("Orchestrator: research START (no memory present for %s UTC)", day.isoformat())
         ctx = ResearchRunContext(sim_now=now, daily_mode=False)
         recs = _run_research_once(cfg, con, ctx)
         logger.info("Orchestrator: research DONE (new_recommendations=%s)", recs)
+
+    # 6) value-trading (weekly by default; replaces weekly-value-trading.timer)
+    value_trading: Dict[str, Any] = {"skipped": True}
+    if _should_run_value_trading(now):
+        value_trading = run_value_trading_step()
+    else:
+        logger.info(
+            "Orchestrator: value-trading SKIP (ORCHESTRATOR_VALUE_TRADING=%s)",
+            os.getenv("ORCHESTRATOR_VALUE_TRADING", "auto"),
+        )
+
     con.close()
     return OrchestratorResult(
         day=day.isoformat(),
@@ -141,6 +278,8 @@ async def run_orchestration_live(cfg: dict) -> OrchestratorResult:
         preprocess=preprocess_out,
         tester_updated=int(tester_n or 0),
         research_new_recs=int(recs or 0),
+        market_data=market_data,
+        value_trading=value_trading,
     )
 
 
@@ -150,6 +289,9 @@ def run_orchestration_backfill_day(cfg: dict, *, day: date) -> OrchestratorResul
 
     Key rule: `current_runtime` is end-of-day UTC for that day. Tester only evaluates legs
     whose execute_review_utc < current_runtime.
+
+    Historical backfill does **not** re-run live market-data fetchers (fundamentals/analyst),
+    which would pull present-day facts into past simulated days.
     """
     day_start = _utc_day_start(day)
     current_runtime = _end_of_utc_day(day_start)
@@ -159,7 +301,6 @@ def run_orchestration_backfill_day(cfg: dict, *, day: date) -> OrchestratorResul
     init_db(con)
 
     # Step 1: ingest/prices for the day are assumed to have been backfilled already.
-    # If any data is present for this day, skip fetching and move on.
     ingest_n = 0
     if not _has_any_news_for_utc_day(con, day_start_utc=day_start):
         logger.info(
@@ -227,6 +368,8 @@ def run_orchestration_backfill_day(cfg: dict, *, day: date) -> OrchestratorResul
         preprocess=preprocess_out,
         tester_updated=int(tester_n or 0),
         research_new_recs=int(recs or 0),
+        market_data={"skipped": True, "reason": "historical_backfill"},
+        value_trading={"skipped": True, "reason": "historical_backfill"},
     )
 
 
@@ -263,4 +406,3 @@ def run_orchestration_backfill(
         "tester_updated": total_tested,
         "per_day": per_day,
     }
-
