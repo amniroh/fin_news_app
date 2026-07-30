@@ -248,14 +248,18 @@ async def run_orchestration_live(cfg: dict) -> OrchestratorResult:
     logger.info("Orchestrator: tester START (concluded_only=True asof=%s)", now.isoformat())
     tester_n = run_suggestion_tests(cfg, asof_utc=now, concluded_only=True)
     logger.info("Orchestrator: tester DONE (updated=%s)", tester_n)
-    # 5) research (+ memory update inside research)
+    # 5) research (+ memory update inside research; Telegram publish when AGENT_RESEARCH_PUBLISH=true)
     recs = 0
+    force_research = _env_flag("ORCHESTRATOR_FORCE_RESEARCH", False)
     if _env_flag("ORCHESTRATOR_SKIP_RESEARCH", False):
         logger.info("Orchestrator: research SKIP (ORCHESTRATOR_SKIP_RESEARCH)")
-    elif _has_any_memory_for_utc_day(con, day_start_utc=day_start):
+    elif (not force_research) and _has_any_memory_for_utc_day(con, day_start_utc=day_start):
         logger.info("Orchestrator: research SKIP (memory already present for %s UTC)", day.isoformat())
     else:
-        logger.info("Orchestrator: research START (no memory present for %s UTC)", day.isoformat())
+        if force_research:
+            logger.info("Orchestrator: research START (ORCHESTRATOR_FORCE_RESEARCH=1)")
+        else:
+            logger.info("Orchestrator: research START (no memory present for %s UTC)", day.isoformat())
         ctx = ResearchRunContext(sim_now=now, daily_mode=False)
         recs = _run_research_once(cfg, con, ctx)
         logger.info("Orchestrator: research DONE (new_recommendations=%s)", recs)

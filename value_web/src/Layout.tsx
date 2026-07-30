@@ -22,6 +22,12 @@ export function Layout() {
               Stocks
             </NavLink>
             <NavLink
+              to="/research"
+              className={({ isActive }) => (isActive ? "nav-link nav-link-active" : "nav-link")}
+            >
+              Research
+            </NavLink>
+            <NavLink
               to="/prediction-markets"
               className={({ isActive }) => (isActive ? "nav-link nav-link-active" : "nav-link")}
             >

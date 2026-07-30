@@ -1,8 +1,10 @@
 [Unit]
-Description=Run consolidated market orchestrator daily at 06:00 UTC
+Description=Run consolidated market orchestrator daily after US equity close (~21:00 UTC)
 
 [Timer]
-OnCalendar=*-*-* 06:00:00 UTC
+# US regular session ends 16:00 America/New_York ≈ 20:00 UTC (EDT) / 21:00 UTC (EST).
+# 21:00 UTC is a stable post-close slot year-round.
+OnCalendar=*-*-* 21:00:00 UTC
 Persistent=true
 RandomizedDelaySec=300
 

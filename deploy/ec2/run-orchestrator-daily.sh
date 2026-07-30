@@ -12,7 +12,7 @@ LOG="${LOG_DIR}/orchestrator-daily.log"
 export MPLBACKEND=Agg
 export VALUE_METRICS_DB_PATH="${VALUE_METRICS_DB_PATH:-$REPO_ROOT/backend/data/value_metrics.sqlite}"
 export AGENT_DB_PATH="${AGENT_DB_PATH:-$REPO_ROOT/telegram_agent/data/agent.sqlite}"
-export AGENT_RESEARCH_PUBLISH="${AGENT_RESEARCH_PUBLISH:-false}"
+export AGENT_RESEARCH_PUBLISH="${AGENT_RESEARCH_PUBLISH:-true}"
 # Research model for this daily desk (override with RESEARCH_DAILY_MODEL).
 export AGENT_RESEARCH_MODEL="${RESEARCH_DAILY_MODEL:-${AGENT_RESEARCH_MODEL:-google/gemini-2.5-flash}}"
 # Value-trading: auto = Sundays UTC only.
@@ -31,9 +31,13 @@ if [[ -f "$REPO_ROOT/telegram_agent/.env" ]]; then
   set +a
 fi
 
-# Re-apply trial defaults after .env so global AGENT_RESEARCH_MODEL does not force Sonnet.
+# Re-apply desk defaults after .env (publish on; Gemini unless RESEARCH_DAILY_MODEL set).
 export AGENT_RESEARCH_MODEL="${RESEARCH_DAILY_MODEL:-google/gemini-2.5-flash}"
-export AGENT_RESEARCH_PUBLISH="${AGENT_RESEARCH_PUBLISH:-false}"
+if [[ "${ORCHESTRATOR_DISABLE_PUBLISH:-}" == "1" ]]; then
+  export AGENT_RESEARCH_PUBLISH=false
+else
+  export AGENT_RESEARCH_PUBLISH=true
+fi
 
 # shellcheck source=/dev/null
 source "$REPO_ROOT/.venv/bin/activate"

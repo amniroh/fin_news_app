@@ -79,24 +79,35 @@ def publish_research_to_target(cfg: dict, text: str) -> bool:
     if not cfg.get("agent_research_publish", True):
         logger.info("AGENT_RESEARCH_PUBLISH is off; skip.")
         return False
-    try:
-        return asyncio.run(_publish_text(cfg, text))
-    except RuntimeError as e:
-        if "asyncio.run() cannot be called from a running event loop" in str(e):
-            logger.error("Cannot publish research from inside running event loop: %s", e)
-            return False
-        raise
+    return _run_coro_sync(lambda: _publish_text(cfg, text))
 
 
 def publish_plain_to_target(cfg: dict, text: str) -> bool:
     """Publish arbitrary text to TARGET_CHANNEL (ignores AGENT_RESEARCH_PUBLISH). Used by competitive bots."""
+    return _run_coro_sync(lambda: _publish_text(cfg, text))
+
+
+def _run_coro_sync(coro_factory) -> bool:
+    """Run an async publish coroutine even when already inside an event loop (orchestrator)."""
     try:
-        return asyncio.run(_publish_text(cfg, text))
-    except RuntimeError as e:
-        if "asyncio.run() cannot be called from a running event loop" in str(e):
-            logger.error("Cannot publish from inside running event loop: %s", e)
-            return False
-        raise
+        asyncio.get_running_loop()
+        in_loop = True
+    except RuntimeError:
+        in_loop = False
+    try:
+        if not in_loop:
+            return bool(asyncio.run(coro_factory()))
+        # Nested event loop (e.g. orchestrate live): use a dedicated thread.
+        import concurrent.futures
+
+        def _runner() -> bool:
+            return bool(asyncio.run(coro_factory()))
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return bool(pool.submit(_runner).result(timeout=180))
+    except Exception as e:
+        logger.error("Telegram publish failed: %s", e)
+        return False
 
 
 def format_competitive_telegram_message(payload: Dict[str, Any]) -> str:

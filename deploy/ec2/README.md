@@ -41,9 +41,9 @@ For **live** orchestration with Telegram ingest, copy `telegram_agent/sessions/*
 One timer owns the daily desk:
 
 ```text
-orchestrator-daily.timer  →  06:00 UTC
+orchestrator-daily.timer  →  21:00 UTC (after US equity close)
   ingest → prices → interesting-stocks enrich → preprocess → tester → research
-  (+ value-trading on Sundays UTC)
+  (+ value-trading on Sundays UTC; Telegram publish to TARGET_CHANNEL)
 ```
 
 Install / refresh units:
@@ -74,6 +74,9 @@ Logs: `logs/orchestrator-daily.log` and `ORCHESTRATOR_LOG_PATH` (see `.env`).
 | Variable | Default | Meaning |
 |---|---|---|
 | `RESEARCH_DAILY_MODEL` | `google/gemini-2.5-flash` | Research model for the daily desk |
+| `AGENT_RESEARCH_PUBLISH` | forced `true` by daily script | Post research thinking + memory + suggestions to `TARGET_CHANNEL` |
+| `ORCHESTRATOR_DISABLE_PUBLISH` | off | Set `1` to suppress Telegram posts for a run |
+| `ORCHESTRATOR_FORCE_RESEARCH` | off | Re-run research even if memory exists today |
 | `ORCHESTRATOR_VALUE_TRADING` | `auto` | `auto`=Sundays, `always`, `never` |
 | `ORCHESTRATOR_SKIP_MARKET_DATA` | off | Skip gap backfill + daily refresh |
 | `ORCHESTRATOR_SKIP_RESEARCH` | off | Skip research/memory step |

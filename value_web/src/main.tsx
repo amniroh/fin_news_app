@@ -9,6 +9,7 @@ import { StrategiesPage } from "./StrategiesPage.tsx";
 import { PredictionMarketsPage } from "./PredictionMarketsPage.tsx";
 import { InterestingStocksPage } from "./InterestingStocksPage.tsx";
 import { TickerDetailPage } from "./TickerDetailPage.tsx";
+import { ResearchDeskPage } from "./ResearchDeskPage.tsx";
 
 const apiBase = getApiBase();
 
@@ -20,6 +21,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/" element={<App apiBase={apiBase} />} />
           <Route path="/stocks" element={<InterestingStocksPage apiBase={apiBase} />} />
           <Route path="/stocks/:symbol" element={<TickerDetailPage apiBase={apiBase} />} />
+          <Route path="/research" element={<ResearchDeskPage apiBase={apiBase} />} />
           <Route path="/strategies" element={<StrategiesPage apiBase={apiBase} />} />
           <Route path="/prediction-markets" element={<PredictionMarketsPage apiBase={apiBase} />} />
         </Route>
