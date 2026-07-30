@@ -18,11 +18,24 @@ async def send_long_message(
     if not text or not str(text).strip():
         logger.warning("send_long_message: empty text")
         return False
-    try:
-        chat_id = int(chat_id)
-    except (TypeError, ValueError):
-        logger.error("Invalid chat_id %r", chat_id)
-        return False
+    # Accept numeric ids or @username / username (Bot API).
+    if isinstance(chat_id, str):
+        s = chat_id.strip()
+        if s.lstrip("-").isdigit():
+            chat_id = int(s)
+        elif s.startswith("@"):
+            chat_id = s
+        elif s and not s.startswith("http") and " " not in s:
+            chat_id = "@" + s.lstrip("@")
+        else:
+            logger.error("Invalid chat_id %r", chat_id)
+            return False
+    else:
+        try:
+            chat_id = int(chat_id)
+        except (TypeError, ValueError):
+            logger.error("Invalid chat_id %r", chat_id)
+            return False
     chunks: list[str] = []
     rest = text.strip()
     while rest:

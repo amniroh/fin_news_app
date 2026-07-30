@@ -49,20 +49,34 @@ def format_research_telegram_message(
     return "\n".join(parts)
 
 
-async def _publish_text(cfg: dict, text: str) -> bool:
+async def _publish_via_bot(cfg: dict, text: str) -> bool:
+    """Prefer Bot API for headless hosts (no interactive Telethon login)."""
+    token = (cfg.get("telegram_bot_token") or "").strip()
+    target = (cfg.get("target_channel") or "").strip()
+    if not token or not target:
+        return False
+    from telegram import Bot
+
+    from telegram_agent.publisher_bot import send_long_message
+
+    bot = Bot(token=token)
+    ok = await send_long_message(bot, target, text)
+    if ok:
+        logger.info("Published research to TARGET_CHANNEL via Bot API")
+    return ok
+
+
+async def _publish_via_telethon(cfg: dict, text: str) -> bool:
     from telegram_agent.config import SESSION_DIR
     from telegram_agent.publisher import publish
 
     target = (cfg.get("target_channel") or "").strip()
-    if not target:
-        logger.warning("TARGET_CHANNEL not set; skipping publish.")
-        return False
     api_id = cfg.get("telegram_api_id")
     api_hash = cfg.get("telegram_api_hash")
     session_name = cfg.get("telegram_session_name", "news_agent")
     session_path = str(SESSION_DIR / session_name)
     if not api_id or not api_hash:
-        logger.warning("Telegram API credentials missing; cannot publish research.")
+        logger.warning("Telegram API credentials missing; cannot publish via Telethon.")
         return False
     from telethon import TelegramClient
 
@@ -72,6 +86,22 @@ async def _publish_text(cfg: dict, text: str) -> bool:
         return await publish(client, target, text)
     finally:
         await client.disconnect()
+
+
+async def _publish_text(cfg: dict, text: str) -> bool:
+    target = (cfg.get("target_channel") or "").strip()
+    if not target:
+        logger.warning("TARGET_CHANNEL not set; skipping publish.")
+        return False
+    # Bot API first (works without an interactive user session on EC2).
+    if (cfg.get("telegram_bot_token") or "").strip():
+        try:
+            if await _publish_via_bot(cfg, text):
+                return True
+            logger.warning("Bot API publish failed; falling back to Telethon")
+        except Exception as e:
+            logger.warning("Bot API publish error (%s); falling back to Telethon", e)
+    return await _publish_via_telethon(cfg, text)
 
 
 def publish_research_to_target(cfg: dict, text: str) -> bool:

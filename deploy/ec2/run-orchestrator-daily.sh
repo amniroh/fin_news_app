@@ -24,12 +24,22 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
   source "$REPO_ROOT/.env"
   set +a
 fi
+# Preserve root TARGET_CHANNEL if telegram_agent/.env still has a placeholder.
+_SAVED_TARGET_CHANNEL="${TARGET_CHANNEL:-}"
 if [[ -f "$REPO_ROOT/telegram_agent/.env" ]]; then
   set -a
   # shellcheck source=/dev/null
   source "$REPO_ROOT/telegram_agent/.env"
   set +a
 fi
+if [[ -n "$_SAVED_TARGET_CHANNEL" ]]; then
+  case "${TARGET_CHANNEL:-}" in
+    ""|"@my_digest_channel"|"my_digest_channel")
+      export TARGET_CHANNEL="$_SAVED_TARGET_CHANNEL"
+      ;;
+  esac
+fi
+unset _SAVED_TARGET_CHANNEL
 
 # Re-apply desk defaults after .env (publish on; Gemini unless RESEARCH_DAILY_MODEL set).
 export AGENT_RESEARCH_MODEL="${RESEARCH_DAILY_MODEL:-google/gemini-2.5-flash}"
