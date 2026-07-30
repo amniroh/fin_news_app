@@ -112,7 +112,7 @@ sudo systemctl restart value-web-backend && \
 sudo systemctl reload nginx && \
 mkdir -p logs && \
 python backend/technical_indicators_backfill.py 2>&1 | tee logs/technical-indicators-backfill.log && \
-bash deploy/ec2/run-daily-jobs.sh
+bash deploy/ec2/run-orchestrator-daily.sh
 ```
 
 ## Refresh history
