@@ -237,6 +237,23 @@ def validate_backtest_data(
         start_s = start_d.isoformat()
         end_s = end_d.isoformat()
 
+        # When allowing a partial universe, clip the window to available technicals so early
+        # price history without indicators does not zero out coverage for every symbol.
+        if cfg.allow_partial_universe:
+            tech_span = vm_con.execute(
+                """
+                SELECT MIN(asof_date), MAX(asof_date)
+                FROM vm_technical_indicators
+                WHERE provider = ?
+                """,
+                (str(cfg.provider).strip().lower(),),
+            ).fetchone()
+            if tech_span and tech_span[0]:
+                tech_min = str(tech_span[0])[:10]
+                if tech_min > start_s:
+                    start_s = tech_min
+                    start_d = date.fromisoformat(start_s)
+
         tech = load_technical_history(vm_con, symbols, start_s, end_s, provider=cfg.provider)
         if tech.empty:
             errors.append(
