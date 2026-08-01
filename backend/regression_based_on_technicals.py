@@ -177,7 +177,7 @@ def _predict_panel(model: Any, panel: pd.DataFrame) -> np.ndarray:
 
 @dataclass
 class RegressionTechnicalsConfig:
-    years: float = 1.0
+    years: float = 5.0
     split_train_frac: float = 0.5
     split_val_frac: float = 0.25
     split_test_frac: float = 0.25
@@ -186,6 +186,131 @@ class RegressionTechnicalsConfig:
     provider: str = "yfinance"
     allow_partial_universe: bool = False
     seed: int = 7
+    # Walk-forward: yearly re-optimization by default; monthly used as fallback when history is short.
+    wf_mode: str = "yearly"  # yearly | monthly | auto
+    max_folds: int = 10
+    min_train_rows: int = 400
+
+
+_WF_METRIC_KEYS = (
+    "total_return",
+    "cagr",
+    "ann_vol",
+    "sharpe",
+    "max_drawdown",
+    "rolling_1y_median_return",
+    "rolling_1y_hit_rate",
+    "ic",
+    "turnover_avg",
+)
+
+
+def _student_t_ci(vals: List[float], *, alpha: float = 0.05) -> Dict[str, float]:
+    x = np.asarray([float(v) for v in vals if v == v and np.isfinite(float(v))], dtype=float)
+    n = int(len(x))
+    if n == 0:
+        return {"mean": float("nan"), "ci_low": float("nan"), "ci_high": float("nan"), "n": 0}
+    mean = float(np.mean(x))
+    if n == 1:
+        return {"mean": mean, "ci_low": mean, "ci_high": mean, "n": 1}
+    s = float(np.std(x, ddof=1))
+    se = s / math.sqrt(n)
+    try:
+        from scipy import stats  # type: ignore
+
+        t_crit = float(stats.t.ppf(1.0 - alpha / 2.0, n - 1))
+    except Exception:
+        t_crit = 1.96 if n >= 30 else 2.05
+    h = t_crit * se
+    return {"mean": mean, "ci_low": mean - h, "ci_high": mean + h, "n": n}
+
+
+def _yearly_walkforward_folds(
+    dates: pd.DatetimeIndex,
+    *,
+    min_train_rows: int = 400,
+    max_folds: int = 10,
+) -> List[Dict[str, Any]]:
+    """Yearly OOS folds: test=year Y, val=Y-1, train=all before val."""
+    ts = pd.DatetimeIndex(dates)
+    if ts.tz is not None:
+        ts = ts.tz_localize(None)
+    years_sorted = sorted({int(y) for y in ts.year})
+    folds: List[Dict[str, Any]] = []
+    for i, test_y in enumerate(years_sorted):
+        if i < 2:
+            continue
+        val_y = years_sorted[i - 1]
+        train_end = pd.Timestamp(year=val_y, month=1, day=1) - pd.Timedelta(days=1)
+        val_start = pd.Timestamp(year=val_y, month=1, day=1)
+        val_end = pd.Timestamp(year=val_y, month=12, day=31)
+        test_start = pd.Timestamp(year=test_y, month=1, day=1)
+        test_end = pd.Timestamp(year=test_y, month=12, day=31)
+        n_tr = int((ts <= train_end).sum())
+        n_va = int(((ts >= val_start) & (ts <= val_end)).sum())
+        n_te = int(((ts >= test_start) & (ts <= test_end)).sum())
+        if n_tr < int(min_train_rows) or n_va < 20 or n_te < 20:
+            continue
+        folds.append(
+            {
+                "test_year": test_y,
+                "test_month": None,
+                "val_year": val_y,
+                "val_month": None,
+                "train_end": train_end.strftime("%Y-%m-%d"),
+                "val_start": val_start.strftime("%Y-%m-%d"),
+                "val_end": val_end.strftime("%Y-%m-%d"),
+                "test_start": test_start.strftime("%Y-%m-%d"),
+                "test_end": test_end.strftime("%Y-%m-%d"),
+                "n_train": n_tr,
+                "n_val": n_va,
+                "n_test": n_te,
+            }
+        )
+    return folds[-int(max_folds) :]
+
+
+def _resolve_walkforward_folds(
+    calendar: pd.DatetimeIndex,
+    *,
+    mode: str,
+    max_folds: int,
+    min_train_rows: int,
+) -> Tuple[List[Dict[str, Any]], str]:
+    mode_n = (mode or "yearly").strip().lower()
+    if mode_n == "monthly":
+        return _walkforward_folds(calendar, max_folds=max_folds), "monthly"
+    yearly = _yearly_walkforward_folds(calendar, min_train_rows=min_train_rows, max_folds=max_folds)
+    if mode_n == "yearly":
+        return yearly, "yearly"
+    # auto: prefer yearly when at least 2 folds exist
+    if len(yearly) >= 2:
+        return yearly, "yearly"
+    return _walkforward_folds(calendar, max_folds=max_folds), "monthly"
+
+
+def _aggregate_walkforward_folds(fold_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    by_strat: Dict[str, Dict[str, List[float]]] = {}
+    for row in fold_rows:
+        for sid, block in (row.get("strategies") or {}).items():
+            tm = block.get("test_metrics") or {}
+            bm = block.get("baseline_test_metrics") or {}
+            for prefix, src in (("strategy", tm), ("baseline", bm)):
+                for k in _WF_METRIC_KEYS:
+                    v = src.get(k)
+                    if v is None:
+                        continue
+                    try:
+                        fv = float(v)
+                    except (TypeError, ValueError):
+                        continue
+                    if not math.isfinite(fv):
+                        continue
+                    by_strat.setdefault(sid, {}).setdefault(f"{prefix}_{k}", []).append(fv)
+    agg: Dict[str, Any] = {}
+    for sid, metrics_map in by_strat.items():
+        agg[sid] = {mk: _student_t_ci(series) for mk, series in metrics_map.items()}
+    return agg
 
 
 @dataclass
@@ -224,6 +349,8 @@ class RegressionTechnicalsResult:
     optimization: Dict[str, Any] = field(default_factory=dict)
     data_validation: Dict[str, Any] = field(default_factory=dict)
     walkforward_folds: List[Dict[str, Any]] = field(default_factory=list)
+    walkforward_mode: str = "yearly"
+    walkforward_aggregate: Dict[str, Any] = field(default_factory=dict)
 
 
 def _utcnow_iso() -> str:
@@ -488,8 +615,14 @@ def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> Regressio
     ]
 
     calendar = pd.DatetimeIndex(sorted(panel["date"].unique()))
+    fold_defs, wf_mode_used = _resolve_walkforward_folds(
+        calendar,
+        mode=cfg.wf_mode,
+        max_folds=int(cfg.max_folds),
+        min_train_rows=int(cfg.min_train_rows),
+    )
     wf_folds: List[Dict[str, Any]] = []
-    for fold in _walkforward_folds(calendar):
+    for fold in fold_defs:
         te_s = pd.Timestamp(fold["test_start"])
         te_e = pd.Timestamp(fold["test_end"])
         va_s = pd.Timestamp(fold["val_start"])
@@ -501,36 +634,82 @@ def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> Regressio
         if tr_panel.empty or va_seg.empty or te_seg.empty:
             continue
         try:
-            fp, _, _ = _search_backtest_params(tr_panel, va_seg, prices, cfg.cadence, cfg.seed)
-        except Exception:
+            fp, f_trials, _ = _search_backtest_params(tr_panel, va_seg, prices, cfg.cadence, cfg.seed)
+        except Exception as e:
+            logger.warning("Walk-forward fold %s param search failed: %s", fold.get("test_year"), e)
             continue
-        fm = _fit_technicals_model(_build_technicals_estimator(seed=cfg.seed), tr_panel, va_seg)
-        te_sc = te_seg.copy()
-        te_sc["pred"] = _predict_panel(fm, te_seg)
-        te_bt = _run_strategy_backtest(
-            te_sc,
-            prices,
-            cadence=cfg.cadence,
-            top_n=int(fp["top_n"]),
-            weighting="equal",
-            score_col="pred",
-            pred_smoothing_days=int(fp["pred_smoothing_days"]),
-            trend_filter_enabled=bool(fp["trend_filter_enabled"]),
-            inverse_vol_blend=float(fp["inverse_vol_blend"]),
-        )
+        try:
+            fm = _fit_technicals_model(_build_technicals_estimator(seed=cfg.seed), tr_panel, va_seg)
+            te_sc = te_seg.copy()
+            te_sc["pred"] = _predict_panel(fm, te_seg)
+            va_sc = va_seg.copy()
+            va_sc["pred"] = _predict_panel(fm, va_seg)
+            te_bt = _run_strategy_backtest(
+                te_sc,
+                prices,
+                cadence=cfg.cadence,
+                top_n=int(fp["top_n"]),
+                weighting="equal",
+                score_col="pred",
+                pred_smoothing_days=int(fp["pred_smoothing_days"]),
+                trend_filter_enabled=bool(fp["trend_filter_enabled"]),
+                inverse_vol_blend=float(fp["inverse_vol_blend"]),
+            )
+            va_bt = _run_strategy_backtest(
+                va_sc,
+                prices,
+                cadence=cfg.cadence,
+                top_n=int(fp["top_n"]),
+                weighting="equal",
+                score_col="pred",
+                pred_smoothing_days=int(fp["pred_smoothing_days"]),
+                trend_filter_enabled=bool(fp["trend_filter_enabled"]),
+                inverse_vol_blend=float(fp["inverse_vol_blend"]),
+            )
+        except Exception as e:
+            logger.warning("Walk-forward fold %s backtest failed: %s", fold.get("test_year"), e)
+            continue
         te_ret = te_bt["returns"]
+        va_ret = va_bt["returns"]
         base_te = _baseline(te_ret) if not te_ret.empty else pd.Series(dtype=float)
+        te_ic = _spearman_ic(te_sc["pred"], te_seg["y"], pd.DatetimeIndex(te_seg["date"]))
+        te_metrics = _summary_metrics(te_ret)
+        te_metrics["ic"] = float(te_ic) if te_ic == te_ic else float("nan")
+        te_metrics["turnover_avg"] = float(te_bt.get("turnover_avg") or float("nan"))
+        va_metrics = _summary_metrics(va_ret)
         wf_folds.append(
             {
-                **{k: fold[k] for k in ("test_year", "val_year", "test_month", "val_month", "n_train", "n_val", "n_test")},
+                **{
+                    k: fold[k]
+                    for k in (
+                        "test_year",
+                        "val_year",
+                        "test_month",
+                        "val_month",
+                        "n_train",
+                        "n_val",
+                        "n_test",
+                        "train_end",
+                        "val_start",
+                        "val_end",
+                        "test_start",
+                        "test_end",
+                    )
+                    if k in fold
+                },
                 "strategies": {
                     STRATEGY_ID: {
-                        "test_metrics": _summary_metrics(te_ret),
+                        "chosen_params": dict(fp),
+                        "n_feasible_trials": sum(1 for t in f_trials if t.get("feasible")),
+                        "val_metrics": va_metrics,
+                        "test_metrics": te_metrics,
                         "baseline_test_metrics": _summary_metrics(base_te),
                     }
                 },
             }
         )
+
+    wf_aggregate = _aggregate_walkforward_folds(wf_folds)
 
     feasible_count = sum(1 for t in trials if t.get("feasible"))
     return RegressionTechnicalsResult(
@@ -585,9 +764,17 @@ def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> Regressio
                 key=lambda x: float(x.get("sharpe", float("-inf"))),
                 reverse=True,
             )[:5],
+            "walkforward": {
+                "mode": wf_mode_used,
+                "max_folds": int(cfg.max_folds),
+                "min_train_rows": int(cfg.min_train_rows),
+                "n_folds_completed": len(wf_folds),
+            },
         },
         data_validation=validation,
         walkforward_folds=wf_folds,
+        walkforward_mode=wf_mode_used,
+        walkforward_aggregate=wf_aggregate,
     )
 
 
@@ -607,7 +794,18 @@ def save_artifacts(result: RegressionTechnicalsResult) -> Path:
         "strategy": STRATEGY_ID,
         "benchmark": "SPY",
         "generated_at": result.trained_at,
+        "fold_mode": result.walkforward_mode,
+        "years_history": result.history_years,
+        "n_folds_completed": len(result.walkforward_folds),
+        "n_folds_requested": len(result.walkforward_folds),
+        "min_train_rows": int((result.optimization.get("walkforward") or {}).get("min_train_rows") or 0),
+        "top_n": (result.chosen_params or {}).get("top_n"),
         "folds": result.walkforward_folds,
+        "aggregate": result.walkforward_aggregate,
+        "optimization_note": (
+            "Each fold re-fits LightGBM on train and re-searches portfolio params on validation "
+            "(Sharpe>1, max DD≥-20%), then evaluates the held-out test window."
+        ),
     }
     walkforward_path(result.cadence).write_text(_safe_json_dumps(wf), encoding="utf-8")
     return p

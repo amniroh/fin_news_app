@@ -117,24 +117,28 @@ type WalkforwardCiAgg = {
 
 type WalkforwardFold = {
   test_year: number;
+  test_month?: number | null;
   val_year?: number | null;
+  val_month?: number | null;
   strategies?: Record<
     string,
     {
       test_metrics?: MetricsBlock;
       baseline_test_metrics?: MetricsBlock;
+      chosen_params?: Record<string, unknown>;
     }
   >;
 };
 
 type WalkforwardPayload = {
   cadence: string;
-  top_n: number;
+  top_n?: number | null;
   benchmark: string;
-  years_history: number;
+  years_history?: number | null;
   n_folds_requested: number;
   n_folds_completed: number;
-  min_train_rows: number;
+  min_train_rows?: number | null;
+  fold_mode?: string | null;
   transaction_cost_model?: {
     slippage_one_way?: number;
     commission_one_way_rate?: number;
@@ -191,7 +195,7 @@ const METRIC_COLS: { key: keyof MetricsBlock; label: string; fmt: (v: number | n
   { key: "turnover_avg", label: "Turnover", fmt: (v) => FMT_PCT(v, 1) },
 ];
 
-const WF_SID_ORDER = ["ml_equal", "ml_pred_weighted"];
+const WF_SID_ORDER = ["trend_v0_partial_position_exit", "regression_based_on_technicals"];
 
 function walkforwardStrategyLabel(sid: string, strategyMeta: Record<string, StrategyMeta>): string {
   if (sid === "ml_equal") return strategyMeta.ml?.label || "ML top-N (equal-weight)";
@@ -653,14 +657,13 @@ function WalkForwardPanel({
 
   return (
     <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid #e2e8f0" }}>
-      <h3 style={{ margin: "0 0 8px" }}>Yearly walk-forward (out-of-sample)</h3>
+      <h3 style={{ margin: "0 0 8px" }}>Walk-forward optimization (out-of-sample)</h3>
       <p style={{ margin: "0 0 14px", fontSize: 13, color: "#555", lineHeight: 1.45 }}>
-        When generated, this section loads precomputed folds: each test window is one calendar year, the prior year is
-        validation, and all earlier rows train the model. Up to 20 of the most recent eligible years are used (fewer if
-        history is shorter or the minimum training length is not met). Table cells show the mean and 95% interval
-        (Student&nbsp;t) of each metric <em>across those test years</em> (cross-fold uncertainty). Portfolio returns use
-        one-way slippage and commission on rebalance turnover from{" "}
-        <code style={{ fontSize: 12 }}>backend/data/transaction_costs_us.json</code> when present.
+        Precomputed walk-forward folds for the public strategies. For{" "}
+        <strong>Regression on technicals</strong>, each fold re-fits the model on the training window and re-searches
+        portfolio parameters on validation (Sharpe&nbsp;&gt;&nbsp;1, max drawdown ≤&nbsp;20%), then evaluates the held-out
+        test window. Yearly folds use calendar years when enough history exists; otherwise monthly folds are used.
+        Aggregate cells show the mean and 95% Student&nbsp;t interval across completed test folds.
       </p>
       {loading && <div style={{ fontSize: 13 }}>Loading walk-forward…</div>}
       {error && (
@@ -692,9 +695,12 @@ function WalkForwardPanel({
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ fontSize: 13, color: "#444" }}>
-              <strong>{payload.n_folds_completed}</strong> of {payload.n_folds_requested} requested folds completed ·
-              top_n={payload.top_n} · benchmark={payload.benchmark} · min train rows={payload.min_train_rows} · loaded{" "}
-              {payload.years_history}y history
+              <strong>{payload.n_folds_completed}</strong> of {payload.n_folds_requested} requested folds completed
+              {payload.fold_mode ? <> · mode={payload.fold_mode}</> : null}
+              {payload.top_n != null ? <> · top_n={payload.top_n}</> : null}
+              <> · benchmark={payload.benchmark}</>
+              {payload.min_train_rows != null ? <> · min train rows={payload.min_train_rows}</> : null}
+              {payload.years_history != null ? <> · loaded {payload.years_history}y history</> : null}
               {slip != null && comm != null && (
                 <>
                   {" "}
@@ -782,13 +788,13 @@ function WalkForwardPanel({
             )}
             {payload.folds && payload.folds.length > 0 && (
               <details style={{ fontSize: 13 }}>
-                <summary style={{ cursor: "pointer", fontWeight: 600 }}>Per-fold test-year total return</summary>
+                <summary style={{ cursor: "pointer", fontWeight: 600 }}>Per-fold test-window total return</summary>
                 <div style={{ marginTop: 10, overflowX: "auto" }}>
                   <table style={{ borderCollapse: "collapse", width: "100%" }}>
                     <thead>
                       <tr>
-                        <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #ddd" }}>Test year</th>
-                        <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #ddd" }}>Val year</th>
+                        <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #ddd" }}>Test window</th>
+                        <th style={{ textAlign: "left", padding: 6, borderBottom: "1px solid #ddd" }}>Val window</th>
                         {sids.map((sid) => (
                           <th
                             key={sid}
@@ -801,17 +807,29 @@ function WalkForwardPanel({
                       </tr>
                     </thead>
                     <tbody>
-                      {payload.folds.map((fold) => (
-                        <tr key={fold.test_year}>
-                          <td style={{ padding: 6, borderBottom: "1px solid #f5f5f5" }}>{fold.test_year}</td>
-                          <td style={{ padding: 6, borderBottom: "1px solid #f5f5f5" }}>{fold.val_year ?? "—"}</td>
+                      {payload.folds.map((fold) => {
+                        const testLabel =
+                          fold.test_month != null
+                            ? `${fold.test_year}-${String(fold.test_month).padStart(2, "0")}`
+                            : String(fold.test_year);
+                        const valLabel =
+                          fold.val_year == null
+                            ? "—"
+                            : fold.val_month != null
+                              ? `${fold.val_year}-${String(fold.val_month).padStart(2, "0")}`
+                              : String(fold.val_year);
+                        const rowKey = `${fold.test_year}-${fold.test_month ?? "y"}`;
+                        return (
+                        <tr key={rowKey}>
+                          <td style={{ padding: 6, borderBottom: "1px solid #f5f5f5" }}>{testLabel}</td>
+                          <td style={{ padding: 6, borderBottom: "1px solid #f5f5f5" }}>{valLabel}</td>
                           {sids.map((sid) => {
                             const b = fold.strategies?.[sid];
                             const tr = b?.test_metrics?.total_return;
                             const br = b?.baseline_test_metrics?.total_return;
                             return (
                               <td
-                                key={`${fold.test_year}-${sid}`}
+                                key={`${rowKey}-${sid}`}
                                 style={{
                                   padding: 6,
                                   borderBottom: "1px solid #f5f5f5",
@@ -825,7 +843,8 @@ function WalkForwardPanel({
                             );
                           })}
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train regression_based_on_technicals strategy."""
+"""Train regression_based_on_technicals strategy (includes walk-forward optimization)."""
 from __future__ import annotations
 
 import argparse
@@ -15,6 +15,7 @@ from regression_based_on_technicals import (  # noqa: E402
     RegressionTechnicalsConfig,
     evaluate_regression_technicals,
     save_artifacts,
+    walkforward_path,
 )
 from trend_v0_partial_position_exit import DataValidationError, TrendV0Config, validate_backtest_data  # noqa: E402
 
@@ -23,11 +24,21 @@ logger = logging.getLogger("regression_technicals_train")
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Train regression_based_on_technicals")
-    ap.add_argument("--years", type=float, default=1.0)
+    ap = argparse.ArgumentParser(
+        description="Train regression_based_on_technicals with per-fold walk-forward optimization"
+    )
+    ap.add_argument("--years", type=float, default=5.0, help="History length in years (default 5)")
     ap.add_argument("--validate-only", action="store_true")
     ap.add_argument("--allow-partial-universe", action="store_true")
     ap.add_argument("--split", default="0.5,0.25,0.25")
+    ap.add_argument(
+        "--wf-mode",
+        choices=("yearly", "monthly", "auto"),
+        default="yearly",
+        help="Walk-forward fold construction (default: yearly)",
+    )
+    ap.add_argument("--max-folds", type=int, default=10)
+    ap.add_argument("--min-train-rows", type=int, default=400)
     args = ap.parse_args()
 
     parts = [float(x.strip()) for x in args.split.split(",")]
@@ -40,6 +51,9 @@ def main() -> int:
         split_val_frac=parts[1],
         split_test_frac=parts[2],
         allow_partial_universe=bool(args.allow_partial_universe),
+        wf_mode=str(args.wf_mode),
+        max_folds=int(args.max_folds),
+        min_train_rows=int(args.min_train_rows),
     )
     vcfg = TrendV0Config(
         years=cfg.years,
@@ -60,17 +74,24 @@ def main() -> int:
     if args.validate_only:
         return 0
 
-    logger.info("Training + optimizing (Sharpe>1, max DD<=20%%)…")
+    logger.info(
+        "Training + optimizing (Sharpe>1, max DD<=20%%) + walk-forward mode=%s max_folds=%s…",
+        cfg.wf_mode,
+        cfg.max_folds,
+    )
     result = evaluate_regression_technicals(cfg)
     path = save_artifacts(result)
     tm = result.test_metrics
     logger.info("Saved %s", path)
+    logger.info("Walk-forward JSON: %s", walkforward_path(result.cadence))
     logger.info(
-        "Test: return=%.2f%% sharpe=%.2f max_dd=%.2f%% constraints_on_val=%s",
+        "Test: return=%.2f%% sharpe=%.2f max_dd=%.2f%% constraints_on_val=%s wf_folds=%d mode=%s",
         100 * float(tm.get("total_return", 0)),
         float(tm.get("sharpe", float("nan"))),
         100 * float(tm.get("max_drawdown", 0)),
         result.optimization.get("constraints_met_on_val"),
+        len(result.walkforward_folds),
+        result.walkforward_mode,
     )
     return 0
 

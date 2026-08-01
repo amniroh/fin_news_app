@@ -74,7 +74,8 @@ STRATEGY_META: Dict[str, Dict[str, Any]] = {
         "description": (
             "LightGBM regression on EMA/MACD/ADX/RVOL plus price momentum/vol features over all "
             "interesting stocks. Top-N daily rebalance; params tuned on validation for Sharpe>1 "
-            "and max drawdown ≤20%."
+            "and max drawdown ≤20%. Walk-forward re-optimizes the model and portfolio params on each "
+            "fold and reports out-of-sample aggregates on the Strategies page."
         ),
         "color": "#7c3aed",
     },
@@ -203,16 +204,72 @@ def _walkforward_path_for(strategy: str, cadence: str) -> Optional[Path]:
     return None
 
 
+def _student_t_ci(vals: List[float], *, alpha: float = 0.05) -> Dict[str, Any]:
+    import math
+
+    import numpy as np
+
+    x = np.asarray([float(v) for v in vals if v == v and np.isfinite(float(v))], dtype=float)
+    n = int(len(x))
+    if n == 0:
+        return {"mean": None, "ci_low": None, "ci_high": None, "n": 0}
+    mean = float(np.mean(x))
+    if n == 1:
+        return {"mean": mean, "ci_low": mean, "ci_high": mean, "n": 1}
+    s = float(np.std(x, ddof=1))
+    se = s / math.sqrt(n)
+    try:
+        from scipy import stats  # type: ignore
+
+        t_crit = float(stats.t.ppf(1.0 - alpha / 2.0, n - 1))
+    except Exception:
+        t_crit = 1.96 if n >= 30 else 2.05
+    h = t_crit * se
+    return {"mean": mean, "ci_low": mean - h, "ci_high": mean + h, "n": n}
+
+
+_WF_AGG_METRIC_KEYS = (
+    "total_return",
+    "cagr",
+    "ann_vol",
+    "sharpe",
+    "max_drawdown",
+    "rolling_1y_median_return",
+    "rolling_1y_hit_rate",
+    "ic",
+    "turnover_avg",
+)
+
+
 def _merged_walkforward(cadence: str) -> Dict[str, Any]:
     """Merge walk-forward fold JSONs from all public strategies."""
     folds_by_key: Dict[tuple, Dict[str, Any]] = {}
     generated: List[str] = []
+    years_history: List[float] = []
+    fold_modes: List[str] = []
+    top_ns: List[Any] = []
+    min_train_rows: List[int] = []
     for strat in PUBLIC_STRATEGIES:
         p = _walkforward_path_for(strat, cadence)
         if p is None or not p.is_file():
             continue
         j = _load_json(p) or {}
         generated.append(j.get("generated_at") or "")
+        if j.get("years_history") is not None:
+            try:
+                years_history.append(float(j["years_history"]))
+            except Exception:
+                pass
+        if j.get("fold_mode"):
+            fold_modes.append(str(j["fold_mode"]))
+        if j.get("top_n") is not None:
+            top_ns.append(j.get("top_n"))
+        if j.get("min_train_rows"):
+            try:
+                min_train_rows.append(int(j["min_train_rows"]))
+            except Exception:
+                pass
+        # Prefer file-level aggregate when present (richer CI), but still merge folds for UI.
         for fold in j.get("folds") or []:
             key = (fold.get("test_year"), fold.get("test_month"), fold.get("val_year"), fold.get("val_month"))
             if key not in folds_by_key:
@@ -220,28 +277,33 @@ def _merged_walkforward(cadence: str) -> Dict[str, Any]:
                 folds_by_key[key]["strategies"] = {}
             folds_by_key[key]["strategies"].update((fold.get("strategies") or {}))
 
-    folds = sorted(folds_by_key.values(), key=lambda f: (int(f.get("test_year") or 0), int(f.get("test_month") or 0)))
-    aggregate: Dict[str, Dict[str, Any]] = {}
-    for strat in PUBLIC_STRATEGIES:
-        trs: List[float] = []
-        dds: List[float] = []
-        shs: List[float] = []
-        for fold in folds:
-            m = (fold.get("strategies") or {}).get(strat, {}).get("test_metrics") or {}
-            for vals, acc in ((m.get("total_return"), trs), (m.get("max_drawdown"), dds), (m.get("sharpe"), shs)):
-                if vals is not None:
+    folds = sorted(
+        folds_by_key.values(),
+        key=lambda f: (int(f.get("test_year") or 0), int(f.get("test_month") or 0)),
+    )
+
+    # Recompute aggregate across merged folds so baseline_* and CIs are available for the UI.
+    by_strat: Dict[str, Dict[str, List[float]]] = {}
+    for fold in folds:
+        for strat, block in (fold.get("strategies") or {}).items():
+            tm = block.get("test_metrics") or {}
+            bm = block.get("baseline_test_metrics") or {}
+            for prefix, src in (("strategy", tm), ("baseline", bm)):
+                for k in _WF_AGG_METRIC_KEYS:
+                    v = src.get(k)
+                    if v is None:
+                        continue
                     try:
-                        fv = float(vals)
-                        if fv == fv:
-                            acc.append(fv)
+                        fv = float(v)
                     except Exception:
-                        pass
-        if trs:
-            aggregate[strat] = {
-                "strategy_total_return": {"mean": float(sum(trs) / len(trs)), "n": len(trs)},
-                "strategy_sharpe": {"mean": float(sum(shs) / len(shs)) if shs else None, "n": len(shs)},
-                "strategy_max_drawdown": {"mean": float(sum(dds) / len(dds)) if dds else None, "n": len(dds)},
-            }
+                        continue
+                    if fv != fv:
+                        continue
+                    by_strat.setdefault(strat, {}).setdefault(f"{prefix}_{k}", []).append(fv)
+
+    aggregate: Dict[str, Dict[str, Any]] = {}
+    for strat, metrics_map in by_strat.items():
+        aggregate[strat] = {mk: _student_t_ci(series) for mk, series in metrics_map.items()}
 
     return {
         "cadence": cadence,
@@ -252,6 +314,10 @@ def _merged_walkforward(cadence: str) -> Dict[str, Any]:
         "aggregate": aggregate,
         "generated_at": max(generated) if generated else None,
         "strategies": list(PUBLIC_STRATEGIES),
+        "years_history": max(years_history) if years_history else None,
+        "fold_mode": fold_modes[0] if len(set(fold_modes)) == 1 else ("mixed" if fold_modes else None),
+        "top_n": top_ns[0] if top_ns else None,
+        "min_train_rows": max(min_train_rows) if min_train_rows else None,
     }
 
 
