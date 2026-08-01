@@ -189,7 +189,7 @@ class RegressionTechnicalsConfig:
     # Walk-forward: yearly re-optimization by default; monthly used as fallback when history is short.
     wf_mode: str = "yearly"  # yearly | monthly | auto
     max_folds: int = 10
-    min_train_rows: int = 400
+    min_train_rows: int = 80
 
 
 _WF_METRIC_KEYS = (

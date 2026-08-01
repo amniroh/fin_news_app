@@ -38,7 +38,7 @@ def main() -> int:
         help="Walk-forward fold construction (default: yearly)",
     )
     ap.add_argument("--max-folds", type=int, default=10)
-    ap.add_argument("--min-train-rows", type=int, default=400)
+    ap.add_argument("--min-train-rows", type=int, default=80)
     args = ap.parse_args()
 
     parts = [float(x.strip()) for x in args.split.split(",")]
