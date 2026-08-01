@@ -71,7 +71,8 @@ class TrendV0Config:
     split_test_frac: float = 0.25
     benchmark: str = "SPY"
     provider: str = "yfinance"
-    min_coverage_frac: float = 0.97
+    # ~2y technicals history often has ADX/MACD warmup gaps; 0.93 keeps a large eligible set.
+    min_coverage_frac: float = 0.93
     allow_partial_universe: bool = False
     min_eligible_symbols: int = 50
 
@@ -237,8 +238,9 @@ def validate_backtest_data(
         start_s = start_d.isoformat()
         end_s = end_d.isoformat()
 
-        # When allowing a partial universe, clip the window to available technicals so early
-        # price history without indicators does not zero out coverage for every symbol.
+        # When allowing a partial universe, clip the window to available technicals so
+        # price bars outside the indicator history (or ahead of the last asof) do not
+        # zero out coverage for every symbol.
         if cfg.allow_partial_universe:
             tech_span = vm_con.execute(
                 """
@@ -253,6 +255,11 @@ def validate_backtest_data(
                 if tech_min > start_s:
                     start_s = tech_min
                     start_d = date.fromisoformat(start_s)
+            if tech_span and tech_span[1]:
+                tech_max = str(tech_span[1])[:10]
+                if tech_max < end_s:
+                    end_s = tech_max
+                    end_d = date.fromisoformat(end_s)
 
         tech = load_technical_history(vm_con, symbols, start_s, end_s, provider=cfg.provider)
         if tech.empty:
@@ -327,37 +334,6 @@ def validate_backtest_data(
             use_symbols = symbols
         else:
             use_symbols = eligible
-            # Tiny calendar mismatches (holidays / crypto 24-7 vs equity sessions) should not
-            # wipe the universe when operators explicitly allow a partial set.
-            if len(use_symbols) < cfg.min_eligible_symbols and cfg.min_coverage_frac >= 0.999:
-                relaxed = 0.97
-                eligible2: List[str] = []
-                for sym in symbols:
-                    if sym in missing_price_syms:
-                        continue
-                    ohlcv = load_ohlcv_daily(agent_con, sym)
-                    if ohlcv.empty:
-                        continue
-                    ohlcv = ohlcv.loc[(ohlcv.index >= pd.Timestamp(start_s)) & (ohlcv.index <= pd.Timestamp(end_s))]
-                    if ohlcv.empty:
-                        continue
-                    n_bars = len(ohlcv)
-                    n_ok = 0
-                    for dt, _ in ohlcv.iterrows():
-                        dstr = dt.strftime("%Y-%m-%d")
-                        rec = tech_idx.get((sym, dstr))
-                        if rec is None:
-                            continue
-                        if any(
-                            rec[f] is None or (isinstance(rec[f], float) and not math.isfinite(rec[f]))
-                            for f in REQUIRED_TECH_FIELDS
-                        ):
-                            continue
-                        n_ok += 1
-                    cov = n_ok / n_bars if n_bars else 0.0
-                    if cov >= relaxed:
-                        eligible2.append(sym)
-                use_symbols = eligible2
             if len(use_symbols) < cfg.min_eligible_symbols:
                 errors.append(
                     f"Only {len(use_symbols)} symbols have complete data (need >= {cfg.min_eligible_symbols}). "
