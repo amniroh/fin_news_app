@@ -17,12 +17,47 @@ fi
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "==> Installing Docker"
-  sudo dnf install -y docker docker-compose-plugin
+  sudo dnf install -y docker
   sudo systemctl enable --now docker
   sudo usermod -aG docker ec2-user || true
   echo "Docker installed. You may need to re-login for group membership."
 fi
 
+# Compose v2 plugin is not always packaged on Amazon Linux; fall back to standalone.
+if ! docker compose version >/dev/null 2>&1; then
+  if sudo dnf install -y docker-compose-plugin 2>/dev/null; then
+    true
+  else
+    echo "==> Installing docker-compose standalone"
+    COMPOSE_VER="${DOCKER_COMPOSE_VERSION:-v2.29.7}"
+    ARCH="$(uname -m)"
+    case "$ARCH" in
+      aarch64|arm64) CARCH=aarch64 ;;
+      x86_64|amd64) CARCH=x86_64 ;;
+      *) CARCH="$ARCH" ;;
+    esac
+    sudo curl -fsSL \
+      "https://github.com/docker/compose/releases/download/${COMPOSE_VER}/docker-compose-linux-${CARCH}" \
+      -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+    # Shim so `docker compose` works via plugin-style wrapper if needed
+    if [[ ! -e /usr/local/lib/docker/cli-plugins/docker-compose ]]; then
+      sudo mkdir -p /usr/local/lib/docker/cli-plugins
+      sudo ln -sf /usr/local/bin/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
+    fi
+  fi
+fi
+
+# Prefer `docker compose`; fall back to `docker-compose` in the unit via wrapper.
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD="docker-compose"
+else
+  echo "ERROR: neither 'docker compose' nor docker-compose is available" >&2
+  exit 1
+fi
+echo "Using compose: $COMPOSE_CMD"
 sudo cp "$REPO_ROOT/deploy/ec2/ib-gateway-paper.service" /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable ib-gateway-paper.service

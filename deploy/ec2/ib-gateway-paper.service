@@ -12,8 +12,8 @@ WorkingDirectory=/home/ec2-user/market_analysis/deploy/ec2/ib-gateway
 Environment=HOME=/home/ec2-user
 # Fail fast if credentials were never filled in.
 ExecStartPre=/usr/bin/bash -c 'test -f .env && grep -q "^TWS_USERID=.\+" .env && grep -q "^TWS_PASSWORD=.\+" .env'
-ExecStart=/usr/bin/docker compose up -d
-ExecStop=/usr/bin/docker compose down
+ExecStart=/usr/bin/bash -c 'if docker compose version >/dev/null 2>&1; then docker compose up -d; else docker-compose up -d; fi'
+ExecStop=/usr/bin/bash -c 'if docker compose version >/dev/null 2>&1; then docker compose down; else docker-compose down; fi'
 TimeoutStartSec=120
 
 [Install]
