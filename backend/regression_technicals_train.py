@@ -79,19 +79,20 @@ def main() -> int:
         cfg.wf_mode,
         cfg.max_folds,
     )
-    result = evaluate_regression_technicals(cfg)
-    path = save_artifacts(result)
+    result, model = evaluate_regression_technicals(cfg)
+    path = save_artifacts(result, model=model)
     tm = result.test_metrics
     logger.info("Saved %s", path)
     logger.info("Walk-forward JSON: %s", walkforward_path(result.cadence))
     logger.info(
-        "Test: return=%.2f%% sharpe=%.2f max_dd=%.2f%% constraints_on_val=%s wf_folds=%d mode=%s",
+        "Test: return=%.2f%% sharpe=%.2f max_dd=%.2f%% constraints_on_val=%s wf_folds=%d mode=%s live_params=%s",
         100 * float(tm.get("total_return", 0)),
         float(tm.get("sharpe", float("nan"))),
         100 * float(tm.get("max_drawdown", 0)),
         result.optimization.get("constraints_met_on_val"),
         len(result.walkforward_folds),
         result.walkforward_mode,
+        result.chosen_params,
     )
     return 0
 

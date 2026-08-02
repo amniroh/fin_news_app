@@ -19,7 +19,7 @@ import os
 import sqlite3
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -389,7 +389,14 @@ def build_technicals_panel(
     agent_con: sqlite3.Connection,
     cadence: str,
     provider: str,
+    require_target: bool = True,
 ) -> pd.DataFrame:
+    """Build (date, symbol) feature rows.
+
+    When ``require_target`` is True (training), rows need a realized forward return ``y``
+    and the last ``horizon`` calendar bars are dropped. For live inference set
+    ``require_target=False`` so the latest as-of bar is scored.
+    """
     horizon = CADENCE_HORIZON_DAYS[cadence]
     tech = load_technical_history(vm_con, symbols, start_date, end_date, provider=provider)
     if tech.empty:
@@ -417,26 +424,46 @@ def build_technicals_panel(
         ret_5d = close.pct_change(5)
         ret_20d = close.pct_change(20)
         vol_20d = ret_1d.rolling(20, min_periods=10).std()
-        fwd = np.log((close.shift(-horizon) / close).clip(lower=1e-12))
-        idx = merged.index.intersection(fwd.dropna().index)
-        if len(idx) < 20:
-            continue
-        frame = pd.DataFrame(
-            {
-                "date": idx,
-                "symbol": sym,
-                "close_ema_ratio": (merged.loc[idx, "close"] / merged.loc[idx, "ema"] - 1.0).values,
-                "macd_spread": (merged.loc[idx, "macd_line"] - merged.loc[idx, "macd_signal"]).values,
-                "macd_line_norm": (merged.loc[idx, "macd_line"] / merged.loc[idx, "close"]).values,
-                "adx": merged.loc[idx, "adx"].values,
-                "rvol": merged.loc[idx, "rvol"].values,
-                "ret_1d": ret_1d.loc[idx].values,
-                "ret_5d": ret_5d.loc[idx].values,
-                "ret_20d": ret_20d.loc[idx].values,
-                "vol_20d": vol_20d.loc[idx].values,
-                "y": fwd.loc[idx].values,
-            }
-        ).dropna()
+        if require_target:
+            fwd = np.log((close.shift(-horizon) / close).clip(lower=1e-12))
+            idx = merged.index.intersection(fwd.dropna().index)
+            if len(idx) < 20:
+                continue
+            frame = pd.DataFrame(
+                {
+                    "date": idx,
+                    "symbol": sym,
+                    "close_ema_ratio": (merged.loc[idx, "close"] / merged.loc[idx, "ema"] - 1.0).values,
+                    "macd_spread": (merged.loc[idx, "macd_line"] - merged.loc[idx, "macd_signal"]).values,
+                    "macd_line_norm": (merged.loc[idx, "macd_line"] / merged.loc[idx, "close"]).values,
+                    "adx": merged.loc[idx, "adx"].values,
+                    "rvol": merged.loc[idx, "rvol"].values,
+                    "ret_1d": ret_1d.loc[idx].values,
+                    "ret_5d": ret_5d.loc[idx].values,
+                    "ret_20d": ret_20d.loc[idx].values,
+                    "vol_20d": vol_20d.loc[idx].values,
+                    "y": fwd.loc[idx].values,
+                }
+            ).dropna()
+        else:
+            idx = merged.index
+            if len(idx) < 20:
+                continue
+            frame = pd.DataFrame(
+                {
+                    "date": idx,
+                    "symbol": sym,
+                    "close_ema_ratio": (merged.loc[idx, "close"] / merged.loc[idx, "ema"] - 1.0).values,
+                    "macd_spread": (merged.loc[idx, "macd_line"] - merged.loc[idx, "macd_signal"]).values,
+                    "macd_line_norm": (merged.loc[idx, "macd_line"] / merged.loc[idx, "close"]).values,
+                    "adx": merged.loc[idx, "adx"].values,
+                    "rvol": merged.loc[idx, "rvol"].values,
+                    "ret_1d": ret_1d.loc[idx].values,
+                    "ret_5d": ret_5d.loc[idx].values,
+                    "ret_20d": ret_20d.loc[idx].values,
+                    "vol_20d": vol_20d.loc[idx].values,
+                }
+            ).dropna(subset=FEATURE_NAMES)
         if not frame.empty:
             panels.append(frame)
 
@@ -444,7 +471,9 @@ def build_technicals_panel(
         raise RuntimeError("no regression panel rows produced")
     panel = pd.concat(panels, axis=0, ignore_index=True)
     panel["date"] = pd.to_datetime(panel["date"])
-    panel = panel.replace([np.inf, -np.inf], np.nan).dropna()
+    panel = panel.replace([np.inf, -np.inf], np.nan)
+    keep_cols = ["date", "symbol", *FEATURE_NAMES] + (["y"] if require_target else [])
+    panel = panel[keep_cols].dropna()
     return panel
 
 
@@ -509,7 +538,9 @@ def _search_backtest_params(
     return chosen_params, trials, model
 
 
-def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> RegressionTechnicalsResult:
+def evaluate_regression_technicals(
+    cfg: RegressionTechnicalsConfig,
+) -> Tuple[RegressionTechnicalsResult, Any]:
     vcfg = TrendV0Config(
         years=cfg.years,
         split_train_frac=cfg.split_train_frac,
@@ -712,7 +743,7 @@ def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> Regressio
     wf_aggregate = _aggregate_walkforward_folds(wf_folds)
 
     feasible_count = sum(1 for t in trials if t.get("feasible"))
-    return RegressionTechnicalsResult(
+    result = RegressionTechnicalsResult(
         cadence=cfg.cadence,
         strategy_id=STRATEGY_ID,
         weighting="equal",
@@ -776,6 +807,7 @@ def evaluate_regression_technicals(cfg: RegressionTechnicalsConfig) -> Regressio
         walkforward_mode=wf_mode_used,
         walkforward_aggregate=wf_aggregate,
     )
+    return result, model_full
 
 
 def metrics_path(cadence: str = "daily") -> Path:
@@ -786,7 +818,33 @@ def walkforward_path(cadence: str = "daily") -> Path:
     return REGRESSION_DIR / f"walkforward_{cadence}.json"
 
 
-def save_artifacts(result: RegressionTechnicalsResult) -> Path:
+def model_path(cadence: str = "daily") -> Path:
+    return REGRESSION_DIR / f"regression_technicals_model_{cadence}.joblib"
+
+
+def _live_params_from_result(result: RegressionTechnicalsResult) -> Dict[str, Any]:
+    """Prefer the most recent walk-forward fold's portfolio params for live trading."""
+    if result.walkforward_folds:
+        block = (result.walkforward_folds[-1].get("strategies") or {}).get(STRATEGY_ID) or {}
+        cp = block.get("chosen_params")
+        if isinstance(cp, dict) and cp:
+            return dict(cp)
+    return dict(result.chosen_params or {})
+
+
+def save_artifacts(result: RegressionTechnicalsResult, model: Any = None) -> Path:
+    live_params = _live_params_from_result(result)
+    # Keep metrics JSON aligned with what paper trading will use.
+    result.chosen_params = live_params
+    if result.current_top and live_params.get("top_n"):
+        top_n = int(live_params["top_n"])
+        if len(result.current_top) > top_n:
+            result.current_top = result.current_top[:top_n]
+            w = 1.0 / max(1, len(result.current_top))
+            for i, row in enumerate(result.current_top):
+                row["rank"] = i + 1
+                row["weight"] = w
+
     p = metrics_path(result.cadence)
     p.write_text(_safe_json_dumps(asdict(result)), encoding="utf-8")
     wf = {
@@ -802,10 +860,158 @@ def save_artifacts(result: RegressionTechnicalsResult) -> Path:
         "top_n": (result.chosen_params or {}).get("top_n"),
         "folds": result.walkforward_folds,
         "aggregate": result.walkforward_aggregate,
+        "live_params": live_params,
         "optimization_note": (
             "Each fold re-fits LightGBM on train and re-searches portfolio params on validation "
-            "(Sharpe>1, max DD≥-20%), then evaluates the held-out test window."
+            "(Sharpe>1, max DD≥-20%), then evaluates the held-out test window. "
+            "Live paper trading uses the fitted holdout model plus the latest fold's chosen_params."
         ),
     }
     walkforward_path(result.cadence).write_text(_safe_json_dumps(wf), encoding="utf-8")
+
+    if model is not None:
+        import joblib
+
+        bundle = {
+            "model": model,
+            "feature_names": list(result.feature_names or FEATURE_NAMES),
+            "chosen_params": live_params,
+            "strategy_id": STRATEGY_ID,
+            "cadence": result.cadence,
+            "trained_at": result.trained_at,
+            "walkforward_mode": result.walkforward_mode,
+            "n_wf_folds": len(result.walkforward_folds),
+            "history_years": result.history_years,
+        }
+        out = model_path(result.cadence)
+        joblib.dump(bundle, out)
+        logger.info("Saved model bundle %s (live_params=%s)", out, live_params)
     return p
+
+
+def load_model_bundle(cadence: str = "daily") -> Dict[str, Any]:
+    import joblib
+
+    path = model_path(cadence)
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"no regression technicals model for cadence {cadence!r}: {path}. "
+            "Run: python backend/regression_technicals_train.py --allow-partial-universe"
+        )
+    bundle = joblib.load(path)
+    if not isinstance(bundle, dict) or "model" not in bundle:
+        raise RuntimeError(f"invalid model bundle at {path}")
+    return bundle
+
+
+def _ib_tradable_symbol(sym: str) -> bool:
+    """Heuristic: US SMART equities only (skip overseas suffixes / crypto tickers)."""
+    s = (sym or "").strip().upper()
+    if not s or "." in s:
+        return False
+    if any(ch.isdigit() for ch in s) and not s.replace("-", "").isalnum():
+        return False
+    # Common crypto / non-stock tokens in the interesting-stocks universe.
+    cryptoish = {
+        "BTC", "ETH", "SOL", "ADA", "XRP", "DOGE", "DOT", "AVAX", "MATIC", "LINK",
+        "UNI", "AAVE", "1INCH", "SHIB", "LTC", "BCH", "ATOM", "NEAR", "APT", "ARB",
+        "OP", "SUI", "PEPE", "WIF", "BONK",
+    }
+    if s in cryptoish:
+        return False
+    return True
+
+
+def predict_top_n(
+    cadence: str = "daily",
+    n: Optional[int] = None,
+    *,
+    lookback_days: int = 90,
+    provider: str = "yfinance",
+) -> List[Dict[str, Any]]:
+    """Score the latest technicals bar per symbol and return equal-weight top-N targets.
+
+    Uses the persisted LightGBM model and portfolio params from the latest walk-forward
+    fold (``chosen_params`` in the joblib bundle). Applies causal prediction smoothing
+    and the optional SPY trend filter from those params.
+    """
+    from sp500_return_model import _smooth_panel_predictions, _spy_trend_mask
+
+    bundle = load_model_bundle(cadence)
+    model = bundle["model"]
+    feat_names = list(bundle.get("feature_names") or FEATURE_NAMES)
+    params = dict(bundle.get("chosen_params") or {})
+    top_n = int(n if n is not None else params.get("top_n") or 25)
+    smooth_k = int(params.get("pred_smoothing_days") or 1)
+    trend_on = bool(params.get("trend_filter_enabled"))
+
+    end_d = date.today()
+    start_d = end_d - timedelta(days=int(lookback_days) + 40)
+    start_s, end_s = start_d.isoformat(), end_d.isoformat()
+
+    vm_con = sqlite3.connect(str(_vm_db_path()))
+    vm_con.row_factory = sqlite3.Row
+    agent_con = sqlite3.connect(str(_agent_db_path()))
+    agent_con.row_factory = sqlite3.Row
+    try:
+        symbols = load_interesting_symbols(vm_con)
+        if not symbols:
+            raise RuntimeError("no interesting symbols for live prediction")
+        panel = build_technicals_panel(
+            symbols,
+            start_s,
+            end_s,
+            vm_con=vm_con,
+            agent_con=agent_con,
+            cadence=cadence,
+            provider=provider,
+            require_target=False,
+        )
+        prices = load_agent_close_prices(agent_con, list(set(symbols) | {"SPY"}))
+    finally:
+        vm_con.close()
+        agent_con.close()
+
+    if "SPY" not in prices:
+        spy_prices = load_prices(["SPY"], years=2.0, refresh=False)
+        if "SPY" in spy_prices:
+            prices["SPY"] = spy_prices["SPY"]
+
+    missing = [c for c in feat_names if c not in panel.columns]
+    if missing:
+        raise RuntimeError(f"live panel missing features: {missing}")
+
+    scored = panel.copy()
+    scored["pred"] = _predict_panel(model, scored)
+    if smooth_k > 1:
+        scored = _smooth_panel_predictions(scored, k=smooth_k, score_col="pred")
+
+    latest_dt = scored["date"].max()
+    if trend_on and "SPY" in prices:
+        spy_close = pd.to_numeric(prices["SPY"]["Close"], errors="coerce")
+        mask = _spy_trend_mask(spy_close, pd.DatetimeIndex([latest_dt]), 200)
+        if not bool(mask.iloc[0]):
+            logger.info("trend filter risk-off on %s — returning empty target set", latest_dt.date())
+            return []
+
+    latest = scored[scored["date"] == latest_dt].copy()
+    if latest.empty:
+        raise RuntimeError("no live rows on latest panel date")
+    head = latest.sort_values("pred", ascending=False)
+    head = head[head["symbol"].map(lambda s: _ib_tradable_symbol(str(s)))]
+    head = head.head(top_n).reset_index(drop=True)
+    if head.empty:
+        logger.warning("no IB-tradable symbols in latest scored panel")
+        return []
+    w = 1.0 / max(1, len(head))
+    return [
+        {
+            "symbol": str(row.symbol),
+            "predicted_return": float(row.pred),
+            "rank": int(i + 1),
+            "weight": float(w),
+            "asof_date": str(pd.Timestamp(latest_dt).date()),
+            "chosen_params": params,
+        }
+        for i, row in enumerate(head.itertuples(index=False))
+    ]

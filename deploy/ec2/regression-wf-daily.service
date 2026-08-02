@@ -1,0 +1,18 @@
+[Unit]
+Description=Daily regression walk-forward train + IB paper rebalance (after US close / orchestrator)
+Requires=regression-wf-daily.timer
+
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/home/ec2-user/market_analysis
+Environment=HOME=/home/ec2-user
+Environment=MPLBACKEND=Agg
+EnvironmentFile=-/home/ec2-user/market_analysis/.env
+# Train + optional IB can take a while on a small instance.
+TimeoutStartSec=3h
+Nice=10
+ExecStart=/bin/bash /home/ec2-user/market_analysis/deploy/ec2/run-regression-wf-daily.sh
+
+[Install]
+WantedBy=multi-user.target

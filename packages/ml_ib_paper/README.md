@@ -1,159 +1,93 @@
-# ML top‑N (predicted‑return weighted) — Interactive Brokers paper trading
+# ML / Regression paper trading — Interactive Brokers
 
-This folder is a **small runtime** around `backend/sp500_return_model.py`:
+This folder contains small runtimes that target an IB **paper** account:
 
-- Loads the **daily** `sp500_return_model_daily.joblib` bundle (same file for equal vs weighted; weighting only changes portfolio construction).
-- Refreshes / reads cached **daily OHLCV** parquet files (same layout as training).
-- Computes **score_weighted** top‑N targets via `predict_top_n(..., weighting="score_weighted")`.
-- Optionally connects to **Interactive Brokers** (TWS or IB Gateway, **paper** account) and places **market** orders to move the account toward those target weights.
+| Script | Strategy |
+|--------|----------|
+| `paper_rebalance.py` | Legacy ML top‑N (`sp500_return_model`, score-weighted) |
+| `regression_paper_rebalance.py` | **Regression on technicals** (LightGBM + walk-forward `chosen_params`) |
 
-**Nothing here is investment advice.** Paper trading can still diverge from backtests (fills, halts, borrow, corporate actions, API outages).
-
----
-
-## Information I need from you to finish *your* setup
-
-To wire this to **your** Interactive Brokers paper account (beyond what the code already reads from env / flags), please confirm:
-
-1. **Where IB runs** — TWS on your laptop vs IB Gateway on a VPS; whether the bot runs on the **same machine** or needs an **SSH tunnel / VPN**.
-2. **Paper API port** you use (TWS paper is often **7497**; Gateway paper often **4002**) and that **“Enable ActiveX and Socket Clients”** is on.
-3. **Paper account id** if you have multiple accounts linked (the `DU…` string), or confirm a single default account is fine.
-4. **Whether this account holds only this strategy** — the script adjusts **top‑N names only**; it does **not** automatically sell unrelated legacy positions unless you add that policy.
-5. **Order constraints** you want: max notional per name, trading window (e.g. after 15:45 ET only), block list, or “no first hour” rules.
-6. **Symbol exceptions** — any tickers where Yahoo cache stem ≠ IB symbol (use `--symbol-map` JSON).
+**Nothing here is investment advice.** Paper trading can still diverge from backtests.
 
 ---
 
-## What you must provide (IB + network)
+## Regression on technicals (recommended)
 
-| Item | Why |
-|------|-----|
-| **TWS or IB Gateway** running and logged into **paper** | IB API only talks to a live Gateway/TWS process. |
-| **API enabled** in TWS/Gateway (Configure → API → Settings) | Otherwise connections are refused. |
-| **Trusted IPs** | If the bot runs on a **remote host**, add that host’s IP (or `0.0.0.0` / “Allow only localhost” off + firewall rules—understand the risk). |
-| **Host + port** | Typical **paper TWS**: `127.0.0.1:7497`. **Paper IB Gateway**: often `4002`. **Live** ports differ—double‑check you are on **paper**. |
-| **Client ID** | Integer unique per connection (avoid clashes with other scripts or open TWS windows). |
-| **Account id** (optional) | If multiple accounts are linked, set `IB_ACCOUNT` to the **paper** account number string. |
-| **Market data** (optional) | For limit / mid pricing you may need market data subscriptions on paper; this script uses **brief snapshot** requests for sizing; with no data you may need to adjust logic or use delayed data settings in TWS. |
+Daily EC2 schedule (`regression-wf-daily.timer`, 22:30 UTC):
 
-If the bot runs **remotely** and IB runs on your laptop, use **SSH tunnel**:
+1. Extend `vm_technical_indicators`
+2. Re-run walk-forward train → writes `regression_technicals_model_daily.joblib` + metrics/WF JSON
+3. Rebalance paper account toward equal-weight top‑N (dry-run unless `IB_PAPER_EXECUTE=1`)
+
+Live inference uses the persisted model plus the **latest walk-forward fold’s** portfolio params (`top_n`, smoothing, trend filter, vol blend).
+
+### Dry run
 
 ```bash
-ssh -L 7497:127.0.0.1:7497 you@remote
-# then on remote: IB_HOST=127.0.0.1 IB_PORT=7497
+export ML_PAPER_BACKEND_DIR=/home/ec2-user/market_analysis/backend
+python packages/ml_ib_paper/regression_paper_rebalance.py --dry-run
 ```
 
----
+### Paper orders
 
-## Layout on the remote host
-
-Example:
-
-```text
-/opt/ml_ib_paper/
-  backend/
-    sp500_return_model.py
-    data/
-      sp500_return_models/
-        sp500_return_model_daily.joblib
-        sp500_return_model_daily_score_weighted_metrics.json   # optional; not required for inference
-      sp500_prices/
-        *.parquet
-  packages/ml_ib_paper/
-    paper_rebalance.py
-    requirements.txt
-```
-
-Paths are controlled with:
-
-| Env var | Meaning |
-|---------|---------|
-| `ML_PAPER_BACKEND_DIR` | Directory containing `sp500_return_model.py` (usually `.../backend`). |
-| `SP500_MODEL_DIR` | Directory with `sp500_return_model_daily.joblib`. |
-| `SP500_PRICE_CACHE_DIR` | Directory with `SYMBOL.parquet` caches (Yahoo‑style symbols, e.g. `BRK-B.parquet`). |
-| `IB_HOST`, `IB_PORT`, `IB_CLIENT_ID` | IB API endpoint. |
-| `IB_ACCOUNT` | Optional explicit paper account id. |
-
----
-
-## Install (remote)
-
-```bash
-cd /opt/ml_ib_paper/packages/ml_ib_paper
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
----
-
-## Dry run (recommended first)
-
-```bash
-export ML_PAPER_BACKEND_DIR=/opt/ml_ib_paper/backend
-export SP500_MODEL_DIR=/opt/ml_ib_paper/backend/data/sp500_return_models
-export SP500_PRICE_CACHE_DIR=/opt/ml_ib_paper/backend/data/sp500_prices
-
-python paper_rebalance.py --dry-run --top-n 50 --deploy-fraction 0.95
-```
-
----
-
-## Paper rebalance (real orders on **paper** account)
-
-Start **TWS or Gateway (paper)**. Then:
+Start **TWS or IB Gateway (paper)** with API enabled, then:
 
 ```bash
 export IB_HOST=127.0.0.1
-export IB_PORT=7497
-export IB_CLIENT_ID=7
+export IB_PORT=7497          # TWS paper; Gateway paper often 4002
+export IB_CLIENT_ID=61
 # export IB_ACCOUNT=DUxxxxxx
+export IB_PAPER_EXECUTE=1
 
-python paper_rebalance.py --execute --top-n 50 --deploy-fraction 0.95
+python packages/ml_ib_paper/regression_paper_rebalance.py --execute --deploy-fraction 0.95
 ```
 
-Use `--max-order-usd` to cap per‑name notional during early experiments.
+By default the bot **sells US stock names that leave the basket** — use a dedicated paper account.
 
----
-
-## Bundle from your dev machine
-
-From repo root:
+If IB runs on your laptop and the bot on EC2, tunnel:
 
 ```bash
-bash packages/ml_ib_paper/bundle_ml_ib_paper.sh
+ssh -N -L 7497:127.0.0.1:7497 investor-bot
+# on EC2: IB_HOST=127.0.0.1 IB_PORT=7497
 ```
 
-Copy the resulting `dist/ml_ib_paper_bundle_*.tgz` to the server, extract, install `requirements.txt`, set env vars, and run.
+---
 
-If `sp500_prices` is huge, **rsync** it separately instead of stuffing the tarball:
+## Legacy ML top‑N
+
+`paper_rebalance.py` still targets `sp500_return_model_daily.joblib` (score-weighted). See historical notes below for ports and layout.
+
+### Information needed for your IB setup
+
+1. **Where IB runs** — TWS on your laptop vs IB Gateway on a VPS; same machine vs SSH tunnel.
+2. **Paper API port** (TWS paper often **7497**; Gateway paper often **4002**) and API socket clients enabled.
+3. **Paper account id** (`DU…`) if multiple accounts are linked.
+4. Confirm the account is **dedicated** to this strategy (regression liquidates non-target US stocks by default).
+5. Optional: max notional per name, symbol-map JSON for Yahoo≠IB tickers.
+
+| Item | Why |
+|------|-----|
+| TWS / Gateway logged into **paper** | API only talks to a live Gateway/TWS process |
+| API enabled | Otherwise connections are refused |
+| Host + port | Paper vs live ports differ — double-check paper |
+| Client ID | Unique per connection |
+
+### Env vars
+
+| Env var | Meaning |
+|---------|---------|
+| `ML_PAPER_BACKEND_DIR` | Directory containing strategy modules (usually `.../backend`) |
+| `IB_HOST`, `IB_PORT`, `IB_CLIENT_ID` | IB API endpoint |
+| `IB_ACCOUNT` | Optional paper account id |
+| `IB_PAPER_EXECUTE` | `1` to place orders from the daily script |
+| `IB_PAPER_DEPLOY_FRACTION` | Fraction of NetLiquidation (default `0.95`) |
+| `IB_PAPER_REGRESSION_STATE` | Optional path for last-target state JSON |
+
+### Install (remote)
 
 ```bash
-rsync -av backend/data/sp500_prices/ remote:/opt/ml_ib_paper/backend/data/sp500_prices/
+cd ~/market_analysis
+source .venv/bin/activate
+pip install -r packages/ml_ib_paper/requirements.txt
+bash deploy/ec2/install-services.sh
 ```
-
----
-
-## Symbol mapping (IB vs Yahoo cache stems)
-
-Most tickers match. A few hyphenated names differ on IB (e.g. `BRK-B` parquet → IB often wants `BRK B`). Use `--symbol-map` pointing to JSON:
-
-```json
-{"BRK-B": "BRK B", "BF-B": "BF B"}
-```
-
----
-
-## Limitations (v1)
-
-- **US stocks, SMART/USD** only; no options/futures.
-- **Market orders** for deltas; no smart limit logic.
-- **Whole shares** (integer); no IB fractional‑share path in this script.
-- **No shorting** — targets are long‑only; sells only reduce toward zero.
-- **Single daily run** — schedule with `cron` / systemd timer after US close if you want “same bar” discipline as research (you should document your own clock).
-
----
-
-## Re‑training
-
-After you retrain on your workstation, copy the new `sp500_return_model_daily.joblib` (and refreshed `sp500_prices` if needed) to the server and restart your scheduler.

@@ -1,0 +1,12 @@
+[Unit]
+Description=Run regression walk-forward + paper rebalance after orchestrator data refresh (~22:30 UTC)
+
+[Timer]
+# Orchestrator starts ~21:00 UTC. Allow ~90m for ingest/prices/research, then retrain
+# so the LightGBM + walk-forward params stay fresh for the next session.
+OnCalendar=*-*-* 22:30:00 UTC
+Persistent=true
+RandomizedDelaySec=180
+
+[Install]
+WantedBy=timers.target

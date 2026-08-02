@@ -11,6 +11,8 @@ chmod +x "$REPO_ROOT/deploy/ec2/"*.sh
 sudo cp "$REPO_ROOT/deploy/ec2/value-web-backend.service" /etc/systemd/system/
 sudo cp "$REPO_ROOT/deploy/ec2/orchestrator-daily.service" /etc/systemd/system/
 sudo cp "$REPO_ROOT/deploy/ec2/orchestrator-daily.timer" /etc/systemd/system/
+sudo cp "$REPO_ROOT/deploy/ec2/regression-wf-daily.service" /etc/systemd/system/
+sudo cp "$REPO_ROOT/deploy/ec2/regression-wf-daily.timer" /etc/systemd/system/
 sudo cp "$REPO_ROOT/deploy/ec2/prediction-markets-hourly.service" /etc/systemd/system/
 sudo cp "$REPO_ROOT/deploy/ec2/prediction-markets-hourly.timer" /etc/systemd/system/
 
@@ -39,6 +41,7 @@ sudo systemctl restart nginx
 
 # Consolidated daily desk (replaces daily-jobs + research-daily + weekly-value-trading).
 sudo systemctl enable --now orchestrator-daily.timer
+sudo systemctl enable --now regression-wf-daily.timer
 sudo systemctl enable --now prediction-markets-hourly.timer
 
 # Disable redundant timers if previously enabled.
@@ -53,10 +56,13 @@ echo "  Backend:  systemd value-web-backend (port 8000, proxied via nginx :80)"
 echo "  Daily:    orchestrator-daily.timer (21:00 UTC, after US close)"
 echo "            ingest → prices → stocks enrich → preprocess → tester → research"
 echo "            (+ value-trading on Sundays UTC; Telegram TARGET_CHANNEL publish on)"
+echo "  Daily:    regression-wf-daily.timer (22:30 UTC)"
+echo "            technicals extend → walk-forward train → IB paper rebalance (dry-run unless IB_PAPER_EXECUTE=1)"
 echo "  Hourly:   prediction-markets-hourly.timer (Polymarket + Kalshi)"
 echo ""
 echo "Ensure EC2 security group allows inbound TCP 80 (and 22 for SSH)."
 echo "Logs: $REPO_ROOT/logs/orchestrator-daily.log"
+echo "      $REPO_ROOT/logs/regression-wf-daily.log"
 echo "      $REPO_ROOT/logs/prediction-markets-hourly.log"
 echo "      journalctl -u value-web-backend -f"
 echo ""
