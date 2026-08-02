@@ -39,6 +39,7 @@ from paper_rebalance import (  # noqa: E402
     _qualify_stock,
     cache_stem_to_ib_ticker,
 )
+from ib_safety import assert_paper_port, assert_trading_mode_paper, verify_ib_session_is_paper  # noqa: E402
 
 
 def _backend_dir() -> Path:
@@ -101,6 +102,7 @@ def _predict_targets(top_n: Optional[int]) -> List[Dict[str, Any]]:
 def run_rebalance(
     *,
     dry_run: bool,
+    check_connection: bool,
     top_n: Optional[int],
     deploy_fraction: float,
     max_order_usd: Optional[float],
@@ -111,6 +113,9 @@ def run_rebalance(
     ib_client_id: int,
     ib_account: Optional[str],
 ) -> None:
+    assert_trading_mode_paper()
+    assert_paper_port(ib_port)
+
     targets = _predict_targets(top_n)
     state_path = _state_path()
     prev = _load_state(state_path)
@@ -127,17 +132,23 @@ def run_rebalance(
     if len(targets) > 20:
         log.info("  ...")
 
-    if dry_run:
+    if dry_run and not check_connection:
         log.info("dry-run: not connecting to IB (would manage %d targets; prev_state=%d)", len(targets), len(prev_syms))
         return
 
     ib = _connect_ib(ib_host, ib_port, ib_client_id, ib_account)
     try:
-        nav = _net_liquidation_usd(ib, ib_account)
-        budget = nav * float(deploy_fraction)
-        log.info("NetLiq≈%.2f USD deploy_fraction=%.3f budget≈%.2f", nav, deploy_fraction, budget)
+        account = verify_ib_session_is_paper(ib, preferred_account=ib_account)
+        nav = _net_liquidation_usd(ib, account)
+        log.info("Connected PAPER account=%s NetLiq≈%.2f USD (port=%s)", account, nav, ib_port)
+        if check_connection:
+            log.info("check-connection: paper session verified; no orders placed")
+            return
 
-        pos_by_ib_sym = _current_stock_positions(ib, ib_account)
+        budget = nav * float(deploy_fraction)
+        log.info("deploy_fraction=%.3f budget≈%.2f", deploy_fraction, budget)
+
+        pos_by_ib_sym = _current_stock_positions(ib, account)
         current_by_stem: Dict[str, int] = {}
         for ibsym, sh in pos_by_ib_sym.items():
             stem = _ib_ticker_to_cache_stem(ibsym)
@@ -219,8 +230,13 @@ def main() -> int:
         pass
 
     ap = argparse.ArgumentParser(description="IB paper rebalance for regression_based_on_technicals")
-    ap.add_argument("--dry-run", action="store_true", help="print targets only")
+    ap.add_argument("--dry-run", action="store_true", help="print targets only (no IB)")
     ap.add_argument("--execute", action="store_true", help="place paper orders via IB")
+    ap.add_argument(
+        "--check-connection",
+        action="store_true",
+        help="connect to IB, verify paper account (DU…), print NetLiq, place no orders",
+    )
     ap.add_argument("--top-n", type=int, default=None, help="override bundle top_n (default: from walk-forward params)")
     ap.add_argument("--deploy-fraction", type=float, default=float(os.environ.get("IB_PAPER_DEPLOY_FRACTION", "0.95")))
     ap.add_argument("--max-order-usd", type=float, default=None)
@@ -231,7 +247,8 @@ def main() -> int:
     )
     ap.add_argument("--symbol-map", type=Path, default=None)
     ap.add_argument("--ib-host", default=os.environ.get("IB_HOST", "127.0.0.1"))
-    ap.add_argument("--ib-port", type=int, default=int(os.environ.get("IB_PORT", "7497")))
+    # Gateway paper default (TWS paper is 7497)
+    ap.add_argument("--ib-port", type=int, default=int(os.environ.get("IB_PORT", "4002")))
     ap.add_argument("--ib-client-id", type=int, default=int(os.environ.get("IB_CLIENT_ID", "61")))
     ap.add_argument("--ib-account", default=os.environ.get("IB_ACCOUNT") or None)
     args = ap.parse_args()
@@ -239,7 +256,12 @@ def main() -> int:
     env_execute = (os.environ.get("IB_PAPER_EXECUTE") or "").strip().lower() in ("1", "true", "yes")
     if args.execute and args.dry_run:
         ap.error("choose at most one of --execute and --dry-run")
+    if args.check_connection and args.execute:
+        ap.error("choose at most one of --check-connection and --execute")
+
     dry_run = not (bool(args.execute) or env_execute)
+    if args.check_connection:
+        dry_run = False  # need a connection; orders still skipped inside run_rebalance
 
     br = os.environ.get("ML_PAPER_BACKEND_ROOT", "").strip()
     if br and not os.environ.get("ML_PAPER_BACKEND_DIR"):
@@ -247,8 +269,12 @@ def main() -> int:
         if (p / "regression_based_on_technicals.py").is_file():
             os.environ["ML_PAPER_BACKEND_DIR"] = str(p)
 
+    # Ensure mode default is paper for safety module
+    os.environ.setdefault("IB_TRADING_MODE", "paper")
+
     run_rebalance(
         dry_run=dry_run,
+        check_connection=bool(args.check_connection),
         top_n=args.top_n,
         deploy_fraction=float(args.deploy_fraction),
         max_order_usd=args.max_order_usd,

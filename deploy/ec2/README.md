@@ -96,15 +96,25 @@ Logs: `logs/orchestrator-daily.log`, `logs/regression-wf-daily.log`, and `ORCHES
 
 ### IB paper trading
 
-See `packages/ml_ib_paper/README.md`. The regression bot is:
+Gateway (paper-only) runs in Docker on the server. Credentials are **never** in git:
 
 ```bash
-python packages/ml_ib_paper/regression_paper_rebalance.py --dry-run
-# after Gateway is up on paper:
-IB_PAPER_EXECUTE=1 python packages/ml_ib_paper/regression_paper_rebalance.py --execute
+bash deploy/ec2/install-ib-gateway.sh
+nano ~/market_analysis/deploy/ec2/ib-gateway/.env   # TWS_USERID=  TWS_PASSWORD=
+sudo systemctl start ib-gateway-paper
 ```
 
-Use a **dedicated paper account** (the bot liquidates US stock names that leave the basket).
+Confirm paper (no orders):
+
+```bash
+python packages/ml_ib_paper/regression_paper_rebalance.py --check-connection
+# expect: IB paper safety OK — using account DU…
+```
+
+Only then set `IB_PAPER_EXECUTE=1` in the repo `.env`.
+
+See `deploy/ec2/ib-gateway/README.md` and `packages/ml_ib_paper/README.md`.
+
 
 ## 5. Optional: one-shot backfill systemd
 

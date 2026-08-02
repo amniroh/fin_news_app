@@ -1,0 +1,34 @@
+# IB Gateway (paper only) — credentials go in .env next to this file (not committed).
+# See README.md in this directory.
+
+services:
+  ib-gateway:
+    image: gnzsnz/ib-gateway:stable
+    container_name: ib-gateway-paper
+    restart: unless-stopped
+    environment:
+      # Leave empty here; populate deploy/ec2/ib-gateway/.env
+      TWS_USERID: ${TWS_USERID:-}
+      TWS_PASSWORD: ${TWS_PASSWORD:-}
+      # HARD-CODED paper — do not change to live on this host without a deliberate review.
+      TRADING_MODE: paper
+      TWS_ACCEPT_INCOMING: "manual"
+      READ_ONLY_API: "no"
+      ACCEPT_NON_BROKERAGE_WARNING: "yes"
+      EXISTING_SESSION_DETECTED_ACTION: primary
+      ALLOW_BLIND_TRADING: "yes"
+      TIME_ZONE: ${TIME_ZONE:-America/New_York}
+      # Optional VNC to confirm paper UI / complete 2FA (leave empty to disable)
+      VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD:-}
+    ports:
+      # Paper Gateway API only (live would be 4001 — intentionally not published)
+      - "127.0.0.1:4002:4002"
+      # Optional VNC on localhost only
+      - "127.0.0.1:5900:5900"
+    # Keep memory bounded on small instances
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

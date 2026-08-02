@@ -12,6 +12,8 @@ ENV/
 # Environment variables
 .env
 .env.local
+deploy/ec2/ib-gateway/.env
+
 
 # IDE
 .vscode/
