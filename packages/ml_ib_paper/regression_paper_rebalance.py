@@ -116,6 +116,17 @@ def run_rebalance(
     assert_trading_mode_paper()
     assert_paper_port(ib_port)
 
+    if check_connection:
+        ib = _connect_ib(ib_host, ib_port, ib_client_id, ib_account)
+        try:
+            account = verify_ib_session_is_paper(ib, preferred_account=ib_account)
+            nav = _net_liquidation_usd(ib, account)
+            log.info("Connected PAPER account=%s NetLiq≈%.2f USD (port=%s)", account, nav, ib_port)
+            log.info("check-connection: paper session verified; no orders placed")
+        finally:
+            ib.disconnect()
+        return
+
     targets = _predict_targets(top_n)
     state_path = _state_path()
     prev = _load_state(state_path)
@@ -132,7 +143,7 @@ def run_rebalance(
     if len(targets) > 20:
         log.info("  ...")
 
-    if dry_run and not check_connection:
+    if dry_run:
         log.info("dry-run: not connecting to IB (would manage %d targets; prev_state=%d)", len(targets), len(prev_syms))
         return
 
@@ -141,9 +152,6 @@ def run_rebalance(
         account = verify_ib_session_is_paper(ib, preferred_account=ib_account)
         nav = _net_liquidation_usd(ib, account)
         log.info("Connected PAPER account=%s NetLiq≈%.2f USD (port=%s)", account, nav, ib_port)
-        if check_connection:
-            log.info("check-connection: paper session verified; no orders placed")
-            return
 
         budget = nav * float(deploy_fraction)
         log.info("deploy_fraction=%.3f budget≈%.2f", deploy_fraction, budget)
