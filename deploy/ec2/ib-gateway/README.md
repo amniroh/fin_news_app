@@ -33,7 +33,18 @@ Same IB username/password can access both paper and funded accounts; **mode + po
 
 `IB paper safety OK — using account DU…`
 
-## Start / stop
+## Port mapping (important)
+
+The Docker image listens for paper API on container port **4004** (socat → Gateway
+`127.0.0.1:4002`). Compose maps that to host **`127.0.0.1:4002`**:
+
+```yaml
+ports:
+  - "127.0.0.1:4002:4004"
+```
+
+Do **not** map `4002:4002` — Docker bridge clients are not `127.0.0.1`, so Gateway
+TrustedIPs will ignore them and `ib_insync` will time out.
 
 ```bash
 cd ~/market_analysis/deploy/ec2/ib-gateway
