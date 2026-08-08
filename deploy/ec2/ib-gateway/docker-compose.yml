@@ -12,7 +12,8 @@ services:
       TWS_PASSWORD: ${TWS_PASSWORD:-}
       # HARD-CODED paper — do not change to live on this host without a deliberate review.
       TRADING_MODE: paper
-      TWS_ACCEPT_INCOMING: "manual"
+      # Auto-accept API client connections (manual would pop a dialog and cause timeouts).
+      TWS_ACCEPT_INCOMING: accept
       READ_ONLY_API: "no"
       ACCEPT_NON_BROKERAGE_WARNING: "yes"
       EXISTING_SESSION_DETECTED_ACTION: primary
@@ -21,8 +22,9 @@ services:
       # Optional VNC to confirm paper UI / complete 2FA (leave empty to disable)
       VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD:-}
     ports:
-      # Paper Gateway API only (live would be 4001 — intentionally not published)
-      - "127.0.0.1:4002:4002"
+      # gnzsnz image: Gateway listens on 127.0.0.1:4002; socat publishes 0.0.0.0:4004.
+      # Map host 4002 -> container 4004 so clients reach Gateway via localhost (TrustedIPs).
+      - "127.0.0.1:4002:4004"
       # Optional VNC on localhost only
       - "127.0.0.1:5900:5900"
     # Keep memory bounded on small instances
