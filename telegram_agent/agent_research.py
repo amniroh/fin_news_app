@@ -541,6 +541,8 @@ Rules:
 - **Suggestion `confidence` (0..1 float)** must align with the same epistemics: use **lower** values when few memory snapshots exist or tester data contradicts similar past ideas; raise only when evidence stacks.
 - **Thinking** must explicitly compare NEWS vs MEMORY vs TABLE SIGNALS vs TESTER BACKTESTS (when listed), not only headlines.
 - **memory_update** feeds a capped store: aim for up to ~{cap_s} strongest and ~{cap_r} recent trend objects; suggestions_log entries should be dated and compact (last ~{sug_d} days are retained by the system). When updating an existing theme, adjust **confidence** up or down with explicit justification in `thinking`.
+- **Memory hygiene**: merge near-duplicate trends into one line and drop the older wording; never keep two trends that contradict each other — keep the one current evidence supports. A trend with **no fresh supporting evidence** this run must lose at least 1 confidence point (never keep it at 8+ "due to lack of new data"); drop trends that fall to 0–2.
+- **Tester evidence**: repeated suggestions of the **same symbol/thesis** are one idea, not independent trades — do not let a single losing idea dominate memory or suppress all new suggestions. Calibrate against the aggregate tester stats, and still propose ideas when current news + table evidence is strong.
 - **No duration field** — use the four timestamps instead (backtests use entry_window and execute_review).
 - **Concrete suggestions only**: every suggestion must have all timestamp fields AND what_to_acquire filled so a tester can simulate fills.
 - **Novelty**: set novel_vs_memory true only for ideas you would persist; omit weak duplicates.

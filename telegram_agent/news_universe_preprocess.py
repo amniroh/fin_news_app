@@ -108,12 +108,45 @@ def build_preprocess_user_content(cfg: dict, allowed: Set[str], rows: Sequence[A
     return json.dumps(user_obj, ensure_ascii=False)
 
 
-def _parse_outer_array(raw: str) -> List[Any]:
+def _salvage_partial_array(raw: str) -> List[Any]:
+    """Complete elements of a truncated/garbled outer JSON array (stops at the first bad element)."""
+    start = raw.find("[")
+    if start < 0:
+        return []
+    dec = json.JSONDecoder()
+    out: List[Any] = []
+    i = start + 1
+    n = len(raw)
+    while i < n:
+        while i < n and raw[i] in " \t\r\n,":
+            i += 1
+        if i >= n or raw[i] == "]":
+            break
+        try:
+            val, i = dec.raw_decode(raw, i)
+        except ValueError:
+            break
+        out.append(val)
+    return out
+
+
+def _parse_outer_array(raw: str, expected_len: Optional[int] = None) -> List[Any]:
     raw = raw.strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw).strip()
-    data = json.loads(raw)
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        # Models sometimes run past n_items until max_tokens truncates the array; the prefix is usable.
+        data = _salvage_partial_array(raw)
+        if expected_len is None or len(data) < expected_len:
+            raise
+        logger.warning(
+            "Universe preprocess: salvaged %s complete elements from malformed output (expected %s).",
+            len(data),
+            expected_len,
+        )
     if not isinstance(data, list):
         raise ValueError("expected JSON array")
     return data
@@ -391,8 +424,11 @@ def _run_preprocess_batch(
     cfg: dict,
     allowed: Set[str],
     rows: Sequence[Any],
-) -> Dict[str, List[str]]:
-    """Returns news_id -> list of symbols (filtered to allowed)."""
+) -> Optional[Dict[str, List[str]]]:
+    """
+    Returns news_id -> list of symbols (filtered to allowed); {} when the model output is unusable.
+    Returns None when the LLM call itself failed (credits, network) so the caller can stop.
+    """
     if not rows:
         return {}
     max_chars = int(cfg.get("extract_max_chars_per_item", 2200))
@@ -415,10 +451,10 @@ def _run_preprocess_batch(
             raise RuntimeError("No OPENROUTER_API_KEY or GEMINI_API_KEY for preprocess")
     except Exception as e:
         logger.error("Universe preprocess LLM batch failed: %s", e)
-        return {}
+        return None
 
     try:
-        parsed = _parse_outer_array(raw)
+        parsed = _parse_outer_array(raw, expected_len=len(rows))
     except Exception as e:
         logger.warning(
             "Universe preprocess JSON parse failed: %s | first 400 chars: %s",
@@ -460,6 +496,36 @@ def _run_preprocess_batch(
                     chunk.append(s)
         out[eid] = sorted(set(chunk))
     return out
+
+
+def _preprocess_rows_with_split(
+    cfg: dict,
+    allowed: Set[str],
+    rows: Sequence[Any],
+) -> Tuple[Optional[Dict[str, List[str]]], int]:
+    """
+    Run one batch; on unusable output, bisect and retry so a single bad batch cannot block the
+    oldest-first queue forever. A lone row that still fails is linked to nothing.
+    Returns (mapping or None if the LLM call failed, number of LLM calls).
+    """
+    mmap = _run_preprocess_batch(cfg, allowed, rows)
+    if mmap is None:
+        return None, 1
+    if len(mmap) == len(rows):
+        return mmap, 1
+    if len(rows) == 1:
+        nid = str(rows[0]["id"])
+        logger.warning("Universe preprocess: giving up on news %s after repeated bad output; linking none.", nid)
+        return {nid: []}, 1
+    mid = len(rows) // 2
+    logger.warning("Universe preprocess: bad output for %s rows; retrying as %s + %s.", len(rows), mid, len(rows) - mid)
+    left, n_left = _preprocess_rows_with_split(cfg, allowed, rows[:mid])
+    if left is None:
+        return None, 1 + n_left
+    right, n_right = _preprocess_rows_with_split(cfg, allowed, rows[mid:])
+    if right is None:
+        return None, 1 + n_left + n_right
+    return {**left, **right}, 1 + n_left + n_right
 
 
 def run_news_universe_preprocess(
@@ -547,12 +613,11 @@ def run_news_universe_preprocess(
         if not llm_rows:
             continue
 
-        batches += 1
-        mmap = _run_preprocess_batch(cfg, allowed, llm_rows)
-        if not mmap or len(mmap) != len(llm_rows):
+        mmap, n_calls = _preprocess_rows_with_split(cfg, allowed, llm_rows)
+        batches += n_calls
+        if mmap is None:
             logger.error(
-                "Universe preprocess: batch mapping incomplete (%s vs %s rows); stopping without further updates.",
-                len(mmap),
+                "Universe preprocess: LLM unavailable for a batch of %s rows; stopping without further updates.",
                 len(llm_rows),
             )
             break

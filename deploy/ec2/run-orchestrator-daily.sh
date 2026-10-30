@@ -14,7 +14,7 @@ export VALUE_METRICS_DB_PATH="${VALUE_METRICS_DB_PATH:-$REPO_ROOT/backend/data/v
 export AGENT_DB_PATH="${AGENT_DB_PATH:-$REPO_ROOT/telegram_agent/data/agent.sqlite}"
 export AGENT_RESEARCH_PUBLISH="${AGENT_RESEARCH_PUBLISH:-true}"
 # Research model for this daily desk (override with RESEARCH_DAILY_MODEL).
-export AGENT_RESEARCH_MODEL="${RESEARCH_DAILY_MODEL:-${AGENT_RESEARCH_MODEL:-google/gemini-2.5-flash}}"
+export AGENT_RESEARCH_MODEL="${RESEARCH_DAILY_MODEL:-${AGENT_RESEARCH_MODEL:-anthropic/claude-sonnet-5.5}}"
 # Value-trading: auto = Sundays UTC only.
 export ORCHESTRATOR_VALUE_TRADING="${ORCHESTRATOR_VALUE_TRADING:-auto}"
 
@@ -41,8 +41,8 @@ if [[ -n "$_SAVED_TARGET_CHANNEL" ]]; then
 fi
 unset _SAVED_TARGET_CHANNEL
 
-# Re-apply desk defaults after .env (publish on; Gemini unless RESEARCH_DAILY_MODEL set).
-export AGENT_RESEARCH_MODEL="${RESEARCH_DAILY_MODEL:-google/gemini-2.5-flash}"
+# Re-apply desk defaults after .env (publish on). Model: RESEARCH_DAILY_MODEL > .env AGENT_RESEARCH_MODEL > default.
+export AGENT_RESEARCH_MODEL="${RESEARCH_DAILY_MODEL:-${AGENT_RESEARCH_MODEL:-anthropic/claude-sonnet-5.5}}"
 if [[ "${ORCHESTRATOR_DISABLE_PUBLISH:-}" == "1" ]]; then
   export AGENT_RESEARCH_PUBLISH=false
 else
