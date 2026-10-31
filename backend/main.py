@@ -32,6 +32,11 @@ load_dotenv(dotenv_path=dotenv_path)
 
 # Set up logging first
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+if str(current_dir.resolve().parent) not in sys.path:
+    sys.path.insert(0, str(current_dir.resolve().parent))
+from telegram_agent.log_redact import install_log_redaction
+
+install_log_redaction()
 logger = logging.getLogger(__name__)
 
 # Choose database service based on environment variable

@@ -41,6 +41,9 @@ def _load_env() -> None:
     for p in (_REPO_ROOT / ".env", _BACKEND / ".env", _REPO_ROOT / "telegram_agent" / ".env"):
         if p.is_file():
             load_dotenv(p, override=False)
+    from telegram_agent.log_redact import install_log_redaction
+
+    install_log_redaction()
 
 
 def _interesting_symbols(vm_db: Path) -> list[str]:

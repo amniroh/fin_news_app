@@ -399,6 +399,9 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    from telegram_agent.log_redact import install_log_redaction
+
+    install_log_redaction()
     cfg = load_config()
     token = (cfg.get("telegram_bot_token") or "").strip()
     if not token:

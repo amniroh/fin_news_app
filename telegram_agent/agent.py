@@ -60,6 +60,10 @@ def main() -> None:
     load_dotenv(Path(__file__).resolve().parent.parent / ".env")
     load_dotenv(Path(__file__).resolve().parent / ".env")
 
+    from telegram_agent.log_redact import install_log_redaction
+
+    install_log_redaction()
+
     from telegram_agent.config import DATA_DIR, load_config
     from telegram_agent.ingest import run_ingest
     from telegram_agent.extract_pipeline import run_extract, estimate_extract_llm_cost

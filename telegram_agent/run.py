@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from telegram_agent.config import load_config, SESSION_DIR
 from telegram_agent.digest_pipeline import run_digest_pipeline
+from telegram_agent.log_redact import install_log_redaction
 from telegram_agent.publisher import publish
 
 logging.basicConfig(
@@ -23,6 +24,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+install_log_redaction()
 logger = logging.getLogger("telegram_agent")
 
 
