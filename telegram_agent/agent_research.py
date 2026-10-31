@@ -869,11 +869,11 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
         logger.error("OPENROUTER_API_KEY not set; cannot run research.")
         return 0
 
-    try:
+    def _call_llm() -> Any:
         # Prefer JSON-typed responses when supported to reduce "almost JSON but not quite"
         # outputs (observed with some models, incl. Claude Sonnet variants).
         try:
-            resp = client.chat.completions.create(
+            return client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": system},
@@ -885,7 +885,7 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
             )
         except Exception:
             # Fallback for providers/models that don't support response_format.
-            resp = client.chat.completions.create(
+            return client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": system},
@@ -894,7 +894,32 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
                 temperature=0.2,
                 max_tokens=max_out,
             )
-        choice = resp.choices[0]
+
+    def _parse_json(raw: str) -> Any:
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1]
+            raw = raw.rsplit("```", 1)[0].strip()
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            # Heuristic salvage: extract the largest {...} region and retry parsing.
+            i0 = raw.find("{")
+            i1 = raw.rfind("}")
+            if i0 != -1 and i1 != -1 and i1 > i0:
+                try:
+                    return json.loads(raw[i0 : i1 + 1].strip())
+                except json.JSONDecodeError:
+                    pass
+        return None
+
+    attempts = 2
+    data = None
+    for attempt in range(1, attempts + 1):
+        try:
+            choice = _call_llm().choices[0]
+        except Exception as e:
+            logger.error("Research LLM failed: %s", e)
+            return 0
         raw = choice.message.content or ""
         if not isinstance(raw, str):
             raw = str(raw)
@@ -907,33 +932,22 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
                 getattr(choice.message, "refusal", None),
             )
             return 0
-    except Exception as e:
-        logger.error("Research LLM failed: %s", e)
+        data = _parse_json(raw)
+        if data is not None:
+            break
+        logger.error(
+            "Research output not JSON (attempt %d/%d, model=%s finish_reason=%s len=%d); "
+            "first 300 chars: %s ... last 300 chars: %s",
+            attempt,
+            attempts,
+            model,
+            choice.finish_reason,
+            len(raw),
+            raw[:300],
+            raw[-300:],
+        )
+    if data is None:
         return 0
-
-    raw = raw.strip()
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[-1]
-        raw = raw.rsplit("```", 1)[0].strip()
-
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        # Heuristic salvage: extract the largest {...} region and retry parsing.
-        i0 = raw.find("{")
-        i1 = raw.rfind("}")
-        if i0 != -1 and i1 != -1 and i1 > i0:
-            candidate = raw[i0 : i1 + 1].strip()
-            try:
-                data = json.loads(candidate)
-            except json.JSONDecodeError:
-                logger.error(
-                    "Research output not JSON; first 500 chars: %s", raw[:500]
-                )
-                return 0
-        else:
-            logger.error("Research output not JSON; first 500 chars: %s", raw[:500])
-            return 0
 
     if not isinstance(data, dict):
         logger.error("Research output root must be an object")
