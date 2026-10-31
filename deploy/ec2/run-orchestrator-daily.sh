@@ -41,9 +41,19 @@ if [[ -n "$_SAVED_TARGET_CHANNEL" ]]; then
 fi
 unset _SAVED_TARGET_CHANNEL
 
+# Optional end of a research trial (ISO8601 UTC, e.g. 2026-11-06T12:00:00Z): after it, research/memory
+# and Telegram publishing are skipped while ingest/prices/market refresh keep running.
+_research_window_over=0
+if [[ -n "${AGENT_RESEARCH_UNTIL_UTC:-}" ]]; then
+  if (( $(date -u +%s) > $(date -u -d "$AGENT_RESEARCH_UNTIL_UTC" +%s) )); then
+    _research_window_over=1
+    export ORCHESTRATOR_SKIP_RESEARCH=1
+  fi
+fi
+
 # Re-apply desk defaults after .env (publish on). Model: RESEARCH_DAILY_MODEL > .env AGENT_RESEARCH_MODEL > default.
 export AGENT_RESEARCH_MODEL="${RESEARCH_DAILY_MODEL:-${AGENT_RESEARCH_MODEL:-anthropic/claude-sonnet-5.5}}"
-if [[ "${ORCHESTRATOR_DISABLE_PUBLISH:-}" == "1" ]]; then
+if [[ "${ORCHESTRATOR_DISABLE_PUBLISH:-}" == "1" || "$_research_window_over" == "1" ]]; then
   export AGENT_RESEARCH_PUBLISH=false
 else
   export AGENT_RESEARCH_PUBLISH=true
@@ -53,7 +63,7 @@ fi
 source "$REPO_ROOT/.venv/bin/activate"
 
 {
-  echo "======== $(date -u +%Y-%m-%dT%H:%M:%SZ) orchestrator-daily start model=${AGENT_RESEARCH_MODEL} ========"
+  echo "======== $(date -u +%Y-%m-%dT%H:%M:%SZ) orchestrator-daily start model=${AGENT_RESEARCH_MODEL} research_until=${AGENT_RESEARCH_UNTIL_UTC:-none} research_skipped=${_research_window_over} ========"
   bash "$REPO_ROOT/deploy/ec2/run-orchestrator.sh" orchestrate
   echo "======== $(date -u +%Y-%m-%dT%H:%M:%SZ) orchestrator-daily done ========"
 } >>"$LOG" 2>&1
