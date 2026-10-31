@@ -181,6 +181,8 @@ def load_config() -> dict:
         "agent_research_publish": os.getenv("AGENT_RESEARCH_PUBLISH", "true").lower() == "true",
         "agent_research_backfill_publish": os.getenv("AGENT_RESEARCH_BACKFILL_PUBLISH", "true").lower()
         == "true",
+        # A/B test arm shown in Telegram research posts (e.g. "A"); empty = no label.
+        "agent_research_variant_label": os.getenv("AGENT_RESEARCH_VARIANT_LABEL", "").strip(),
         "agent_research_backfill_sleep_seconds": float(
             os.getenv("AGENT_RESEARCH_BACKFILL_SLEEP_SECONDS", "1")
         ),

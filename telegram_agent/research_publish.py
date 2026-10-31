@@ -19,11 +19,13 @@ def format_research_telegram_message(
     run_ts: Optional[datetime] = None,
     model: Optional[str] = None,
     signal_insights: Optional[Dict[str, Any]] = None,
+    variant_label: Optional[str] = None,
 ) -> str:
     """Single message or first chunk; caller may split further if needed."""
     ts = run_ts or datetime.now(timezone.utc)
     parts: List[str] = []
-    parts.append(f"📊 Research run — {ts.strftime('%Y-%m-%d %H:%M UTC')}")
+    arm = f" (A/B arm {variant_label})" if variant_label else ""
+    parts.append(f"📊 Research run{arm} — {ts.strftime('%Y-%m-%d %H:%M UTC')}")
     if model:
         parts.append(f"Model: {model}")
     parts.append("")

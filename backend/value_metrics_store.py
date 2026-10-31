@@ -374,15 +374,18 @@ def query_latest_daily_metric_points(
     *,
     symbols: List[str],
     provider: str,
+    asof_date: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Latest period=daily row per symbol for the given provider (most recent asof_date).
+    Latest period=daily row per symbol for the given provider (most recent asof_date,
+    on or before ``asof_date`` when given).
     """
     prov = str(provider).strip().lower()
     syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
     if not syms:
         return []
     ph = ",".join("?" * len(syms))
+    asof_sql = " AND asof_date <= ?" if asof_date else ""
     sql = f"""
       SELECT m.symbol, m.asof_date, m.period, m.provider,
              m.pe, m.pb, m.peg, m.dividend_yield, m.free_cash_flow_yield,
@@ -394,12 +397,12 @@ def query_latest_daily_metric_points(
         FROM vm_metric_points
         WHERE period = 'daily'
           AND provider = ?
-          AND symbol IN ({ph})
+          AND symbol IN ({ph}){asof_sql}
         GROUP BY symbol
       ) u ON m.symbol = u.symbol AND m.asof_date = u.dmax
       WHERE m.period = 'daily' AND m.provider = ?
     """
-    params: List[Any] = [prov] + list(syms) + [prov]
+    params: List[Any] = [prov] + list(syms) + ([asof_date] if asof_date else []) + [prov]
     cur = con.execute(sql, params)
     out: List[Dict[str, Any]] = []
     for r in cur.fetchall():
@@ -828,13 +831,15 @@ def query_latest_technical_indicators(
     *,
     symbols: List[str],
     provider: str = "yfinance",
+    asof_date: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Latest technical indicator row per symbol (most recent asof_date)."""
+    """Latest technical indicator row per symbol (most recent asof_date, on or before ``asof_date``)."""
     prov = str(provider).strip().lower()
     syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
     if not syms:
         return []
     ph = ",".join("?" * len(syms))
+    asof_sql = " AND asof_date <= ?" if asof_date else ""
     sql = f"""
       SELECT t.symbol, t.asof_date, t.provider,
              t.close, t.ema, t.macd_line, t.macd_signal, t.adx, t.rvol,
@@ -844,12 +849,12 @@ def query_latest_technical_indicators(
         SELECT symbol, MAX(asof_date) AS dmax
         FROM vm_technical_indicators
         WHERE provider = ?
-          AND symbol IN ({ph})
+          AND symbol IN ({ph}){asof_sql}
         GROUP BY symbol
       ) u ON t.symbol = u.symbol AND t.asof_date = u.dmax
       WHERE t.provider = ?
     """
-    params: List[Any] = [prov] + list(syms) + [prov]
+    params: List[Any] = [prov] + list(syms) + ([asof_date] if asof_date else []) + [prov]
     cur = con.execute(sql, params)
     return [dict(r) for r in cur.fetchall()]
 
@@ -1278,13 +1283,15 @@ def batch_latest_analyst_ratings(
     symbols: Sequence[str],
     *,
     provider: str = "yfinance",
+    asof_date: Optional[str] = None,
 ) -> Dict[str, Dict[str, Any]]:
-    """Latest snapshot per symbol (one query)."""
+    """Latest snapshot per symbol (one query); on or before ``asof_date`` when given."""
     syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
     if not syms:
         return {}
     prov = str(provider).strip().lower()
     ph = ",".join("?" * len(syms))
+    asof_sql = " AND asof_date <= ?" if asof_date else ""
     cur = con.execute(
         f"""
         SELECT a.*
@@ -1292,11 +1299,11 @@ def batch_latest_analyst_ratings(
         INNER JOIN (
           SELECT symbol, MAX(asof_date) AS max_date
           FROM vm_analyst_ratings
-          WHERE provider = ? AND symbol IN ({ph})
+          WHERE provider = ? AND symbol IN ({ph}){asof_sql}
           GROUP BY symbol
         ) latest ON a.symbol = latest.symbol AND a.asof_date = latest.max_date AND a.provider = ?
         """,
-        (prov, *syms, prov),
+        (prov, *syms, *([asof_date] if asof_date else []), prov),
     )
     return {str(r["symbol"]): dict(r) for r in cur.fetchall()}
 
@@ -1476,11 +1483,14 @@ def latest_value_trading_assessment(
 def batch_latest_value_trading_assessments(
     con: sqlite3.Connection,
     symbols: Sequence[str],
+    *,
+    before_ts_utc: Optional[str] = None,
 ) -> Dict[str, Dict[str, Any]]:
     syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
     if not syms:
         return {}
     ph = ",".join("?" * len(syms))
+    before_sql = " AND produced_ts_utc <= ?" if before_ts_utc else ""
     cur = con.execute(
         f"""
         SELECT a.*
@@ -1488,11 +1498,11 @@ def batch_latest_value_trading_assessments(
         INNER JOIN (
           SELECT symbol, MAX(produced_ts_utc) AS max_ts
           FROM vm_value_trading_assessments
-          WHERE symbol IN ({ph})
+          WHERE symbol IN ({ph}){before_sql}
           GROUP BY symbol
         ) latest ON a.symbol = latest.symbol AND a.produced_ts_utc = latest.max_ts
         """,
-        syms,
+        (*syms, *([before_ts_utc] if before_ts_utc else [])),
     )
     out: Dict[str, Dict[str, Any]] = {}
     for r in cur.fetchall():

@@ -260,8 +260,8 @@ def _format_price_context_line(sym: str, pct_by_horizon: Dict[str, float]) -> st
     return f"{sym}: {body}"
 
 
-def _interesting_stocks_table_for_prompt(cfg: dict) -> str:
-    """Load the website Interesting Stocks table into the research user prompt."""
+def _interesting_stocks_table_for_prompt(cfg: dict, asof: Optional[datetime] = None) -> str:
+    """Load the website Interesting Stocks table into the research user prompt (as of ``asof`` in backfill)."""
     try:
         import sys
 
@@ -296,6 +296,7 @@ def _interesting_stocks_table_for_prompt(cfg: dict) -> str:
             max_priority=max_prio_i,
             max_rows=int(cfg.get("agent_research_table_max_rows", 80) or 80),
             news_per=int(cfg.get("agent_research_table_news_per", 3) or 3),
+            asof=asof,
         )
     except Exception as exc:
         logger.warning("interesting stocks table for research unavailable: %s", exc)
@@ -587,7 +588,7 @@ Rules:
         else "OFF — you may suggest other liquid names if justified."
     )
 
-    table_snapshot = _interesting_stocks_table_for_prompt(cfg)
+    table_snapshot = _interesting_stocks_table_for_prompt(cfg, asof=sim_now if ctx.daily_mode else None)
 
     user = f"""Simulated current time (UTC) for this run: {sim_now.isoformat()}
 News scope: {news_scope}
@@ -893,10 +894,19 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
                 temperature=0.2,
                 max_tokens=max_out,
             )
-        raw = resp.choices[0].message.content or ""
+        choice = resp.choices[0]
+        raw = choice.message.content or ""
         if not isinstance(raw, str):
             raw = str(raw)
         raw = raw.strip()
+        if not raw:
+            logger.error(
+                "Research LLM returned no content (model=%s finish_reason=%s refusal=%s)",
+                model,
+                choice.finish_reason,
+                getattr(choice.message, "refusal", None),
+            )
+            return 0
     except Exception as e:
         logger.error("Research LLM failed: %s", e)
         return 0
@@ -1095,6 +1105,7 @@ def _run_research_once(cfg: dict, con, ctx: ResearchRunContext) -> int:
                 run_ts=sim_now,
                 model=str(model),
                 signal_insights=signal_insights_for_memory,
+                variant_label=cfg.get("agent_research_variant_label") or None,
             )
             publish_research_to_target(cfg, msg)
         except Exception as e:

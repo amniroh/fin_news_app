@@ -242,15 +242,22 @@ def coverage_for_symbol(
     }
 
 
-def list_stocks_with_coverage(vm_db: Path) -> List[Dict[str, Any]]:
+def list_stocks_with_coverage(
+    vm_db: Path,
+    *,
+    asof: Optional[datetime] = None,
+) -> List[Dict[str, Any]]:
+    """``asof`` (UTC) limits analyst, value-trading and news fields to data available at that time."""
     seed_interesting_stocks_from_universe(vm_db)
+    asof_date = asof.astimezone(timezone.utc).date().isoformat() if asof else None
+    before_ts = asof.astimezone(timezone.utc).isoformat() if asof else None
     con = connect(vm_db)
     init_db(con)
     try:
         stocks = list_interesting_stocks(con)
         syms = [str(s["symbol"]) for s in stocks]
-        latest_map = batch_latest_analyst_ratings(con, syms)
-        vt_map = batch_latest_value_trading_assessments(con, syms)
+        latest_map = batch_latest_analyst_ratings(con, syms, asof_date=asof_date)
+        vt_map = batch_latest_value_trading_assessments(con, syms, before_ts_utc=before_ts)
     finally:
         con.close()
     out = []
@@ -285,7 +292,9 @@ def list_stocks_with_coverage(vm_db: Path) -> List[Dict[str, Any]]:
             }
         out.append(row)
 
-    news_map = batch_recent_news_for_symbols([str(r["symbol"]) for r in out], limit_per=20)
+    news_map = batch_recent_news_for_symbols(
+        [str(r["symbol"]) for r in out], limit_per=20, before_ts_utc=before_ts
+    )
     for row in out:
         row["recent_news"] = news_map.get(str(row["symbol"]), [])
     return out
@@ -863,22 +872,24 @@ def _agent_price_history(symbol: str, start_s: str, end_s: str) -> List[Dict[str
         con.close()
 
 
-def _agent_news_for_symbol(symbol: str, limit: int = 40) -> List[Dict[str, Any]]:
+def _agent_news_for_symbol(
+    symbol: str, limit: int = 40, before_ts_utc: Optional[str] = None
+) -> List[Dict[str, Any]]:
     try:
         con = _agent_connect()
     except Exception:
         return []
     try:
         cur = con.execute(
-            """
+            f"""
             SELECT n.id, n.ts_utc, n.source_type, n.source_name, n.title, n.url, n.content, n.condensed
             FROM news_items n
             INNER JOIN symbol_news_linkage l ON l.news_id = n.id
-            WHERE l.symbol = ?
+            WHERE l.symbol = ?{" AND n.ts_utc <= ?" if before_ts_utc else ""}
             ORDER BY n.ts_utc DESC
             LIMIT ?
             """,
-            (symbol.upper(), int(limit)),
+            (symbol.upper(), *([before_ts_utc] if before_ts_utc else []), int(limit)),
         )
         rows = []
         for r in cur.fetchall():
@@ -903,8 +914,9 @@ def batch_recent_news_for_symbols(
     symbols: List[str],
     *,
     limit_per: int = 20,
+    before_ts_utc: Optional[str] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """Latest ``limit_per`` linked news items per symbol (single query)."""
+    """Latest ``limit_per`` linked news items per symbol (single query), optionally at or before a UTC ts."""
     syms = [str(s).strip().upper() for s in symbols if str(s).strip()]
     if not syms:
         return {}
@@ -914,6 +926,7 @@ def batch_recent_news_for_symbols(
         return {s: [] for s in syms}
     try:
         placeholders = ",".join("?" for _ in syms)
+        before_sql = " AND n.ts_utc <= ?" if before_ts_utc else ""
         # SQLite 3.25+ window functions (Amazon Linux / modern macOS).
         sql = f"""
             SELECT * FROM (
@@ -930,11 +943,11 @@ def batch_recent_news_for_symbols(
                 ROW_NUMBER() OVER (PARTITION BY l.symbol ORDER BY n.ts_utc DESC) AS rn
               FROM news_items n
               INNER JOIN symbol_news_linkage l ON l.news_id = n.id
-              WHERE l.symbol IN ({placeholders})
+              WHERE l.symbol IN ({placeholders}){before_sql}
             ) WHERE rn <= ?
             ORDER BY symbol, ts_utc DESC
         """
-        cur = con.execute(sql, (*syms, int(limit_per)))
+        cur = con.execute(sql, (*syms, *([before_ts_utc] if before_ts_utc else []), int(limit_per)))
         out: Dict[str, List[Dict[str, Any]]] = {s: [] for s in syms}
         for r in cur.fetchall():
             body = (r["condensed"] or r["content"] or "") or ""
@@ -954,7 +967,7 @@ def batch_recent_news_for_symbols(
         # Fallback without window functions.
         out = {}
         for s in syms:
-            out[s] = _agent_news_for_symbol(s, limit=limit_per)
+            out[s] = _agent_news_for_symbol(s, limit=limit_per, before_ts_utc=before_ts_utc)
         return out
     finally:
         con.close()
@@ -976,13 +989,17 @@ def format_interesting_stocks_for_research_prompt(
     max_rows: int = 80,
     news_per: int = 3,
     metrics_provider: str = "yfinance",
+    asof: Optional[datetime] = None,
 ) -> str:
     """Compact text of the website Interesting Stocks table for the research agent.
 
     Includes value/analyst, momentum (technicals), fundamentals/metrics, and coverage gaps
-    so one research pass can synthesize holistic insights.
+    so one research pass can synthesize holistic insights. ``asof`` (UTC) restricts every
+    field to data available at that time (research backfill); coverage gaps stay current.
     """
-    rows = list_stocks_with_coverage(vm_db)
+    asof_date = asof.astimezone(timezone.utc).date().isoformat() if asof else None
+    before_ts = asof.astimezone(timezone.utc).isoformat() if asof else None
+    rows = list_stocks_with_coverage(vm_db, asof=asof)
     if max_priority is not None:
         rows = [r for r in rows if int(r.get("universe_priority") or 99) <= int(max_priority)]
     rows = sorted(rows, key=lambda r: (int(r.get("universe_priority") or 99), str(r.get("symbol") or "")))[
@@ -992,16 +1009,20 @@ def format_interesting_stocks_for_research_prompt(
         return "(no interesting stocks in scope)"
 
     syms = [str(r["symbol"]) for r in rows]
-    news_map = batch_recent_news_for_symbols(syms, limit_per=int(news_per))
+    news_map = batch_recent_news_for_symbols(syms, limit_per=int(news_per), before_ts_utc=before_ts)
 
     tech_by_sym: Dict[str, Dict[str, Any]] = {}
     metrics_by_sym: Dict[str, Dict[str, Any]] = {}
     con = connect(vm_db)
     init_db(con)
     try:
-        for t in query_latest_technical_indicators(con, symbols=syms, provider=metrics_provider):
+        for t in query_latest_technical_indicators(
+            con, symbols=syms, provider=metrics_provider, asof_date=asof_date
+        ):
             tech_by_sym[str(t.get("symbol") or "").upper()] = t
-        for m in query_latest_daily_metric_points(con, symbols=syms, provider=metrics_provider):
+        for m in query_latest_daily_metric_points(
+            con, symbols=syms, provider=metrics_provider, asof_date=asof_date
+        ):
             metrics_by_sym[str(m.get("symbol") or "").upper()] = m
     finally:
         con.close()

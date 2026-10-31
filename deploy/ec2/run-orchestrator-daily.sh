@@ -59,11 +59,27 @@ else
   export AGENT_RESEARCH_PUBLISH=true
 fi
 
+# Optional A/B arm B: same news/prices, own memory + recommendations DB (telegram_agent/research_variant.py).
+_run_arm_b=0
+if [[ -n "${AGENT_RESEARCH_B_MODEL:-}" && "$_research_window_over" == "0" && "${ORCHESTRATOR_SKIP_RESEARCH:-}" != "1" ]]; then
+  _run_arm_b=1
+  export AGENT_RESEARCH_VARIANT_LABEL="${AGENT_RESEARCH_VARIANT_LABEL:-A}"
+fi
+
 # shellcheck source=/dev/null
 source "$REPO_ROOT/.venv/bin/activate"
 
 {
-  echo "======== $(date -u +%Y-%m-%dT%H:%M:%SZ) orchestrator-daily start model=${AGENT_RESEARCH_MODEL} research_until=${AGENT_RESEARCH_UNTIL_UTC:-none} research_skipped=${_research_window_over} ========"
+  echo "======== $(date -u +%Y-%m-%dT%H:%M:%SZ) orchestrator-daily start model=${AGENT_RESEARCH_MODEL} arm_b=${AGENT_RESEARCH_B_MODEL:-none} research_until=${AGENT_RESEARCH_UNTIL_UTC:-none} research_skipped=${_research_window_over} ========"
   bash "$REPO_ROOT/deploy/ec2/run-orchestrator.sh" orchestrate
+  if [[ "$_run_arm_b" == "1" ]]; then
+    echo "======== $(date -u +%Y-%m-%dT%H:%M:%SZ) research arm B start model=${AGENT_RESEARCH_B_MODEL} ========"
+    _b_publish=()
+    [[ "$AGENT_RESEARCH_PUBLISH" == "true" ]] || _b_publish=(--no-publish)
+    python -m telegram_agent.research_variant run \
+      --db "${AGENT_RESEARCH_B_DB:-$REPO_ROOT/telegram_agent/data/agent_b.sqlite}" \
+      --model "$AGENT_RESEARCH_B_MODEL" --label "${AGENT_RESEARCH_B_LABEL:-B}" "${_b_publish[@]}" \
+      || echo "research arm B failed (exit $?)"
+  fi
   echo "======== $(date -u +%Y-%m-%dT%H:%M:%SZ) orchestrator-daily done ========"
 } >>"$LOG" 2>&1

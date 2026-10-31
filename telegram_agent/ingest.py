@@ -16,7 +16,6 @@ from telegram_agent.agent_db import (
     kv_get,
     kv_set,
     upsert_news_items,
-    get_latest_news_ts_for_source_type,
     has_news_for_source_day_utc,
 )
 from telegram_agent.collectors.telegram_collector import collect_telegram_backfill
@@ -115,20 +114,9 @@ async def run_ingest(
     session_path = str(SESSION_DIR / session_name)
     max_tg = int(cfg.get("agent_max_telegram_backfill", 3000)) if mode == "backfill" else int(cfg.get("max_items_per_run", 80))
 
-    # Incremental duplication skip: if latest row already covers since, skip source_type (unless force).
-    if not force and mode == "incremental":
-        def _skip_inc(st: str) -> bool:
-            latest_ts = get_latest_news_ts_for_source_type(con, st)
-            return bool(latest_ts and latest_ts >= since)
-
-        if include_telegram and _skip_inc("telegram"):
-            include_telegram = False
-        if include_rss and _skip_inc("rss"):
-            include_rss = False
-        if include_api and _skip_inc("api"):
-            include_api = False
-        if include_twitter and _skip_inc("twitter"):
-            include_twitter = False
+    # No per-source "already covered" skip in incremental mode: the previous run always stores rows newer
+    # than `since` (= last run - 1h), so such a check disabled every source on alternate days. Upserts
+    # dedupe by news id, so re-fetching the overlap is harmless.
 
     if dry_run and mode == "incremental":
         logger.info("INGEST DRY-RUN (incremental): since=%s sources=%s force=%s", since.isoformat(), mode_norm, force)
