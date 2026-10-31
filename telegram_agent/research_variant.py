@@ -32,7 +32,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("telegram_agent.research_variant")
 
-_SHARED_TABLES = ("news_items", "symbol_news_linkage", "prices")
 _OWN_TABLES = ("memories", "recommendations", "research_internal_logs")
 
 
@@ -47,14 +46,22 @@ def _common_columns(con, table: str) -> List[str]:
     return [c for c in dst if c in src]
 
 
-def _copy(con, table: str, where: str, params: tuple, *, verb: str = "INSERT OR REPLACE") -> int:
+def _copy(con, table: str, where: str, params: tuple, *, upsert: bool = True) -> int:
+    """Copy rows from src; upsert updates existing rows in place (REPLACE would cascade-delete children)."""
     cols = _common_columns(con, table)
     if not cols:
         return 0
     col_s = ", ".join(cols)
-    cur = con.execute(
-        f"{verb} INTO main.{table} ({col_s}) SELECT {col_s} FROM src.{table} WHERE {where}", params
-    )
+    sql = f"INSERT INTO main.{table} ({col_s}) SELECT {col_s} FROM src.{table} WHERE {where}"
+    if upsert:
+        info = list(con.execute(f"PRAGMA main.table_info({table})"))
+        pk = [r[1] for r in sorted(info, key=lambda r: r[5]) if r[5]]
+        rest = [c for c in cols if c not in pk]
+        if pk and rest:
+            sql += f" ON CONFLICT({', '.join(pk)}) DO UPDATE SET " + ", ".join(f"{c}=excluded.{c}" for c in rest)
+        elif pk:
+            sql += f" ON CONFLICT({', '.join(pk)}) DO NOTHING"
+    cur = con.execute(sql, params)
     return cur.rowcount or 0
 
 
@@ -82,6 +89,7 @@ def sync_shared(db: Path, main_db: Path, *, news_since: Optional[datetime] = Non
             prices_since = (_parse_utc(row[0]).date() - timedelta(days=7)) if row and row[0] else date.today() - timedelta(days=200)
         ns = news_since.astimezone(timezone.utc).isoformat()
         out = {
+            "instruments": _copy(con, "instruments", "1", ()),
             "news_items": _copy(con, "news_items", "ts_utc >= ?", (ns,)),
             "symbol_news_linkage": _copy(
                 con,
@@ -115,7 +123,7 @@ def seed(
     try:
         cut = own_before.astimezone(timezone.utc).isoformat()
         for t in _OWN_TABLES:
-            n = _copy(con, t, "ts_utc < ?", (cut,), verb="INSERT")
+            n = _copy(con, t, "ts_utc < ?", (cut,), upsert=False)
             logger.info("Seeded %s rows into %s", n, t)
         if strip_tester:
             # Backfill arms recompute tester outcomes per simulated day (no later exits in the prompt).
